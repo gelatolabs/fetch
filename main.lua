@@ -66,10 +66,56 @@ local inventory = {}
 -- UI state
 local nearbyNPC = nil
 local currentDialog = nil
+local nearbyDoor = nil
 
 -- Toast system
 local toasts = {}
 local TOAST_DURATION = 3.0 -- seconds
+
+-- Door/Map transition system
+local currentMap = "map"
+local mapPaths = {
+    map = "tiled/map.lua",
+    shop = "tiled/shop.lua"
+}
+local doors = {
+    {
+        map = "map",
+        x = 21,
+        y = 9,
+        targetMap = "shop",
+        targetX = -9,
+        targetY = 0,
+        indoor = false
+    },
+    {
+        map = "shop",
+        x = -10,
+        y = -1,
+        targetMap = "map",
+        targetX = 21,
+        targetY = 9,
+        indoor = true
+    },
+    {
+        map = "shop",
+        x = -10,
+        y = 0,
+        targetMap = "map",
+        targetX = 21,
+        targetY = 9,
+        indoor = true
+    },
+    {
+        map = "shop",
+        x = -10,
+        y = 1,
+        targetMap = "map",
+        targetX = 21,
+        targetY = 9,
+        indoor = true
+    }
+}
 
 function love.load()
     love.window.setTitle("Go Fetch")
@@ -106,7 +152,7 @@ function love.load()
     -- npcSprite:setFilter("nearest", "nearest")
 
     -- Load Tiled map
-    map = sti("tiled/map.lua")
+    map = sti(mapPaths[currentMap])
 
     -- Calculate map bounds from chunks
     local layer = map.layers[1]
@@ -329,12 +375,25 @@ function love.update(dt)
             end
         end
 
-        -- Check for nearby NPCs
+        -- Check for nearby NPCs (only on current map)
         nearbyNPC = nil
         for _, npc in ipairs(npcs) do
-            local dist = math.sqrt((player.x - npc.x)^2 + (player.y - npc.y)^2)
-            if dist < 40 then
-                nearbyNPC = npc
+            if npc.map == currentMap then
+                local dist = math.sqrt((player.x - npc.x)^2 + (player.y - npc.y)^2)
+                if dist < 40 then
+                    nearbyNPC = npc
+                    break
+                end
+            end
+        end
+
+        -- Check for nearby doors
+        nearbyDoor = nil
+        local playerTileX = player.gridX
+        local playerTileY = player.gridY
+        for _, door in ipairs(doors) do
+            if door.map == currentMap and door.x == playerTileX and door.y == playerTileY then
+                nearbyDoor = door
                 break
             end
         end
@@ -345,7 +404,11 @@ function isColliding(x, y)
     local tileX = math.floor(x / world.tileSize)
     local tileY = math.floor(y / world.tileSize)
 
-    -- Check all tile layers for collisions
+    -- Check if there's ANY tile at this position (to prevent walking into void)
+    local hasTile = false
+    local hasCollision = false
+
+    -- Check all tile layers
     for _, layer in ipairs(map.layers) do
         if layer.type == "tilelayer" then
             -- Handle chunked maps
@@ -356,19 +419,22 @@ function isColliding(x, y)
                     local chunkY = chunk.y
                     local chunkWidth = chunk.width
                     local chunkHeight = chunk.height
-                    
+
                     if tileX >= chunkX and tileX < chunkX + chunkWidth and
                        tileY >= chunkY and tileY < chunkY + chunkHeight then
-                        
+
                         -- Convert to local chunk coordinates (1-based)
                         local localX = tileX - chunkX + 1
                         local localY = tileY - chunkY + 1
-                        
+
                         -- Get the tile from chunk data
                         if chunk.data[localY] and chunk.data[localY][localX] then
                             local tile = chunk.data[localY][localX]
-                            if tile.properties and tile.properties.collides then
-                                return true
+                            if tile then
+                                hasTile = true
+                                if tile.properties and tile.properties.collides then
+                                    hasCollision = true
+                                end
                             end
                         end
                         break
@@ -378,38 +444,19 @@ function isColliding(x, y)
                 -- Handle non-chunked maps
                 if layer.data[tileY + 1] and layer.data[tileY + 1][tileX + 1] then
                     local tile = layer.data[tileY + 1][tileX + 1]
-                    if tile and tile.properties and tile.properties.collides then
-                        return true
+                    if tile then
+                        hasTile = true
+                        if tile.properties and tile.properties.collides then
+                            hasCollision = true
+                        end
                     end
                 end
             end
         end
     end
 
-    -- Check if outside map bounds (check first layer for bounds)
-    local firstLayer = map.layers[1]
-    if firstLayer and firstLayer.type == "tilelayer" and firstLayer.chunks then
-        local foundInChunk = false
-        for _, chunk in ipairs(firstLayer.chunks) do
-            local chunkX = chunk.x
-            local chunkY = chunk.y
-            local chunkWidth = chunk.width
-            local chunkHeight = chunk.height
-            
-            if tileX >= chunkX and tileX < chunkX + chunkWidth and
-               tileY >= chunkY and tileY < chunkY + chunkHeight then
-                foundInChunk = true
-                break
-            end
-        end
-        
-        -- If not in any chunk, it's outside the map bounds
-        if not foundInChunk then
-            return true
-        end
-    end
-
-    return false
+    -- Collision if: tile has collision property OR there's no tile at all (void)
+    return hasCollision or not hasTile
 end
 
 function love.mousepressed(x, y, button)
@@ -428,7 +475,9 @@ end
 
 function love.keypressed(key)
     if key == "space" or key == "e" then
-        if gameState == "playing" and nearbyNPC then
+        if gameState == "playing" and nearbyDoor then
+            enterDoor(nearbyDoor)
+        elseif gameState == "playing" and nearbyNPC then
             interactWithNPC(nearbyNPC)
         elseif gameState == "dialog" then
             handleDialogInput()
@@ -449,6 +498,72 @@ function love.keypressed(key)
         if gameState ~= "playing" then
             gameState = "playing"
             currentDialog = nil
+        end
+    end
+end
+
+function enterDoor(door)
+    -- Load the new map
+    currentMap = door.targetMap
+    map = sti(mapPaths[currentMap])
+
+    -- Recalculate map bounds for new map
+    local layer = map.layers[1]
+    if layer and layer.chunks then
+        local minX, minY = math.huge, math.huge
+        local maxX, maxY = -math.huge, -math.huge
+
+        for _, chunk in ipairs(layer.chunks) do
+            -- Chunk coordinates are in tiles, convert to pixels
+            local chunkMinX = chunk.x * 16
+            local chunkMinY = chunk.y * 16
+            local chunkMaxX = (chunk.x + chunk.width) * 16
+            local chunkMaxY = (chunk.y + chunk.height) * 16
+
+            minX = math.min(minX, chunkMinX)
+            minY = math.min(minY, chunkMinY)
+            maxX = math.max(maxX, chunkMaxX)
+            maxY = math.max(maxY, chunkMaxY)
+        end
+
+        world.minX = minX
+        world.minY = minY
+        world.maxX = maxX
+        world.maxY = maxY
+    else
+        -- If no chunks, set no bounds (allow full movement)
+        world.minX = nil
+        world.minY = nil
+        world.maxX = nil
+        world.maxY = nil
+    end
+
+    -- Set player position to target door location
+    player.gridX = door.targetX
+    player.gridY = door.targetY
+    player.x = door.targetX * 16 + 8
+    player.y = door.targetY * 16 + 8
+    player.moving = false
+
+    -- Update camera to follow player
+    camera.x = math.floor(player.x - GAME_WIDTH / 2)
+    camera.y = math.floor(player.y - GAME_HEIGHT / 2)
+
+    -- Clamp camera to map bounds
+    if world.minX and world.maxX then
+        local mapWidth = world.maxX - world.minX
+        local mapHeight = world.maxY - world.minY
+
+        if mapWidth > GAME_WIDTH then
+            camera.x = math.max(world.minX, math.min(camera.x, world.maxX - GAME_WIDTH))
+        else
+            camera.x = world.minX + (mapWidth - GAME_WIDTH) / 2
+        end
+
+        if mapHeight > GAME_HEIGHT then
+            camera.y = math.max(world.minY, math.min(camera.y, world.maxY - GAME_HEIGHT))
+        else
+            camera.y = world.minY + (mapHeight - GAME_HEIGHT) / 2
         end
     end
 end
@@ -680,20 +795,22 @@ function love.draw()
         love.graphics.setColor(1, 1, 1)
         map:draw(-camX, -camY)
 
-        -- Draw NPCs
+        -- Draw NPCs (only on current map)
         for _, npc in ipairs(npcs) do
-            love.graphics.setColor(1, 1, 1)
-            love.graphics.draw(npcSprite, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+            if npc.map == currentMap then
+                love.graphics.setColor(1, 1, 1)
+                love.graphics.draw(npcSprite, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
 
-            -- Draw quest indicator
-            if npc.isQuestGiver then
-                local quest = quests[npc.questId]
-                if not quest.active and not quest.completed then
-                    love.graphics.setColor(1, 1, 0)
-                    love.graphics.circle("fill", npc.x - camX, npc.y - 10 - camY, 2)
-                elseif quest.active and hasItem(quest.requiredItem) then
-                    love.graphics.setColor(0, 1, 0)
-                    love.graphics.circle("fill", npc.x - camX, npc.y - 10 - camY, 2)
+                -- Draw quest indicator
+                if npc.isQuestGiver then
+                    local quest = quests[npc.questId]
+                    if not quest.active and not quest.completed then
+                        love.graphics.setColor(1, 1, 0)
+                        love.graphics.circle("fill", npc.x - camX, npc.y - 10 - camY, 2)
+                    elseif quest.active and hasItem(quest.requiredItem) then
+                        love.graphics.setColor(0, 1, 0)
+                        love.graphics.circle("fill", npc.x - camX, npc.y - 10 - camY, 2)
+                    end
                 end
             end
         end
@@ -707,7 +824,10 @@ function love.draw()
         love.graphics.draw(currentSprite, player.x - player.size/2 - camX, player.y - player.size/2 - camY)
 
         -- Draw interaction prompt
-        if nearbyNPC and gameState == "playing" then
+        if nearbyDoor and gameState == "playing" then
+            local doorText = nearbyDoor.indoor and "[E] Exit" or "[E] Enter"
+            drawTextBox(GAME_WIDTH/2 - 45, GAME_HEIGHT - 14, 90, 12, doorText, {1, 1, 1}, true)
+        elseif nearbyNPC and gameState == "playing" then
             drawTextBox(GAME_WIDTH/2 - 45, GAME_HEIGHT - 14, 90, 12, "[E] Talk", {1, 1, 1}, true)
         end
 
@@ -920,10 +1040,12 @@ function drawQuestTurnIn()
     love.graphics.setColor(1, 1, 1)
     map:draw(-camX, -camY)
 
-    -- Draw NPCs
+    -- Draw NPCs (only on current map)
     for _, npc in ipairs(npcs) do
-        love.graphics.setColor(1, 1, 1)
-        love.graphics.draw(npcSprite, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+        if npc.map == currentMap then
+            love.graphics.setColor(1, 1, 1)
+            love.graphics.draw(npcSprite, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+        end
     end
 
     -- Draw player

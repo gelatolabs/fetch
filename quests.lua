@@ -7,6 +7,7 @@ local quests = {}
 quests.npcs = {
     {
         id = "npc_cat_owner",
+        map = "map",
         x = -10 * 16 + 8,  -- Grid position (-10, -12) - upper left area
         y = -12 * 16 + 8,
         size = 16,
@@ -16,8 +17,9 @@ quests.npcs = {
     },
     {
         id = "npc_cat_finder",
-        x = 20 * 16 + 8,  -- Grid position (20, -10) - upper right area
-        y = -10 * 16 + 8,
+        map = "shop",
+        x = 6 * 16 + 8,  -- Grid position (6, 0) - right side of shop
+        y = 8,
         size = 16,
         name = "Child",
         givesItem = "item_cat",
@@ -29,6 +31,7 @@ quests.npcs = {
     -- Quest Chain 2: Missing Book
     {
         id = "npc_librarian",
+        map = "map",
         x = -8 * 16 + 8,  -- Grid position (-8, 2) - left side, above water
         y = 2 * 16 + 8,
         size = 16,
@@ -38,6 +41,7 @@ quests.npcs = {
     },
     {
         id = "npc_reader",
+        map = "map",
         x = 5 * 16 + 8,  -- Grid position (5, -8) - upper middle area
         y = -8 * 16 + 8,
         size = 16,
@@ -51,6 +55,7 @@ quests.npcs = {
     -- Quest Chain 3: Delivery Package
     {
         id = "npc_merchant",
+        map = "map",
         x = 25 * 16 + 8,  -- Grid position (25, -5) - right side, upper area
         y = -5 * 16 + 8,
         size = 16,
@@ -60,6 +65,7 @@ quests.npcs = {
     },
     {
         id = "npc_courier",
+        map = "map",
         x = -5 * 16 + 8,  -- Grid position (-5, -14) - left side, very top
         y = -14 * 16 + 8,
         size = 16,
