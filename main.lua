@@ -25,10 +25,10 @@ local gameState = "playing"
 -- Player (Pokemon-style grid movement)
 -- Initial spawn position (will be validated and adjusted if on collision tile)
 local player = {
-    x = 168,  -- Current pixel position
-    y = 120,
-    gridX = 10, -- Grid position (in tiles)
-    gridY = 7,
+    x = -10 * 16 + 8,  -- Current pixel position (grid -10, -10 in upper-left grassy area)
+    y = -10 * 16 + 8,
+    gridX = -10, -- Grid position (in tiles)
+    gridY = -10,
     size = 16,
     direction = "down",
     moving = false,
@@ -425,7 +425,6 @@ function isColliding(x, y, canSwim)
 
     -- Check if there's ANY tile at this position (to prevent walking into void)
     local hasTile = false
-    local hasCollision = false
 
     -- Check all tile layers
     for _, layer in ipairs(map.layers) do
@@ -449,23 +448,13 @@ function isColliding(x, y, canSwim)
                         -- Get the tile from chunk data
                         if chunk.data[localY] and chunk.data[localY][localX] then
                             local tile = chunk.data[localY][localX]
-<<<<<<< Updated upstream
-                            if tile then
-                                hasTile = true
-                                if tile.properties and tile.properties.collides then
-                                    hasCollision = true
-                                end
-||||||| Stash base
-                            if tile.properties and tile.properties.collides then
-                                return true
-=======
+                            hasTile = true
                             if tile.properties and tile.properties.collides then
                                 -- If it's water and player can swim, allow passage
                                 if canSwim and tile.properties.is_water then
                                     return false
                                 end
                                 return true
->>>>>>> Stashed changes
                             end
                         end
                         break
@@ -475,31 +464,21 @@ function isColliding(x, y, canSwim)
                 -- Handle non-chunked maps
                 if layer.data[tileY + 1] and layer.data[tileY + 1][tileX + 1] then
                     local tile = layer.data[tileY + 1][tileX + 1]
-<<<<<<< Updated upstream
-                    if tile then
-                        hasTile = true
-                        if tile.properties and tile.properties.collides then
-                            hasCollision = true
-                        end
-||||||| Stash base
-                    if tile and tile.properties and tile.properties.collides then
-                        return true
-=======
+                    hasTile = true
                     if tile and tile.properties and tile.properties.collides then
                         -- If it's water and player can swim, allow passage
                         if canSwim and tile.properties.is_water then
                             return false
                         end
                         return true
->>>>>>> Stashed changes
                     end
                 end
             end
         end
     end
 
-    -- Collision if: tile has collision property OR there's no tile at all (void)
-    return hasCollision or not hasTile
+    -- Collision if there's no tile at all (void)
+    return not hasTile
 end
 
 function love.mousepressed(x, y, button)
