@@ -68,7 +68,8 @@ local inventory = {}
 local itemRegistry = {
     item_cat = {id = "item_cat", name = "Fluffy Cat", aliases = {"cat"}},
     item_book = {id = "item_book", name = "Ancient Tome", aliases = {"book"}},
-    item_package = {id = "item_package", name = "Sealed Package", aliases = {"package"}}
+    item_package = {id = "item_package", name = "Sealed Package", aliases = {"package"}},
+    item_floaties = {id = "item_floaties", name = "Swimming Floaties", aliases = {"floaties", "floaty"}}
 }
 
 -- Player abilities
@@ -638,7 +639,7 @@ function interactWithNPC(npc)
                 quest = quest
             }
             gameState = "dialog"
-        elseif quest.active and hasItem(quest.requiredItem) then
+        elseif quest.active and quest.requiredItem and hasItem(quest.requiredItem) then
             -- Turn in quest - show inventory selection UI
             currentDialog = {
                 type = "questTurnIn",
@@ -734,6 +735,14 @@ function handleDialogInput()
         currentDialog.quest.completed = true
         table.remove(activeQuests, indexOf(activeQuests, currentDialog.quest.id))
         table.insert(completedQuests, currentDialog.quest.id)
+        
+        -- Grant ability if quest provides one
+        if currentDialog.quest.grantsAbility then
+            playerAbilities[currentDialog.quest.grantsAbility] = true
+            local abilityNames = {swim = "Swimming"}
+            local abilityName = abilityNames[currentDialog.quest.grantsAbility] or currentDialog.quest.grantsAbility
+            showToast("Learned: " .. abilityName .. "!", {0.3, 0.8, 1.0})
+        end
         
         -- Award gold
         if currentDialog.quest.goldReward and currentDialog.quest.goldReward > 0 then
@@ -868,6 +877,14 @@ function handleQuestTurnInClick(x, y)
                 quest.completed = true
                 table.remove(activeQuests, indexOf(activeQuests, quest.id))
                 table.insert(completedQuests, quest.id)
+                
+                -- Grant ability if quest provides one
+                if quest.grantsAbility then
+                    playerAbilities[quest.grantsAbility] = true
+                    local abilityNames = {swim = "Swimming"}
+                    local abilityName = abilityNames[quest.grantsAbility] or quest.grantsAbility
+                    showToast("Learned: " .. abilityName .. "!", {0.3, 0.8, 1.0})
+                end
                 
                 -- Award gold
                 if quest.goldReward and quest.goldReward > 0 then
