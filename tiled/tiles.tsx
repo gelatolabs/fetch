@@ -59,6 +59,10 @@
   <image source="../tiles/wall.png" width="16" height="16"/>
  </tile>
  <tile id="18">
+  <properties>
+   <property name="collides" type="bool" value="true"/>
+   <property name="is_water" type="bool" value="true"/>
+  </properties>
   <image source="../tiles/water.png" width="16" height="16"/>
  </tile>
 </tileset>
