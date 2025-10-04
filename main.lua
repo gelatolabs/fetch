@@ -16,7 +16,11 @@ local titleFont
 
 -- Sprites
 local playerTileset
-local playerQuads = {}
+local playerQuads = {
+    regular = {},
+    boat = {},
+    swimming = {}
+}
 local npcSprite
 
 -- Game state
@@ -244,7 +248,8 @@ function love.load()
     -- Load sprites
     playerTileset = love.graphics.newImage("tiles/player-tileset.png")
     -- Create quads for player animation
-    playerQuads = {
+    -- Regular movement quads
+    playerQuads.regular = {
         down = {
             love.graphics.newQuad(0, 0, 16, 16, playerTileset:getDimensions()),
             love.graphics.newQuad(16, 0, 16, 16, playerTileset:getDimensions())
@@ -254,9 +259,36 @@ function love.load()
             love.graphics.newQuad(48, 0, 16, 16, playerTileset:getDimensions())
         }
     }
-    -- Also use down frames for left/right (will be flipped horizontally)
-    playerQuads.left = playerQuads.down
-    playerQuads.right = playerQuads.down
+    playerQuads.regular.left = playerQuads.regular.down
+    playerQuads.regular.right = playerQuads.regular.down
+
+    -- Boat movement quads
+    playerQuads.boat = {
+        down = {
+            love.graphics.newQuad(64, 0, 16, 16, playerTileset:getDimensions()),
+            love.graphics.newQuad(80, 0, 16, 16, playerTileset:getDimensions())
+        },
+        up = {
+            love.graphics.newQuad(96, 0, 16, 16, playerTileset:getDimensions()),
+            love.graphics.newQuad(112, 0, 16, 16, playerTileset:getDimensions())
+        }
+    }
+    playerQuads.boat.left = playerQuads.boat.down
+    playerQuads.boat.right = playerQuads.boat.down
+
+    -- Swimming movement quads
+    playerQuads.swimming = {
+        down = {
+            love.graphics.newQuad(128, 0, 16, 16, playerTileset:getDimensions()),
+            love.graphics.newQuad(144, 0, 16, 16, playerTileset:getDimensions())
+        },
+        up = {
+            love.graphics.newQuad(160, 0, 16, 16, playerTileset:getDimensions()),
+            love.graphics.newQuad(176, 0, 16, 16, playerTileset:getDimensions())
+        }
+    }
+    playerQuads.swimming.left = playerQuads.swimming.down
+    playerQuads.swimming.right = playerQuads.swimming.down
     
     npcSprite = love.graphics.newImage("sprites/npc.png")
 
@@ -1630,6 +1662,23 @@ function drawSettings()
     love.graphics.printf("Back", btnX, 160 + 3, btnWidth, "center")
 end
 
+-- Helper function to get the current player sprite set based on conditions
+local function getPlayerSpriteSet()
+    -- Get the tile at player's position
+    local tileX = math.floor(player.x / world.tileSize)
+    local tileY = math.floor(player.y / world.tileSize)
+    local isOnWater = isWaterTile(player.x, player.y)
+
+    if isOnWater then
+        if abilityManager:hasAbility("swim") then
+            return playerQuads.swimming
+        else
+            return playerQuads.boat
+        end
+    end
+    return playerQuads.regular
+end
+
 function love.draw()
     -- Draw to canvas
     love.graphics.setCanvas(canvas)
@@ -1670,9 +1719,10 @@ function love.draw()
 
         -- Draw player with appropriate sprite
         love.graphics.setColor(1, 1, 1)
-        local currentQuad = playerQuads[player.direction][player.moving and (player.walkFrame + 1) or 1]
-        local scaleX = (player.facing == "left") and -1 or 1  -- Use facing instead of direction
-        local offsetX = (player.facing == "left") and player.size or 0  -- Use facing instead of direction
+        local spriteSet = getPlayerSpriteSet()
+        local currentQuad = spriteSet[player.direction][player.moving and (player.walkFrame + 1) or 1]
+        local scaleX = (player.facing == "left") and -1 or 1
+        local offsetX = (player.facing == "left") and player.size or 0
         love.graphics.draw(
             playerTileset,
             currentQuad,
@@ -1963,7 +2013,8 @@ function drawQuestTurnIn()
 
     -- Draw player
     love.graphics.setColor(1, 1, 1)
-    local currentQuad = playerQuads[player.direction][player.moving and (player.walkFrame + 1) or 1]
+    local spriteSet = getPlayerSpriteSet()
+    local currentQuad = spriteSet[player.direction][player.moving and (player.walkFrame + 1) or 1]
     local scaleX = (player.facing == "left") and -1 or 1
     local offsetX = (player.facing == "left") and player.size or 0
     love.graphics.draw(
