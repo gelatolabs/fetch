@@ -173,11 +173,14 @@ local playerGold = 0
 -- UI state
 local nearbyNPC = nil
 local currentDialog = nil
+local dialogPages = {}  -- Array of dialog text pages
+local currentDialogPage = 1  -- Current page index
 local nearbyDoor = nil
 local mouseX = 0
 local mouseY = 0
 local selectedShopItem = nil
 local winScreenTimer = 0
+local introShown = false
 
 -- Toast system
 local toasts = {}
@@ -1140,6 +1143,20 @@ function enterDoor(door)
     end
 end
 
+-- Helper function to split text into dialog pages
+local function splitDialogPages(text)
+    local pages = {}
+    -- Split on double newline first
+    for page in text:gmatch("[^\n\n]+") do
+        table.insert(pages, page)
+    end
+    -- If no double newlines found, return the whole text as one page
+    if #pages == 0 then
+        table.insert(pages, text)
+    end
+    return pages
+end
+
 function interactWithNPC(npc)
     if npc.isShopkeeper then
         -- Open shop UI
@@ -1149,11 +1166,14 @@ function interactWithNPC(npc)
         local quest = quests[npc.questId]
         if not quest.active and not quest.completed then
             -- Offer quest
+            local questText = quest.name .. "\n" .. quest.description
             currentDialog = {
                 type = "questOffer",
                 npc = npc,
                 quest = quest
             }
+            dialogPages = splitDialogPages(questText)
+            currentDialogPage = 1
             gameState = "dialog"
         elseif quest.active and quest.requiredItem and hasItem(quest.requiredItem) then
             -- Turn in quest - show inventory selection UI
@@ -1165,11 +1185,14 @@ function interactWithNPC(npc)
             gameState = "questTurnIn"
         else
             -- Quest already active (but no item yet) or completed
+            local text = quest.active and (quest.reminderText or "Come back when you have the item!") or "Thanks again!"
             currentDialog = {
                 type = "generic",
                 npc = npc,
-                text = quest.active and (quest.reminderText or "Come back when you have the item!") or "Thanks again!"
+                text = text
             }
+            dialogPages = splitDialogPages(text)
+            currentDialogPage = 1
             gameState = "dialog"
         end
     elseif npc.givesItem then
@@ -1179,27 +1202,36 @@ function interactWithNPC(npc)
 
         if not questActive then
             -- Quest not active, show generic dialog
+            local text = npc.noQuestText or "Hello there!"
             currentDialog = {
                 type = "generic",
                 npc = npc,
-                text = npc.noQuestText or "Hello there!"
+                text = text
             }
+            dialogPages = splitDialogPages(text)
+            currentDialogPage = 1
             gameState = "dialog"
         elseif not hasItem(npc.givesItem) then
             -- Quest active and don't have item, give it
+            local text = npc.itemGiveText or "Here, take this!"
             currentDialog = {
                 type = "itemGive",
                 npc = npc,
                 item = npc.givesItem
             }
+            dialogPages = splitDialogPages(text)
+            currentDialogPage = 1
             gameState = "dialog"
         else
             -- Already have the item
+            local text = "I already gave you the item!"
             currentDialog = {
                 type = "generic",
                 npc = npc,
-                text = "I already gave you the item!"
+                text = text
             }
+            dialogPages = splitDialogPages(text)
+            currentDialogPage = 1
             gameState = "dialog"
         end
     elseif npc.givesAbility then
@@ -1209,28 +1241,37 @@ function interactWithNPC(npc)
 
         if not questActive then
             -- Quest not active, show generic dialog
+            local text = npc.noQuestText or "Hello there!"
             currentDialog = {
                 type = "generic",
                 npc = npc,
-                text = npc.noQuestText or "Hello there!"
+                text = text
             }
+            dialogPages = splitDialogPages(text)
+            currentDialogPage = 1
             gameState = "dialog"
         elseif not playerAbilities[npc.givesAbility] then
             -- Quest active and don't have ability, give it
+            local text = npc.abilityGiveText or "You learned a new ability!"
             currentDialog = {
                 type = "abilityGive",
                 npc = npc,
                 ability = npc.givesAbility,
                 quest = requiredQuest
             }
+            dialogPages = splitDialogPages(text)
+            currentDialogPage = 1
             gameState = "dialog"
         else
             -- Already have the ability
+            local text = "You already learned that ability!"
             currentDialog = {
                 type = "generic",
                 npc = npc,
-                text = "You already learned that ability!"
+                text = text
             }
+            dialogPages = splitDialogPages(text)
+            currentDialogPage = 1
             gameState = "dialog"
         end
     end
@@ -1269,6 +1310,14 @@ local function completeQuest(quest)
 end
 
 function handleDialogInput()
+    -- Check if there are more pages to show
+    if currentDialogPage < #dialogPages then
+        -- Advance to next page
+        currentDialogPage = currentDialogPage + 1
+        return
+    end
+    
+    -- No more pages, handle dialog completion
     if currentDialog.type == "questOffer" then
         -- Accept quest
         currentDialog.quest.active = true
@@ -1276,12 +1325,16 @@ function handleDialogInput()
         showToast("Quest Accepted: " .. currentDialog.quest.name, {1, 1, 0})
         gameState = "playing"
         currentDialog = nil
+        dialogPages = {}
+        currentDialogPage = 1
     elseif currentDialog.type == "questTurnIn" then
         -- Complete quest
         removeItem(currentDialog.quest.requiredItem)
         completeQuest(currentDialog.quest)
         gameState = "playing"
         currentDialog = nil
+        dialogPages = {}
+        currentDialogPage = 1
     elseif currentDialog.type == "itemGive" then
         -- Receive item
         table.insert(inventory, currentDialog.item)
@@ -1291,12 +1344,16 @@ function handleDialogInput()
         showToast("Received: " .. itemName, {0.7, 0.5, 0.9})
         gameState = "playing"
         currentDialog = nil
+        dialogPages = {}
+        currentDialogPage = 1
     elseif currentDialog.type == "abilityGive" then
         -- Learn ability
         playerAbilities[currentDialog.ability] = true
         completeQuest(currentDialog.quest)
         gameState = "playing"
         currentDialog = nil
+        dialogPages = {}
+        currentDialogPage = 1
     else
         -- Check if this was a reward dialog after completing a main quest
         if currentDialog.completedMainQuest then
@@ -1305,6 +1362,8 @@ function handleDialogInput()
             gameState = "playing"
         end
         currentDialog = nil
+        dialogPages = {}
+        currentDialogPage = 1
     end
 end
 
@@ -1421,6 +1480,8 @@ function handleQuestTurnInClick(x, y)
                     text = quest.reward,
                     completedMainQuest = quest.isMainQuest  -- Track if this was a main quest
                 }
+                dialogPages = splitDialogPages(quest.reward)
+                currentDialogPage = 1
                 gameState = "dialog"
             else
                 -- Wrong item
@@ -1476,6 +1537,25 @@ function handleMainMenuClick(x, y)
     -- Check Play button
     if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= playY and canvasY <= playY + btnHeight then
         gameState = "playing"
+        
+        -- Show intro dialog if not shown yet
+        if not introShown then
+            introShown = true
+            -- Find the intro NPC
+            for _, npc in ipairs(npcs) do
+                if npc.isIntroNPC then
+                    currentDialog = {
+                        type = "generic",
+                        npc = npc,
+                        text = npc.introText
+                    }
+                    dialogPages = splitDialogPages(npc.introText)
+                    currentDialogPage = 1
+                    gameState = "dialog"
+                    break
+                end
+            end
+        end
     end
 
     -- Check Settings button
@@ -1941,24 +2021,30 @@ function drawDialog()
     love.graphics.setColor(0.9, 0.7, 0.3)
     love.graphics.print(currentDialog.npc.name, boxX+4, boxY)
 
-    -- Dialog text
-    local text = ""
+    -- Page indicator (if multiple pages)
+    if #dialogPages > 1 then
+        love.graphics.setColor(0.7, 0.6, 0.4)
+        love.graphics.printf(currentDialogPage .. "/" .. #dialogPages, boxX, boxY, boxW-4, "right")
+    end
+
+    -- Dialog text - show current page
+    local text = dialogPages[currentDialogPage] or ""
     local buttonText = ""
 
-    if currentDialog.type == "questOffer" then
-        text = currentDialog.quest.name .. "\n" .. currentDialog.quest.description
+    -- Determine button text based on dialog type and page position
+    local isLastPage = currentDialogPage >= #dialogPages
+    
+    if not isLastPage then
+        buttonText = "[E] Next"
+    elseif currentDialog.type == "questOffer" then
         buttonText = "[E] Accept"
     elseif currentDialog.type == "questTurnIn" then
-        text = currentDialog.quest.reward
         buttonText = "[E] Complete"
     elseif currentDialog.type == "itemGive" then
-        text = currentDialog.npc.itemGiveText or "Here, take this!"
         buttonText = "[E] Receive"
     elseif currentDialog.type == "abilityGive" then
-        text = currentDialog.npc.abilityGiveText or "You learned a new ability!"
         buttonText = "[E] Learn"
     else
-        text = currentDialog.text
         buttonText = "[E] Close"
     end
 

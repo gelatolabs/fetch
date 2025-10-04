@@ -1,10 +1,21 @@
 local quests = {}
 
--- Quest Chain 1: Lost Cat
 -- NPCs positioned on tile grid (grid coordinates * 16 + 8 for center)
 -- Note: If any NPC spawns on a collision tile (water/wall), the game will
 -- automatically find the nearest valid spawn location within 20 tiles.
 quests.npcs = {
+    -- Intro NPC - spawns next to player at start
+    {
+        id = "npc_intro",
+        map = "map",
+        x = -9 * 16 + 8,  -- Grid position (-9, -10) - right next to player start
+        y = -10 * 16 + 8,
+        size = 16,
+        name = "Elder",
+        isIntroNPC = true,  -- Special flag for intro dialog
+        introText = "Welcome, young one! You've arrived at our village just in time.\n\nMany folks here need help with various tasks - fetching lost items, making deliveries, and more.\n\nAs the village's newest helper, it's your job to assist everyone!\n\nTalk to villagers (press E) to learn what they need.\n\nPress Q for your quest log and I for your inventory.\n\nGood luck on your journey!"
+    },
+    -- Quest Chain 1: Lost Cat
     {
         id = "npc_cat_owner",
         map = "map",
@@ -119,7 +130,7 @@ quests.npcs = {
         itemGiveText = "Here's some quality wood for your boat. Take it to the builder!",
         noQuestText = "Just chopping wood. Hard work!"
     },
-    -- Quest Chain 5: Learn to Swim (requires boat to reach)
+    -- Quest Chain 5: Learn to Swim (requires boat or jump to reach)
     {
         id = "npc_swimmer",
         map = "map",
@@ -239,7 +250,7 @@ quests.questData = {
         questGiver = "npc_athlete",
         requiredItem = "item_shoes",
         grantsAbility = "jump",
-        reward = "Nice! Now I can jump around like a pro!\nYou're no pro, but you probably jump over bushes now.",
+        reward = "Nice! Now I can jump around like a pro!\nYou're no pro, but if you watch carefully you can probably jump over rocks and bushes.",
         goldReward = 0,
         reminderText = "I really need those shoes!",
         active = false,
