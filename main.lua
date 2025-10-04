@@ -3,6 +3,7 @@ local sti = require "sti"
 local questData = require "quests"
 local CheatConsole = require "cheat_console"
 local AbilitySystem = require "ability_system"
+local DialogSystem = require "dialog_system"
 
 -- Game constants
 local GAME_WIDTH = 320
@@ -172,13 +173,11 @@ local playerGold = 0
 
 -- UI state
 local nearbyNPC = nil
-local currentDialog = nil
-local dialogPages = {}  -- Array of dialog text pages
-local currentDialogPage = 1  -- Current page index
 local nearbyDoor = nil
 local mouseX = 0
 local mouseY = 0
 local selectedShopItem = nil
+local questTurnInData = nil  -- Stores {npc, quest} for quest turn-in UI
 local winScreenTimer = 0
 local introShown = false
 
@@ -1068,7 +1067,34 @@ function love.keypressed(key)
         elseif gameState == "playing" and nearbyNPC then
             interactWithNPC(nearbyNPC)
         elseif gameState == "dialog" then
-            handleDialogInput()
+            local callbacks = {
+                onQuestAccept = function(quest)
+                    quest.active = true
+                    table.insert(activeQuests, quest.id)
+                    showToast("Quest Accepted: " .. quest.name, {1, 1, 0})
+                end,
+                onQuestComplete = function(quest)
+                    removeItem(quest.requiredItem)
+                    completeQuest(quest)
+                end,
+                onItemReceive = function(itemId)
+                    table.insert(inventory, itemId)
+                    local itemData = itemRegistry[itemId]
+                    local itemName = itemData and itemData.name or itemId
+                    showToast("Received: " .. itemName, {0.7, 0.5, 0.9})
+                end,
+                onAbilityLearn = function(abilityId, quest)
+                    playerAbilities[abilityId] = true
+                    completeQuest(quest)
+                end
+            }
+            local newState, shouldClear = DialogSystem.handleInput(callbacks)
+            if newState then
+                gameState = newState
+            end
+            if shouldClear then
+                DialogSystem.clearDialog()
+            end
         end
     elseif key == "q" then
         if gameState == "playing" then
@@ -1091,7 +1117,7 @@ function love.keypressed(key)
             gameState = "playing"
         elseif gameState ~= "mainMenu" and gameState ~= "settings" then
             gameState = "playing"
-            currentDialog = nil
+            DialogSystem.clearDialog()
         end
     elseif key == "f" then
         love.window.setFullscreen(not love.window.getFullscreen())
@@ -1143,20 +1169,6 @@ function enterDoor(door)
     end
 end
 
--- Helper function to split text into dialog pages
-local function splitDialogPages(text)
-    local pages = {}
-    -- Split on double newline first
-    for page in text:gmatch("[^\n\n]+") do
-        table.insert(pages, page)
-    end
-    -- If no double newlines found, return the whole text as one page
-    if #pages == 0 then
-        table.insert(pages, text)
-    end
-    return pages
-end
-
 function interactWithNPC(npc)
     if npc.isShopkeeper then
         -- Open shop UI
@@ -1167,33 +1179,24 @@ function interactWithNPC(npc)
         if not quest.active and not quest.completed then
             -- Offer quest
             local questText = quest.name .. "\n" .. quest.description
-            currentDialog = {
+            gameState = DialogSystem.showDialog({
                 type = "questOffer",
                 npc = npc,
-                quest = quest
-            }
-            dialogPages = splitDialogPages(questText)
-            currentDialogPage = 1
-            gameState = "dialog"
+                quest = quest,
+                text = questText
+            })
         elseif quest.active and quest.requiredItem and hasItem(quest.requiredItem) then
-            -- Turn in quest - show inventory selection UI
-            currentDialog = {
-                type = "questTurnIn",
-                npc = npc,
-                quest = quest
-            }
+            -- Turn in quest - show inventory selection UI (not using DialogSystem for this special UI)
+            questTurnInData = {npc = npc, quest = quest}
             gameState = "questTurnIn"
         else
             -- Quest already active (but no item yet) or completed
             local text = quest.active and (quest.reminderText or "Come back when you have the item!") or "Thanks again!"
-            currentDialog = {
+            gameState = DialogSystem.showDialog({
                 type = "generic",
                 npc = npc,
                 text = text
-            }
-            dialogPages = splitDialogPages(text)
-            currentDialogPage = 1
-            gameState = "dialog"
+            })
         end
     elseif npc.givesItem then
         -- Check if the required quest is active
@@ -1203,36 +1206,28 @@ function interactWithNPC(npc)
         if not questActive then
             -- Quest not active, show generic dialog
             local text = npc.noQuestText or "Hello there!"
-            currentDialog = {
+            gameState = DialogSystem.showDialog({
                 type = "generic",
                 npc = npc,
                 text = text
-            }
-            dialogPages = splitDialogPages(text)
-            currentDialogPage = 1
-            gameState = "dialog"
+            })
         elseif not hasItem(npc.givesItem) then
             -- Quest active and don't have item, give it
             local text = npc.itemGiveText or "Here, take this!"
-            currentDialog = {
+            gameState = DialogSystem.showDialog({
                 type = "itemGive",
                 npc = npc,
-                item = npc.givesItem
-            }
-            dialogPages = splitDialogPages(text)
-            currentDialogPage = 1
-            gameState = "dialog"
+                item = npc.givesItem,
+                text = text
+            })
         else
             -- Already have the item
             local text = "I already gave you the item!"
-            currentDialog = {
+            gameState = DialogSystem.showDialog({
                 type = "generic",
                 npc = npc,
                 text = text
-            }
-            dialogPages = splitDialogPages(text)
-            currentDialogPage = 1
-            gameState = "dialog"
+            })
         end
     elseif npc.givesAbility then
         -- Check if the required quest is active
@@ -1242,37 +1237,29 @@ function interactWithNPC(npc)
         if not questActive then
             -- Quest not active, show generic dialog
             local text = npc.noQuestText or "Hello there!"
-            currentDialog = {
+            gameState = DialogSystem.showDialog({
                 type = "generic",
                 npc = npc,
                 text = text
-            }
-            dialogPages = splitDialogPages(text)
-            currentDialogPage = 1
-            gameState = "dialog"
+            })
         elseif not playerAbilities[npc.givesAbility] then
             -- Quest active and don't have ability, give it
             local text = npc.abilityGiveText or "You learned a new ability!"
-            currentDialog = {
+            gameState = DialogSystem.showDialog({
                 type = "abilityGive",
                 npc = npc,
                 ability = npc.givesAbility,
-                quest = requiredQuest
-            }
-            dialogPages = splitDialogPages(text)
-            currentDialogPage = 1
-            gameState = "dialog"
+                quest = requiredQuest,
+                text = text
+            })
         else
             -- Already have the ability
             local text = "You already learned that ability!"
-            currentDialog = {
+            gameState = DialogSystem.showDialog({
                 type = "generic",
                 npc = npc,
                 text = text
-            }
-            dialogPages = splitDialogPages(text)
-            currentDialogPage = 1
-            gameState = "dialog"
+            })
         end
     end
 end
@@ -1309,63 +1296,6 @@ local function completeQuest(quest)
     end
 end
 
-function handleDialogInput()
-    -- Check if there are more pages to show
-    if currentDialogPage < #dialogPages then
-        -- Advance to next page
-        currentDialogPage = currentDialogPage + 1
-        return
-    end
-    
-    -- No more pages, handle dialog completion
-    if currentDialog.type == "questOffer" then
-        -- Accept quest
-        currentDialog.quest.active = true
-        table.insert(activeQuests, currentDialog.quest.id)
-        showToast("Quest Accepted: " .. currentDialog.quest.name, {1, 1, 0})
-        gameState = "playing"
-        currentDialog = nil
-        dialogPages = {}
-        currentDialogPage = 1
-    elseif currentDialog.type == "questTurnIn" then
-        -- Complete quest
-        removeItem(currentDialog.quest.requiredItem)
-        completeQuest(currentDialog.quest)
-        gameState = "playing"
-        currentDialog = nil
-        dialogPages = {}
-        currentDialogPage = 1
-    elseif currentDialog.type == "itemGive" then
-        -- Receive item
-        table.insert(inventory, currentDialog.item)
-        -- Get item name from registry
-        local itemData = itemRegistry[currentDialog.item]
-        local itemName = itemData and itemData.name or currentDialog.item
-        showToast("Received: " .. itemName, {0.7, 0.5, 0.9})
-        gameState = "playing"
-        currentDialog = nil
-        dialogPages = {}
-        currentDialogPage = 1
-    elseif currentDialog.type == "abilityGive" then
-        -- Learn ability
-        playerAbilities[currentDialog.ability] = true
-        completeQuest(currentDialog.quest)
-        gameState = "playing"
-        currentDialog = nil
-        dialogPages = {}
-        currentDialogPage = 1
-    else
-        -- Check if this was a reward dialog after completing a main quest
-        if currentDialog.completedMainQuest then
-            gameState = "winScreen"
-        else
-            gameState = "playing"
-        end
-        currentDialog = nil
-        dialogPages = {}
-        currentDialogPage = 1
-    end
-end
 
 function hasItem(itemId)
     for _, item in ipairs(inventory) do
@@ -1449,11 +1379,11 @@ function showToast(message, color)
 end
 
 function handleQuestTurnInClick(x, y)
-    if not currentDialog or currentDialog.type ~= "questTurnIn" then
+    if not questTurnInData then
         return
     end
 
-    local quest = currentDialog.quest
+    local quest = questTurnInData.quest
 
     -- Calculate item slot positions (must match drawQuestTurnIn)
     local boxX = GAME_WIDTH / 2 - 75
@@ -1474,15 +1404,13 @@ function handleQuestTurnInClick(x, y)
                 completeQuest(quest)
 
                 -- Show reward dialog
-                currentDialog = {
+                gameState = DialogSystem.showDialog({
                     type = "generic",
-                    npc = currentDialog.npc,
+                    npc = questTurnInData.npc,
                     text = quest.reward,
                     completedMainQuest = quest.isMainQuest  -- Track if this was a main quest
-                }
-                dialogPages = splitDialogPages(quest.reward)
-                currentDialogPage = 1
-                gameState = "dialog"
+                })
+                questTurnInData = nil
             else
                 -- Wrong item
                 showToast("That's not the right item!", {1, 0.5, 0})
@@ -1544,14 +1472,11 @@ function handleMainMenuClick(x, y)
             -- Find the intro NPC
             for _, npc in ipairs(npcs) do
                 if npc.isIntroNPC then
-                    currentDialog = {
+                    gameState = DialogSystem.showDialog({
                         type = "generic",
                         npc = npc,
                         text = npc.introText
-                    }
-                    dialogPages = splitDialogPages(npc.introText)
-                    currentDialogPage = 1
-                    gameState = "dialog"
+                    })
                     break
                 end
             end
@@ -1873,8 +1798,8 @@ function love.draw()
         end
 
         -- Draw dialog
-        if gameState == "dialog" and currentDialog then
-            drawDialog()
+        if gameState == "dialog" then
+            DialogSystem.draw(GAME_WIDTH, GAME_HEIGHT, drawFancyBorder)
         end
 
         -- Draw tile grid overlay (cheat)
@@ -2004,67 +1929,6 @@ function drawTextBox(x, y, w, h, text, color, centered)
     end
 end
 
-function drawDialog()
-    local boxX, boxY = 20, GAME_HEIGHT - 75
-    local boxW, boxH = GAME_WIDTH - 40, 70
-
-    -- Main dialog background
-    love.graphics.setColor(0.05, 0.05, 0.1, 0.95)
-    love.graphics.rectangle("fill", boxX, boxY, boxW, boxH)
-
-    -- Fancy border
-    drawFancyBorder(boxX, boxY, boxW, boxH, {0.7, 0.5, 0.2})
-
-    -- Title bar
-    love.graphics.setColor(0.15, 0.1, 0.05, 0.9)
-    love.graphics.rectangle("fill", boxX+2, boxY+2, boxW-4, 12)
-    love.graphics.setColor(0.9, 0.7, 0.3)
-    love.graphics.print(currentDialog.npc.name, boxX+4, boxY)
-
-    -- Page indicator (if multiple pages)
-    if #dialogPages > 1 then
-        love.graphics.setColor(0.7, 0.6, 0.4)
-        love.graphics.printf(currentDialogPage .. "/" .. #dialogPages, boxX, boxY, boxW-4, "right")
-    end
-
-    -- Dialog text - show current page
-    local text = dialogPages[currentDialogPage] or ""
-    local buttonText = ""
-
-    -- Determine button text based on dialog type and page position
-    local isLastPage = currentDialogPage >= #dialogPages
-    
-    if not isLastPage then
-        buttonText = "[E] Next"
-    elseif currentDialog.type == "questOffer" then
-        buttonText = "[E] Accept"
-    elseif currentDialog.type == "questTurnIn" then
-        buttonText = "[E] Complete"
-    elseif currentDialog.type == "itemGive" then
-        buttonText = "[E] Receive"
-    elseif currentDialog.type == "abilityGive" then
-        buttonText = "[E] Learn"
-    else
-        buttonText = "[E] Close"
-    end
-
-    love.graphics.setColor(0.9, 0.9, 0.9)
-    love.graphics.printf(text, boxX+4, boxY+12, boxW-8, "left")
-
-    -- Button at bottom
-    local btnW = 80
-    local btnH = 14
-    local btnX = boxX + boxW/2 - btnW/2
-    local btnY = boxY + boxH - btnH - 3
-
-    love.graphics.setColor(0.2, 0.15, 0.1)
-    love.graphics.rectangle("fill", btnX, btnY, btnW, btnH)
-    love.graphics.setColor(0.8, 0.6, 0.2)
-    love.graphics.rectangle("line", btnX, btnY, btnW, btnH)
-    love.graphics.rectangle("line", btnX-1, btnY-1, btnW+2, btnH+2)
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.printf(buttonText, btnX, btnY-1, btnW, "center")
-end
 
 function drawQuestLog()
     local boxX, boxY = 10, 10
@@ -2177,7 +2041,7 @@ function drawQuestLog()
 end
 
 function drawQuestTurnIn()
-    if not currentDialog or currentDialog.type ~= "questTurnIn" then
+    if not questTurnInData then
         return
     end
 
@@ -2214,7 +2078,7 @@ function drawQuestTurnIn()
     )
 
     -- Draw dialog box
-    local quest = currentDialog.quest
+    local quest = questTurnInData.quest
     local boxX = GAME_WIDTH / 2 - 75
     local boxY = GAME_HEIGHT - 90
     local boxW = 150
