@@ -67,7 +67,7 @@ A charming pixel-art quest game built with LÖVE2D where you help NPCs by fetchi
 
 ### Interactions
 - `Space` - Talk to NPCs / Accept quests / Progress dialog
-- `Q` - Toggle Quest Log
+- `L` - Toggle Quest Log
 - `I` - Toggle Inventory
 - `Esc` - Close menus / Return to game
 

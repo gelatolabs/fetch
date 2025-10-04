@@ -24,6 +24,9 @@ local playerQuads = {
 }
 local npcSprite
 
+-- Audio
+local quackSound
+
 -- Game state
 -- mainMenu, settings, playing, dialog, questLog, inventory, questTurnIn, shop
 local gameState = "mainMenu"
@@ -304,6 +307,9 @@ function love.load()
     playerQuads.swimming.right = playerQuads.swimming.down
     
     npcSprite = love.graphics.newImage("sprites/npc.png")
+
+    -- Load audio
+    quackSound = love.audio.newSource("audio/quack.wav", "static")
 
     -- Load Tiled map
     map = sti(mapPaths[currentMap])
@@ -1096,11 +1102,15 @@ function love.keypressed(key)
                 DialogSystem.clearDialog()
             end
         end
-    elseif key == "q" then
+    elseif key == "l" then
         if gameState == "playing" then
             gameState = "questLog"
         elseif gameState == "questLog" then
             gameState = "playing"
+        end
+    elseif key == "q" then
+        if gameState == "playing" then
+            quackSound:play()
         end
     elseif key == "i" then
         if gameState == "playing" then
@@ -1809,7 +1819,7 @@ function love.draw()
         love.graphics.setColor(0, 0, 0, 0.7)
         love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, 12)
         love.graphics.setColor(1, 1, 1)
-        love.graphics.print("Q: Quest log  I: Inventory", 2, -2)
+        love.graphics.print("L: Quest log  I: Inventory", 2, -2)
         
         -- Draw gold display
         local goldText = "Gold: " .. playerGold
@@ -2037,7 +2047,7 @@ function drawQuestLog()
 
     -- Footer
     love.graphics.setColor(0.5, 0.5, 0.5)
-    love.graphics.print("[Q] Close", boxX+4, boxY+boxH-15)
+    love.graphics.print("[L] Close", boxX+4, boxY+boxH-15)
 end
 
 function drawQuestTurnIn()
