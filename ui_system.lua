@@ -101,7 +101,7 @@ function UISystem.drawToasts(toasts, font, GAME_WIDTH)
             love.graphics.print(line, boxX + 4, y + (lineIdx - 1) * 10 - 1)
         end
 
-        y = y + boxH + 2
+        y = y + boxH + 4
     end
 end
 
