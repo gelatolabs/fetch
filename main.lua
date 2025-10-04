@@ -183,6 +183,7 @@ local mouseX = 0
 local mouseY = 0
 local selectedShopItem = nil
 local questTurnInData = nil  -- Stores {npc, quest} for quest turn-in UI
+local questOfferData = nil  -- Stores {npc, quest} for quest offer UI
 local winScreenTimer = 0
 local introShown = false
 
@@ -670,6 +671,12 @@ function love.mousepressed(x, y, button)
         return
     end
 
+    -- Handle quest offer clicks
+    if gameState == "questOffer" and button == 1 then
+        handleQuestOfferClick(x, y)
+        return
+    end
+
     if button == 1 and gameState == "questTurnIn" then
         -- Convert screen coordinates to canvas coordinates
         local screenWidth, screenHeight = love.graphics.getDimensions()
@@ -756,6 +763,11 @@ function love.keypressed(key)
             local newState, shouldClear = DialogSystem.handleInput(callbacks)
             if newState then
                 gameState = newState
+                -- If transitioning to quest offer, store the quest data
+                if newState == "questOffer" then
+                    local currentDialog = DialogSystem.getCurrentDialog()
+                    questOfferData = {npc = currentDialog.npc, quest = currentDialog.quest}
+                end
             end
             if shouldClear then
                 DialogSystem.clearDialog()
@@ -857,13 +869,13 @@ function interactWithNPC(npc)
     elseif npc.isQuestGiver then
         local quest = quests[npc.questId]
         if not quest.active and not quest.completed then
-            -- Offer quest
-            local questText = quest.description
+            -- Show initial dialog, then quest offer
+            local dialogText = npc.questOfferDialog or "I have a quest for you."
             gameState = DialogSystem.showDialog({
-                type = "questOffer",
+                type = "questOfferDialog",
                 npc = npc,
                 quest = quest,
-                text = questText
+                text = dialogText
             })
         elseif quest.active and quest.requiredItem and hasItem(quest.requiredItem) then
             -- Turn in quest - show inventory selection UI (not using DialogSystem for this special UI)
@@ -1363,6 +1375,41 @@ function love.draw()
         UISystem.drawShop(GAME_WIDTH, GAME_HEIGHT, shopInventory, selectedShopItem, playerGold, inventory, itemRegistry, font, mouseX, mouseY, SCALE, hasItem)
     elseif gameState == "questTurnIn" then
         UISystem.drawQuestTurnIn(GAME_WIDTH, GAME_HEIGHT, questTurnInData, inventory, itemRegistry, map, camera, npcs, currentMap, npcSprite, player, playerTileset, getPlayerSpriteSet)
+    elseif gameState == "questOffer" then
+        -- Draw game world in background
+        local camX = camera.x
+        local camY = camera.y
+
+        -- Draw the Tiled map
+        love.graphics.setColor(1, 1, 1)
+        map:draw(-camX, -camY)
+
+        -- Draw NPCs (only on current map)
+        for _, npc in ipairs(npcs) do
+            if npc.map == currentMap then
+                love.graphics.setColor(1, 1, 1)
+                love.graphics.draw(npcSprite, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+            end
+        end
+
+        -- Draw player
+        love.graphics.setColor(1, 1, 1)
+        local spriteSet = getPlayerSpriteSet()
+        local currentQuad = spriteSet[player.direction][player.moving and (player.walkFrame + 1) or 1]
+        local scaleX = (player.facing == "left") and -1 or 1
+        local offsetX = (player.facing == "left") and player.size or 0
+        love.graphics.draw(
+            playerTileset,
+            currentQuad,
+            player.x - player.size/2 - camX + offsetX,
+            player.y - player.size/2 - camY - player.jumpHeight,
+            0,
+            scaleX,
+            1
+        )
+
+        -- Draw quest offer UI
+        UISystem.drawQuestOffer(GAME_WIDTH, GAME_HEIGHT, questOfferData, mouseX, mouseY, SCALE)
     elseif gameState == "winScreen" then
         UISystem.drawWinScreen(GAME_WIDTH, GAME_HEIGHT, titleFont, font, playerGold, completedQuests)
     end
@@ -1446,5 +1493,51 @@ function handleShopClick(x, y)
                 end
             end
         end
+    end
+end
+
+function handleQuestOfferClick(x, y)
+    if not questOfferData then
+        return
+    end
+
+    -- Convert screen coordinates to canvas coordinates
+    local screenWidth, screenHeight = love.graphics.getDimensions()
+    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
+    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
+    local canvasX = (x - offsetX) / SCALE
+    local canvasY = (y - offsetY) / SCALE
+
+    local boxX = GAME_WIDTH / 2 - 100
+    local boxY = GAME_HEIGHT / 2 - 60
+    local boxW = 200
+    local boxH = 120
+
+    local btnW = 70
+    local btnH = 18
+    local btnY = boxY + boxH - btnH - 6
+    local acceptX = boxX + boxW/2 - btnW - 4
+    local rejectX = boxX + boxW/2 + 4
+
+    -- Check accept button
+    if canvasX >= acceptX and canvasX <= acceptX + btnW and canvasY >= btnY and canvasY <= btnY + btnH then
+        -- Accept quest
+        local quest = questOfferData.quest
+        quest.active = true
+        table.insert(activeQuests, quest.id)
+        showToast("Quest Accepted: " .. quest.name, {1, 1, 0})
+        questOfferData = nil
+        DialogSystem.clearDialog()
+        gameState = "playing"
+        return
+    end
+
+    -- Check reject button
+    if canvasX >= rejectX and canvasX <= rejectX + btnW and canvasY >= btnY and canvasY <= btnY + btnH then
+        -- Reject quest
+        questOfferData = nil
+        DialogSystem.clearDialog()
+        gameState = "playing"
+        return
     end
 end

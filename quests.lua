@@ -25,7 +25,8 @@ quests.npcs = {
         size = 16,
         name = "Old Lady",
         questId = "quest_lost_cat",
-        isQuestGiver = true
+        isQuestGiver = true,
+        questOfferDialog = "Oh dear, I'm so worried! My precious cat has wandered off somewhere. I haven't seen her in days!"
     },
     {
         id = "npc_cat_finder",
@@ -57,7 +58,8 @@ quests.npcs = {
         size = 16,
         name = "King",
         questId = "quest_royal_gift",
-        isQuestGiver = true
+        isQuestGiver = true,
+        questOfferDialog = "Welcome, adventurer! I am a collector of rare treasures. I've heard rumors of an adorable Labubu collectible. If you could acquire one for my collection, I would reward you handsomely!"
     },
     -- Quest Chain 2: Missing Book
     {
@@ -68,7 +70,8 @@ quests.npcs = {
         size = 16,
         name = "Librarian",
         questId = "quest_missing_book",
-        isQuestGiver = true
+        isQuestGiver = true,
+        questOfferDialog = "Shh! Welcome to the library. I have a small problem - someone borrowed a very rare book and hasn't returned it. Could you help me track it down?"
     },
     {
         id = "npc_reader",
@@ -92,7 +95,8 @@ quests.npcs = {
         size = 16,
         name = "Merchant",
         questId = "quest_delivery",
-        isQuestGiver = true
+        isQuestGiver = true,
+        questOfferDialog = "Greetings, traveler! I'm expecting an important package from the courier, but I'm far too busy with my wares. Would you be willing to pick it up for me?"
     },
     {
         id = "npc_courier",
@@ -116,7 +120,8 @@ quests.npcs = {
         size = 16,
         name = "Boat Builder",
         questId = "quest_build_boat",
-        isQuestGiver = true
+        isQuestGiver = true,
+        questOfferDialog = "Ahoy there! I'm a master boat builder. I can craft you a fine vessel to cross these waters, but I'll need some quality wood. Think you can help me out?"
     },
     {
         id = "npc_woodcutter",
@@ -140,7 +145,8 @@ quests.npcs = {
         size = 16,
         name = "Swimmer",
         questId = "quest_learn_swim",
-        isQuestGiver = true
+        isQuestGiver = true,
+        questOfferDialog = "Oh no! I dropped my floaties in the water and now I can't swim! I'm stuck here on this island. Could you find me some floaties? Maybe a lifeguard would have some!"
     },
     {
         id = "npc_lifeguard",
@@ -164,7 +170,8 @@ quests.npcs = {
         size = 16,
         name = "Athlete",
         questId = "quest_learn_jump",
-        isQuestGiver = true
+        isQuestGiver = true,
+        questOfferDialog = "Hey! I'm training for the big jump competition, but I lost my lucky shoes! Without them, I can't jump at all. Can you help me find them?"
     },
     {
         id = "npc_coach",

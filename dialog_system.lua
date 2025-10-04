@@ -89,13 +89,17 @@ function DialogSystem.handleInput(callbacks)
     end
     
     -- No more pages, handle dialog completion based on type
-    if currentDialog.type == "questOffer" then
+    if currentDialog.type == "questOfferDialog" then
+        -- Transition to quest offer screen
+        return "questOffer", false  -- Don't clear dialog yet, we'll use it for quest offer
+
+    elseif currentDialog.type == "questOffer" then
         -- Accept quest
         if callbacks.onQuestAccept then
             callbacks.onQuestAccept(currentDialog.quest)
         end
         return "playing", true
-        
+
     elseif currentDialog.type == "questTurnIn" then
         -- Complete quest
         if callbacks.onQuestComplete then
@@ -172,7 +176,7 @@ function DialogSystem.draw(GAME_WIDTH, GAME_HEIGHT, drawFancyBorder)
     elseif currentDialog.type == "abilityGive" then
         buttonText = "[E] Learn"
     else
-        buttonText = "[E] Close"
+        buttonText = "[E] Okay"
     end
 
     love.graphics.setColor(0.9, 0.9, 0.9)
