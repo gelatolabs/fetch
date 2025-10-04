@@ -73,7 +73,13 @@ local inventory = {}
 local itemRegistry = {
     item_cat = {id = "item_cat", name = "Fluffy Cat", aliases = {"cat"}},
     item_book = {id = "item_book", name = "Ancient Tome", aliases = {"book"}},
-    item_package = {id = "item_package", name = "Sealed Package", aliases = {"package"}}
+    item_package = {id = "item_package", name = "Sealed Package", aliases = {"package"}},
+    item_floaties = {id = "item_floaties", name = "Swimming Floaties", aliases = {"floaties", "floaty"}}
+}
+
+-- Ability registry (single source of truth for all abilities)
+local abilityRegistry = {
+    swim = {id = "swim", name = "Swimming", aliases = {"swim", "swimming"}}
 }
 
 -- Player abilities
@@ -558,6 +564,8 @@ function love.keypressed(key)
         inventory = inventory,
         getAllItemIds = getAllItemIds,
         getItemFromRegistry = getItemFromRegistry,
+        getAllAbilityIds = getAllAbilityIds,
+        getAbilityFromRegistry = getAbilityFromRegistry,
         hasItem = hasItem,
         getGold = function() return playerGold end,
         setGold = function(amount) playerGold = amount end
@@ -674,7 +682,7 @@ function interactWithNPC(npc)
                 quest = quest
             }
             gameState = "dialog"
-        elseif quest.active and hasItem(quest.requiredItem) then
+        elseif quest.active and quest.requiredItem and hasItem(quest.requiredItem) then
             -- Turn in quest - show inventory selection UI
             currentDialog = {
                 type = "questTurnIn",
@@ -771,6 +779,14 @@ function handleDialogInput()
         table.remove(activeQuests, indexOf(activeQuests, currentDialog.quest.id))
         table.insert(completedQuests, currentDialog.quest.id)
         
+        -- Grant ability if quest provides one
+        if currentDialog.quest.grantsAbility then
+            playerAbilities[currentDialog.quest.grantsAbility] = true
+            local abilityData = getAbilityFromRegistry(currentDialog.quest.grantsAbility)
+            local abilityName = abilityData and abilityData.name or currentDialog.quest.grantsAbility
+            showToast("Learned: " .. abilityName .. "!", {0.3, 0.8, 1.0})
+        end
+        
         -- Award gold
         if currentDialog.quest.goldReward and currentDialog.quest.goldReward > 0 then
             playerGold = playerGold + currentDialog.quest.goldReward
@@ -801,10 +817,9 @@ function handleDialogInput()
         table.insert(completedQuests, quest.id)
         
         -- Get ability name for toast
-        local abilityNames = {
-            swim = "Swimming"
-        }
-        showToast("Learned: " .. (abilityNames[currentDialog.ability] or currentDialog.ability) .. "!", {0.3, 0.8, 1.0})
+        local abilityData = getAbilityFromRegistry(currentDialog.ability)
+        local abilityName = abilityData and abilityData.name or currentDialog.ability
+        showToast("Learned: " .. abilityName .. "!", {0.3, 0.8, 1.0})
         showToast("Quest Complete: " .. quest.name, {0, 1, 0})
         gameState = "playing"
         currentDialog = nil
@@ -847,6 +862,34 @@ function getAllItemIds()
     local ids = {}
     for itemId, _ in pairs(itemRegistry) do
         table.insert(ids, itemId)
+    end
+    return ids
+end
+
+-- Get ability info from registry by ID or alias
+function getAbilityFromRegistry(nameOrAlias)
+    -- First check if it's a direct ability ID
+    if abilityRegistry[nameOrAlias] then
+        return abilityRegistry[nameOrAlias]
+    end
+    
+    -- Then check aliases
+    for abilityId, abilityData in pairs(abilityRegistry) do
+        for _, alias in ipairs(abilityData.aliases) do
+            if alias == nameOrAlias then
+                return abilityData
+            end
+        end
+    end
+    
+    return nil
+end
+
+-- Get all ability IDs from registry
+function getAllAbilityIds()
+    local ids = {}
+    for abilityId, _ in pairs(abilityRegistry) do
+        table.insert(ids, abilityId)
     end
     return ids
 end
@@ -904,6 +947,14 @@ function handleQuestTurnInClick(x, y)
                 quest.completed = true
                 table.remove(activeQuests, indexOf(activeQuests, quest.id))
                 table.insert(completedQuests, quest.id)
+                
+                -- Grant ability if quest provides one
+                if quest.grantsAbility then
+                    playerAbilities[quest.grantsAbility] = true
+                    local abilityData = getAbilityFromRegistry(quest.grantsAbility)
+                    local abilityName = abilityData and abilityData.name or quest.grantsAbility
+                    showToast("Learned: " .. abilityName .. "!", {0.3, 0.8, 1.0})
+                end
                 
                 -- Award gold
                 if quest.goldReward and quest.goldReward > 0 then

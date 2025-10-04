@@ -79,6 +79,7 @@ quests.npcs = {
     -- Quest Chain 4: Learn to Swim
     {
         id = "npc_swimmer",
+        map = "map",
         x = -12 * 16 + 8,  -- Grid position (-12, 1) - near water
         y = 1 * 16 + 8,
         size = 16,
@@ -88,14 +89,15 @@ quests.npcs = {
     },
     {
         id = "npc_lifeguard",
+        map = "map",
         x = 18 * 16 + 8,  -- Grid position (18, -6) - far side
         y = -6 * 16 + 8,
         size = 16,
         name = "Lifeguard",
-        givesAbility = "swim",
+        givesItem = "item_floaties",
         requiresQuest = "quest_learn_swim",
         requiresDialog = true,
-        abilityGiveText = "You've shown great determination! I'll teach you to swim. Now you can cross water!",
+        itemGiveText = "Here are some floaties! They'll help you learn to swim. Take them back to the swimmer!",
         noQuestText = "The water is perfect today! Want to learn to swim?"
     }
 }
@@ -108,7 +110,7 @@ quests.questData = {
         questGiver = "npc_cat_owner",
         requiredItem = "item_cat",
         reward = "Thanks for finding my cat!",
-        goldReward = 10,
+        goldReward = 0,
         reminderText = "Please find my cat! Someone around here must have seen it.",
         active = false,
         completed = false
@@ -120,7 +122,7 @@ quests.questData = {
         questGiver = "npc_librarian",
         requiredItem = "item_book",
         reward = "Thank you for returning the book!",
-        goldReward = 15,
+        goldReward = 0,
         reminderText = "I still need that book back. Someone borrowed it recently!",
         active = false,
         completed = false
@@ -140,12 +142,13 @@ quests.questData = {
     quest_learn_swim = {
         id = "quest_learn_swim",
         name = "Learn to Swim",
-        description = "The swimmer wants you to prove you're ready to learn swimming. Find the lifeguard!",
+        description = "The swimmer needs floaties from the lifeguard to teach you how to swim!",
         questGiver = "npc_swimmer",
+        requiredItem = "item_floaties",
         grantsAbility = "swim",
-        reward = "You learned to swim! You can now cross water tiles!",
+        reward = "Perfect! Now I can teach you to swim. You can now cross water tiles!",
         goldReward = 0,
-        reminderText = "Find the lifeguard to learn how to swim!",
+        reminderText = "The lifeguard has some floaties I need to teach you properly!",
         active = false,
         completed = false
     }
