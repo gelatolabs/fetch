@@ -724,7 +724,7 @@ function love.keypressed(key)
     }
     
     -- Handle cheat console keys
-    if CheatConsole.keyPressed(key, gameStateForCheats) then
+    if CheatConsole.keyPressed(key, gameStateForCheats, gameState) then
         return  -- Key was handled by console
     end
     
@@ -1455,11 +1455,18 @@ function love.draw()
 
         -- Draw player
         love.graphics.setColor(1, 1, 1)
-        local currentSprite = playerSprite
-        if player.moving then
-            currentSprite = (player.walkFrame == 0) and playerWalk0 or playerWalk1
-        end
-        love.graphics.draw(currentSprite, player.x - player.size/2 - camX, player.y - player.size/2 - camY)
+        local currentQuad = playerQuads[player.direction][player.moving and (player.walkFrame + 1) or 1]
+        local scaleX = (player.facing == "left") and -1 or 1
+        local offsetX = (player.facing == "left") and player.size or 0
+        love.graphics.draw(
+            playerTileset,
+            currentQuad,
+            player.x - player.size/2 - camX + offsetX,
+            player.y - player.size/2 - camY,
+            0,
+            scaleX,
+            1
+        )
 
         -- Draw pause menu overlay
         drawPauseMenu()
