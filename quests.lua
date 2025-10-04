@@ -77,6 +77,7 @@ quests.questData = {
         questGiver = "npc_cat_owner",
         requiredItem = "item_cat",
         reward = "Thanks for finding my cat!",
+        reminderText = "Please find my cat! Someone around here must have seen it.",
         active = false,
         completed = false
     },
@@ -87,6 +88,7 @@ quests.questData = {
         questGiver = "npc_librarian",
         requiredItem = "item_book",
         reward = "Thank you for returning the book!",
+        reminderText = "I still need that book back. Someone borrowed it recently!",
         active = false,
         completed = false
     },
@@ -97,6 +99,7 @@ quests.questData = {
         questGiver = "npc_merchant",
         requiredItem = "item_package",
         reward = "Great! Here's your payment!",
+        reminderText = "The courier has my package. Can you pick it up for me?",
         active = false,
         completed = false
     }
