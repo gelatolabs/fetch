@@ -174,9 +174,24 @@ function CheatConsole.processCode(code, gameState)
             end
         end
         
+    elseif command == "screenfetch" then
+        local screenfetch = [[   __
+ <(o )___
+  ( ._> /
+   `---'
+
+OS: DuckOS 0.1
+Kernel: Mallard 4.20
+Shell: /bin/quack
+WM: PondView
+CPU: Feather 6502
+RAM: 4KB DDR0.5
+GPU: GooseForce 128]]
+        gameState.showToast(screenfetch, {0.3, 0.8, 1})
+
     elseif command == "help" or command == "?" then
-        gameState.showToast("Cheats: noclip, grid, unlock/lock, god, fetch, gold/setgold", {1, 1, 0.3})
-        
+        gameState.showToast("Cheats: noclip, grid, unlock/lock, god, fetch, gold/setgold, screenfetch", {1, 1, 0.3})
+
     else
         gameState.showToast("Unknown cheat: " .. code, {1, 0.3, 0.3})
     end
