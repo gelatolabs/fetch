@@ -51,40 +51,45 @@ function CheatConsole.processCode(code, gameState)
     elseif command == "unlock" then
         if param == "" then
             gameState.showToast("Usage: unlock <ability> (e.g. unlock swim)", {1, 1, 0.3})
-        elseif gameState.playerAbilities[param] ~= nil then
-            gameState.playerAbilities[param] = true
-            local abilityData = gameState.getAbilityFromRegistry(param)
-            local displayName = abilityData and abilityData.name or param
-            gameState.showToast("Unlocked: " .. displayName, {1, 0.5, 0})
         else
-            gameState.showToast("Unknown ability: " .. param, {1, 0.3, 0.3})
+            local abilityData = gameState.getAbilityFromRegistry(param)
+            if abilityData then
+                local context = {showToast = gameState.showToast}
+                gameState.abilityManager:grantAbility(abilityData.id, context)
+                gameState.showToast("Unlocked: " .. abilityData.name, {1, 0.5, 0})
+            else
+                gameState.showToast("Unknown ability: " .. param, {1, 0.3, 0.3})
+            end
         end
         
     elseif command == "lock" then
         if param == "" then
             gameState.showToast("Usage: lock <ability> (e.g. lock swim)", {1, 1, 0.3})
-        elseif gameState.playerAbilities[param] ~= nil then
-            gameState.playerAbilities[param] = false
-            local abilityData = gameState.getAbilityFromRegistry(param)
-            local displayName = abilityData and abilityData.name or param
-            gameState.showToast("Locked: " .. displayName, {1, 0.5, 0})
         else
-            gameState.showToast("Unknown ability: " .. param, {1, 0.3, 0.3})
+            local abilityData = gameState.getAbilityFromRegistry(param)
+            if abilityData and gameState.abilityManager:hasAbility(abilityData.id) then
+                gameState.abilityManager:removeAbility(abilityData.id)
+                gameState.showToast("Locked: " .. abilityData.name, {1, 0.5, 0})
+            else
+                gameState.showToast("Unknown or not unlocked ability: " .. param, {1, 0.3, 0.3})
+            end
         end
         
     elseif command == "god" or command == "godmode" then
         if param == "off" then
             -- Turn off god mode
             CheatConsole.state.noclip = false
-            for ability, _ in pairs(gameState.playerAbilities) do
-                gameState.playerAbilities[ability] = false
+            -- Remove all abilities
+            for _, abilityId in ipairs(gameState.getAllAbilityIds()) do
+                gameState.abilityManager:removeAbility(abilityId)
             end
             gameState.showToast("God Mode Deactivated!", {1, 0.5, 0})
         else
             -- Turn on god mode
             CheatConsole.state.noclip = true
-            for ability, _ in pairs(gameState.playerAbilities) do
-                gameState.playerAbilities[ability] = true
+            local context = {showToast = gameState.showToast}
+            for _, abilityId in ipairs(gameState.getAllAbilityIds()) do
+                gameState.abilityManager:grantAbility(abilityId, context)
             end
             gameState.showToast("God Mode Activated!", {1, 0.5, 0})
         end
@@ -137,8 +142,9 @@ function CheatConsole.processCode(code, gameState)
         end
         
     elseif command == "abilities" or command == "unlockall" then
-        for ability, _ in pairs(gameState.playerAbilities) do
-            gameState.playerAbilities[ability] = true
+        local context = {showToast = gameState.showToast}
+        for _, abilityId in ipairs(gameState.getAllAbilityIds()) do
+            gameState.abilityManager:grantAbility(abilityId, context)
         end
         gameState.showToast("Unlocked all abilities", {1, 0.5, 0})
         
@@ -323,13 +329,29 @@ function CheatConsole.drawGrid(camX, camY, GAME_WIDTH, GAME_HEIGHT)
 end
 
 -- Draw active cheat indicators
-function CheatConsole.drawIndicators(GAME_WIDTH, font, playerAbilities)
-    if CheatConsole.state.noclip or playerAbilities.swim or CheatConsole.state.showGrid then
-        local cheatText = ""
-        if CheatConsole.state.noclip then cheatText = cheatText .. " [NOCLIP]" end
-        if playerAbilities.swim then cheatText = cheatText .. " [SWIM]" end
-        if CheatConsole.state.showGrid then cheatText = cheatText .. " [GRID]" end
-        
+function CheatConsole.drawIndicators(GAME_WIDTH, font, abilityManager)
+    local cheatText = ""
+    
+    if CheatConsole.state.noclip then 
+        cheatText = cheatText .. " [NOCLIP]" 
+    end
+    
+    -- Show all active abilities
+    if abilityManager then
+        for _, ability in pairs(abilityManager:getAllAbilities()) do
+            local displayText = ability.name:upper()
+            if ability.type == "consumable" and ability.maxUses then
+                displayText = displayText .. ":" .. ability.currentUses
+            end
+            cheatText = cheatText .. " [" .. displayText .. "]"
+        end
+    end
+    
+    if CheatConsole.state.showGrid then 
+        cheatText = cheatText .. " [GRID]" 
+    end
+    
+    if cheatText ~= "" then
         love.graphics.setColor(1, 0.5, 0, 0.9)
         local textWidth = font:getWidth(cheatText)
         love.graphics.print(cheatText, GAME_WIDTH - textWidth - 2, -1)

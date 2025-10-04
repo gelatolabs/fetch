@@ -2,6 +2,7 @@
 local sti = require "sti"
 local questData = require "quests"
 local CheatConsole = require "cheat_console"
+local AbilitySystem = require "ability_system"
 
 -- Game constants
 local GAME_WIDTH = 320
@@ -11,6 +12,7 @@ local SCALE
 -- Graphics resources
 local canvas
 local font
+local titleFont
 
 -- Sprites
 local playerTileset
@@ -18,8 +20,12 @@ local playerQuads = {}
 local npcSprite
 
 -- Game state
--- playing, dialog, questLog, inventory, questTurnIn
-local gameState = "playing"
+-- mainMenu, settings, playing, dialog, questLog, inventory, questTurnIn
+local gameState = "mainMenu"
+
+-- Settings
+local volume = 1.0
+local draggingSlider = false
 
 -- Player (Pokemon-style grid movement)
 -- Initial spawn position (will be validated and adjusted if on collision tile)
@@ -34,7 +40,8 @@ local player = {
     moving = false,
     moveTimer = 0,
     moveDuration = 0.15,  -- Time to move one tile (in seconds)
-    walkFrame = 0  -- 0 or 1 for animation
+    walkFrame = 0,  -- 0 or 1 for animation
+    wasOnWater = false  -- Track if player was on water last frame
 }
 
 -- Camera (Pokemon-style: always centered on player)
@@ -46,11 +53,7 @@ local camera = {
 -- World map
 local map
 local world = {
-    tileSize = 16,
-    width = 50,
-    height = 50,
-    -- Simple collision map (0 = walkable, 1 = wall)
-    tiles = {}
+    tileSize = 16
 }
 
 -- NPCs
@@ -69,18 +72,66 @@ local itemRegistry = {
     item_cat = {id = "item_cat", name = "Fluffy Cat", aliases = {"cat"}},
     item_book = {id = "item_book", name = "Ancient Tome", aliases = {"book"}},
     item_package = {id = "item_package", name = "Sealed Package", aliases = {"package"}},
-    item_floaties = {id = "item_floaties", name = "Swimming Floaties", aliases = {"floaties", "floaty"}}
+    item_floaties = {id = "item_floaties", name = "Swimming Floaties", aliases = {"floaties", "floaty"}},
+    item_wood = {id = "item_wood", name = "Wooden Planks", aliases = {"wood", "planks"}}
 }
 
--- Ability registry (single source of truth for all abilities)
-local abilityRegistry = {
-    swim = {id = "swim", name = "Swimming", aliases = {"swim", "swimming"}}
-}
+-- Ability System
+local abilityManager = AbilitySystem.PlayerAbilityManager.new()
 
--- Player abilities
-local playerAbilities = {
-    swim = false
-}
+-- Local references for convenience
+local AbilityType = AbilitySystem.AbilityType
+local EffectType = AbilitySystem.EffectType
+
+-- Register abilities
+abilityManager:registerAbility({
+    id = "swim",
+    name = "Swimming",
+    aliases = {"swim", "swimming"},
+    type = AbilityType.PASSIVE,
+    effects = {EffectType.WATER_TRAVERSAL},
+    description = "Allows you to swim across water tiles freely",
+    color = {0.3, 0.8, 1.0},
+    onAcquire = function(context, ability)
+        if context and context.showToast then
+            context.showToast("You can now swim across water!", {0.3, 0.8, 1.0})
+        end
+    end
+})
+
+abilityManager:registerAbility({
+    id = "boat",
+    name = "Boat",
+    aliases = {"boat", "raft"},
+    type = AbilityType.CONSUMABLE,
+    effects = {EffectType.WATER_TRAVERSAL},
+    description = "A makeshift boat that breaks after crossing water 3 times",
+    maxUses = 3,
+    consumeOnUse = true,
+    color = {0.7, 0.7, 1.0},
+    onAcquire = function(context, ability)
+        if context and context.showToast then
+            context.showToast("Boat has " .. ability.maxUses .. " crossings", {0.7, 0.7, 1.0})
+        end
+    end,
+    onUse = function(context, ability)
+        if context and context.showToast then
+            if ability.currentUses > 0 then
+                context.showToast("Boat crossings remaining: " .. ability.currentUses, {0.7, 0.7, 1.0})
+            end
+        end
+    end,
+    onExpire = function(context)
+        if context and context.showToast then
+            context.showToast("Your boat broke apart!", {1, 0.5, 0.2})
+        end
+    end
+})
+
+-- Legacy compatibility (will be removed after full migration)
+local playerAbilities = {}
+local boatUses = 0
+local MAX_BOAT_USES = 3
 
 -- Player gold
 local playerGold = 0
@@ -89,6 +140,8 @@ local playerGold = 0
 local nearbyNPC = nil
 local currentDialog = nil
 local nearbyDoor = nil
+local mouseX = 0
+local mouseY = 0
 
 -- Toast system
 local toasts = {}
@@ -163,6 +216,10 @@ function love.load()
     font:setFilter("nearest", "nearest")
     love.graphics.setFont(font)
 
+    -- Load title font (twice as large)
+    titleFont = love.graphics.newFont("BitPotionExt.ttf", 32)
+    titleFont:setFilter("nearest", "nearest")
+
     -- Load sprites
     playerTileset = love.graphics.newImage("tiles/player-tileset.png")
     -- Create quads for player animation
@@ -181,48 +238,10 @@ function love.load()
     playerQuads.right = playerQuads.down
     
     npcSprite = love.graphics.newImage("sprites/npc.png")
-    -- npcSprite:setFilter("nearest", "nearest")
 
     -- Load Tiled map
     map = sti(mapPaths[currentMap])
-
-    -- Calculate map bounds from chunks
-    local layer = map.layers[1]
-    if layer and layer.chunks then
-        local minX, minY = math.huge, math.huge
-        local maxX, maxY = -math.huge, -math.huge
-        
-        for _, chunk in ipairs(layer.chunks) do
-            minX = math.min(minX, chunk.x)
-            minY = math.min(minY, chunk.y)
-            maxX = math.max(maxX, chunk.x + chunk.width)
-            maxY = math.max(maxY, chunk.y + chunk.height)
-        end
-        
-        -- Store map bounds in pixels
-        world.minX = minX * world.tileSize
-        world.minY = minY * world.tileSize
-        world.maxX = maxX * world.tileSize
-        world.maxY = maxY * world.tileSize
-    end
-
-    -- Initialize world (all walkable for now)
-    for y = 1, world.height do
-        world.tiles[y] = {}
-        for x = 1, world.width do
-            world.tiles[y][x] = 0
-        end
-    end
-
-    -- Add border walls
-    for x = 1, world.width do
-        world.tiles[1][x] = 1
-        world.tiles[world.height][x] = 1
-    end
-    for y = 1, world.height do
-        world.tiles[y][1] = 1
-        world.tiles[y][world.width] = 1
-    end
+    calculateMapBounds()
 
     -- Load game data
     loadGameData()
@@ -240,6 +259,34 @@ function love.load()
     -- Initialize camera centered on player
     camera.x = player.x - GAME_WIDTH / 2
     camera.y = player.y - GAME_HEIGHT / 2
+end
+
+-- Helper function to calculate map bounds from chunks
+function calculateMapBounds()
+    local layer = map.layers[1]
+    if layer and layer.chunks then
+        local minX, minY = math.huge, math.huge
+        local maxX, maxY = -math.huge, -math.huge
+        
+        for _, chunk in ipairs(layer.chunks) do
+            minX = math.min(minX, chunk.x)
+            minY = math.min(minY, chunk.y)
+            maxX = math.max(maxX, chunk.x + chunk.width)
+            maxY = math.max(maxY, chunk.y + chunk.height)
+        end
+        
+        -- Store map bounds in pixels
+        world.minX = minX * world.tileSize
+        world.minY = minY * world.tileSize
+        world.maxX = maxX * world.tileSize
+        world.maxY = maxY * world.tileSize
+    else
+        -- If no chunks, set no bounds (allow full movement)
+        world.minX = nil
+        world.minY = nil
+        world.maxX = nil
+        world.maxY = nil
+    end
 end
 
 -- Helper function to find a valid spawn position near a given location
@@ -300,6 +347,70 @@ function loadGameData()
     end
 end
 
+-- Helper function to check if a position is water
+local function isWaterTile(x, y)
+    local tileX = math.floor(x / world.tileSize)
+    local tileY = math.floor(y / world.tileSize)
+    
+    -- Check all tile layers
+    for _, layer in ipairs(map.layers) do
+        if layer.type == "tilelayer" then
+            -- Handle chunked maps
+            if layer.chunks then
+                for _, chunk in ipairs(layer.chunks) do
+                    local chunkX = chunk.x
+                    local chunkY = chunk.y
+                    local chunkWidth = chunk.width
+                    local chunkHeight = chunk.height
+                    
+                    if tileX >= chunkX and tileX < chunkX + chunkWidth and
+                       tileY >= chunkY and tileY < chunkY + chunkHeight then
+                        
+                        local localX = tileX - chunkX + 1
+                        local localY = tileY - chunkY + 1
+                        
+                        if chunk.data[localY] and chunk.data[localY][localX] then
+                            local tile = chunk.data[localY][localX]
+                            if tile.properties and tile.properties.is_water then
+                                return true
+                            end
+                        end
+                        break
+                    end
+                end
+            else
+                -- Handle non-chunked maps
+                if layer.data[tileY + 1] and layer.data[tileY + 1][tileX + 1] then
+                    local tile = layer.data[tileY + 1][tileX + 1]
+                    if tile and tile.properties and tile.properties.is_water then
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    
+    return false
+end
+
+-- Helper function to check if an NPC is at a position
+local function isNPCAt(x, y)
+    for _, npc in ipairs(npcs) do
+        if npc.map == currentMap then
+            -- Check if NPC occupies this position (using grid-based collision)
+            local npcGridX = math.floor(npc.x / 16)
+            local npcGridY = math.floor(npc.y / 16)
+            local targetGridX = math.floor(x / 16)
+            local targetGridY = math.floor(y / 16)
+            
+            if npcGridX == targetGridX and npcGridY == targetGridY then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 function love.update(dt)
     -- Update map
     map:update(dt)
@@ -348,6 +459,26 @@ function love.update(dt)
                 player.moving = false
                 player.moveTimer = 0
                 player.walkFrame = 0
+                
+                -- Check if player transitioned from water to land (boat use)
+                local isOnWater = isWaterTile(endX, endY)
+                if player.wasOnWater and not isOnWater then
+                    -- Transitioning from water to land - consume boat use
+                    local boatAbility = abilityManager:getAbility("boat")
+                    if boatAbility and not abilityManager:hasAbility("swim") then
+                        -- Use boat ability (consumes a use)
+                        local context = {showToast = showToast}
+                        boatAbility:use(context)
+                        
+                        -- Remove ability if expired
+                        if boatAbility.currentUses <= 0 then
+                            abilityManager:removeAbility("boat")
+                        end
+                    end
+                end
+                
+                -- Update water state for next frame
+                player.wasOnWater = isOnWater
             end
         else
             -- Check for input to start new movement
@@ -373,11 +504,15 @@ function love.update(dt)
             if moveDir then
                 player.direction = moveDir
                 
-                -- Check collision at target grid position (with swim ability)
+                -- Check collision at target grid position (with water traversal abilities)
                 local targetPixelX = newGridX * 16 + 8
                 local targetPixelY = newGridY * 16 + 8
                 
-                if not isColliding(targetPixelX, targetPixelY, playerAbilities.swim) then
+                local canCrossWater = abilityManager:hasEffect(EffectType.WATER_TRAVERSAL)
+                local tileBlocked = isColliding(targetPixelX, targetPixelY, canCrossWater)
+                local npcBlocked = isNPCAt(targetPixelX, targetPixelY)
+                
+                if not tileBlocked and not npcBlocked then
                     player.targetGridX = newGridX
                     player.targetGridY = newGridY
                     player.moving = true
@@ -434,6 +569,18 @@ function love.update(dt)
     end
 end
 
+-- Helper function to check if a tile should block movement
+local function shouldCollideWithTile(tile, canSwim)
+    if not tile or not tile.properties or not tile.properties.collides then
+        return false
+    end
+    -- If it's water and player can swim, allow passage
+    if canSwim and tile.properties.is_water then
+        return false
+    end
+    return true
+end
+
 function isColliding(x, y, canSwim)
     -- Noclip cheat bypasses all collision
     if CheatConsole.isNoclipActive() then
@@ -470,11 +617,7 @@ function isColliding(x, y, canSwim)
                         if chunk.data[localY] and chunk.data[localY][localX] then
                             local tile = chunk.data[localY][localX]
                             hasTile = true
-                            if tile.properties and tile.properties.collides then
-                                -- If it's water and player can swim, allow passage
-                                if canSwim and tile.properties.is_water then
-                                    return false
-                                end
+                            if shouldCollideWithTile(tile, canSwim) then
                                 return true
                             end
                         end
@@ -486,11 +629,7 @@ function isColliding(x, y, canSwim)
                 if layer.data[tileY + 1] and layer.data[tileY + 1][tileX + 1] then
                     local tile = layer.data[tileY + 1][tileX + 1]
                     hasTile = true
-                    if tile and tile.properties and tile.properties.collides then
-                        -- If it's water and player can swim, allow passage
-                        if canSwim and tile.properties.is_water then
-                            return false
-                        end
+                    if shouldCollideWithTile(tile, canSwim) then
                         return true
                     end
                 end
@@ -505,10 +644,47 @@ end
 function love.mousemoved(x, y, dx, dy)
     -- Show mouse cursor when mouse is moved
     love.mouse.setVisible(true)
+
+    -- Track mouse position
+    mouseX = x
+    mouseY = y
+
+    -- Handle slider dragging
+    if draggingSlider and gameState == "settings" then
+        -- Convert screen coordinates to canvas coordinates
+        local screenWidth, screenHeight = love.graphics.getDimensions()
+        local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
+        local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
+        local canvasX = (x - offsetX) / SCALE
+
+        local sliderX = GAME_WIDTH / 2 - 50
+        local sliderWidth = 100
+
+        volume = math.max(0, math.min(1, (canvasX - sliderX) / sliderWidth))
+        love.audio.setVolume(volume)
+    end
 end
 
 function love.mousepressed(x, y, button)
     love.mouse.setVisible(true)
+
+    -- Handle main menu clicks
+    if gameState == "mainMenu" and button == 1 then
+        handleMainMenuClick(x, y)
+        return
+    end
+
+    -- Handle pause menu clicks
+    if gameState == "pauseMenu" and button == 1 then
+        handlePauseMenuClick(x, y)
+        return
+    end
+
+    -- Handle settings menu clicks
+    if gameState == "settings" and button == 1 then
+        handleSettingsClick(x, y)
+        return
+    end
 
     if button == 1 and gameState == "questTurnIn" then
         -- Convert screen coordinates to canvas coordinates
@@ -533,7 +709,7 @@ function love.keypressed(key)
     -- Create game state object for cheat console
     local gameStateForCheats = {
         showToast = showToast,
-        playerAbilities = playerAbilities,
+        abilityManager = abilityManager,
         activeQuests = activeQuests,
         completedQuests = completedQuests,
         quests = quests,
@@ -574,7 +750,11 @@ function love.keypressed(key)
             gameState = "playing"
         end
     elseif key == "escape" then
-        if gameState ~= "playing" then
+        if gameState == "playing" then
+            gameState = "pauseMenu"
+        elseif gameState == "pauseMenu" then
+            gameState = "playing"
+        elseif gameState ~= "mainMenu" and gameState ~= "settings" then
             gameState = "playing"
             currentDialog = nil
         end
@@ -585,37 +765,7 @@ function enterDoor(door)
     -- Load the new map
     currentMap = door.targetMap
     map = sti(mapPaths[currentMap])
-
-    -- Recalculate map bounds for new map
-    local layer = map.layers[1]
-    if layer and layer.chunks then
-        local minX, minY = math.huge, math.huge
-        local maxX, maxY = -math.huge, -math.huge
-
-        for _, chunk in ipairs(layer.chunks) do
-            -- Chunk coordinates are in tiles, convert to pixels
-            local chunkMinX = chunk.x * 16
-            local chunkMinY = chunk.y * 16
-            local chunkMaxX = (chunk.x + chunk.width) * 16
-            local chunkMaxY = (chunk.y + chunk.height) * 16
-
-            minX = math.min(minX, chunkMinX)
-            minY = math.min(minY, chunkMinY)
-            maxX = math.max(maxX, chunkMaxX)
-            maxY = math.max(maxY, chunkMaxY)
-        end
-
-        world.minX = minX
-        world.minY = minY
-        world.maxX = maxX
-        world.maxY = maxY
-    else
-        -- If no chunks, set no bounds (allow full movement)
-        world.minX = nil
-        world.minY = nil
-        world.maxX = nil
-        world.maxY = nil
-    end
+    calculateMapBounds()
 
     -- Set player position to target door location
     player.gridX = door.targetX
@@ -739,6 +889,33 @@ function interactWithNPC(npc)
     end
 end
 
+-- Helper function to complete a quest
+local function completeQuest(quest)
+    quest.active = false
+    quest.completed = true
+    table.remove(activeQuests, indexOf(activeQuests, quest.id))
+    table.insert(completedQuests, quest.id)
+    
+    -- Grant ability if quest provides one
+    if quest.grantsAbility then
+        local context = {showToast = showToast}
+        abilityManager:grantAbility(quest.grantsAbility, context)
+        
+        local ability = abilityManager:getAbility(quest.grantsAbility)
+        if ability then
+            showToast("Learned: " .. ability.name .. "!", ability.color)
+        end
+    end
+    
+    -- Award gold
+    if quest.goldReward and quest.goldReward > 0 then
+        playerGold = playerGold + quest.goldReward
+        showToast("+" .. quest.goldReward .. " Gold", {1, 0.84, 0})
+    end
+    
+    showToast("Quest Complete: " .. quest.name, {0, 1, 0})
+end
+
 function handleDialogInput()
     if currentDialog.type == "questOffer" then
         -- Accept quest
@@ -750,26 +927,7 @@ function handleDialogInput()
     elseif currentDialog.type == "questTurnIn" then
         -- Complete quest
         removeItem(currentDialog.quest.requiredItem)
-        currentDialog.quest.active = false
-        currentDialog.quest.completed = true
-        table.remove(activeQuests, indexOf(activeQuests, currentDialog.quest.id))
-        table.insert(completedQuests, currentDialog.quest.id)
-        
-        -- Grant ability if quest provides one
-        if currentDialog.quest.grantsAbility then
-            playerAbilities[currentDialog.quest.grantsAbility] = true
-            local abilityData = getAbilityFromRegistry(currentDialog.quest.grantsAbility)
-            local abilityName = abilityData and abilityData.name or currentDialog.quest.grantsAbility
-            showToast("Learned: " .. abilityName .. "!", {0.3, 0.8, 1.0})
-        end
-        
-        -- Award gold
-        if currentDialog.quest.goldReward and currentDialog.quest.goldReward > 0 then
-            playerGold = playerGold + currentDialog.quest.goldReward
-            showToast("+" .. currentDialog.quest.goldReward .. " Gold", {1, 0.84, 0})
-        end
-        
-        showToast("Quest Complete: " .. currentDialog.quest.name, {0, 1, 0})
+        completeQuest(currentDialog.quest)
         gameState = "playing"
         currentDialog = nil
     elseif currentDialog.type == "itemGive" then
@@ -784,19 +942,7 @@ function handleDialogInput()
     elseif currentDialog.type == "abilityGive" then
         -- Learn ability
         playerAbilities[currentDialog.ability] = true
-        
-        -- Complete the quest
-        local quest = currentDialog.quest
-        quest.active = false
-        quest.completed = true
-        table.remove(activeQuests, indexOf(activeQuests, quest.id))
-        table.insert(completedQuests, quest.id)
-        
-        -- Get ability name for toast
-        local abilityData = getAbilityFromRegistry(currentDialog.ability)
-        local abilityName = abilityData and abilityData.name or currentDialog.ability
-        showToast("Learned: " .. abilityName .. "!", {0.3, 0.8, 1.0})
-        showToast("Quest Complete: " .. quest.name, {0, 1, 0})
+        completeQuest(currentDialog.quest)
         gameState = "playing"
         currentDialog = nil
     else
@@ -844,30 +990,20 @@ end
 
 -- Get ability info from registry by ID or alias
 function getAbilityFromRegistry(nameOrAlias)
-    -- First check if it's a direct ability ID
-    if abilityRegistry[nameOrAlias] then
-        return abilityRegistry[nameOrAlias]
+    local ability = abilityManager:getRegisteredAbility(nameOrAlias)
+    if ability then
+        return {
+            id = ability.id,
+            name = ability.name,
+            aliases = ability.aliases
+        }
     end
-    
-    -- Then check aliases
-    for abilityId, abilityData in pairs(abilityRegistry) do
-        for _, alias in ipairs(abilityData.aliases) do
-            if alias == nameOrAlias then
-                return abilityData
-            end
-        end
-    end
-    
     return nil
 end
 
 -- Get all ability IDs from registry
 function getAllAbilityIds()
-    local ids = {}
-    for abilityId, _ in pairs(abilityRegistry) do
-        table.insert(ids, abilityId)
-    end
-    return ids
+    return abilityManager:getAllRegisteredAbilityIds()
 end
 
 function removeItem(itemId)
@@ -917,28 +1053,9 @@ function handleQuestTurnInClick(x, y)
         -- Check if click is within this item slot
         if x >= slotX and x <= slotX + slotSize and y >= slotY and y <= slotY + slotSize then
             if itemId == quest.requiredItem then
-                -- Correct item clicked! Remove item and show reward dialog
+                -- Correct item clicked! Remove item and complete quest
                 removeItem(quest.requiredItem)
-                quest.active = false
-                quest.completed = true
-                table.remove(activeQuests, indexOf(activeQuests, quest.id))
-                table.insert(completedQuests, quest.id)
-                
-                -- Grant ability if quest provides one
-                if quest.grantsAbility then
-                    playerAbilities[quest.grantsAbility] = true
-                    local abilityData = getAbilityFromRegistry(quest.grantsAbility)
-                    local abilityName = abilityData and abilityData.name or quest.grantsAbility
-                    showToast("Learned: " .. abilityName .. "!", {0.3, 0.8, 1.0})
-                end
-                
-                -- Award gold
-                if quest.goldReward and quest.goldReward > 0 then
-                    playerGold = playerGold + quest.goldReward
-                    showToast("+" .. quest.goldReward .. " Gold", {1, 0.84, 0})
-                end
-                
-                showToast("Quest Complete: " .. quest.name, {0, 1, 0})
+                completeQuest(quest)
 
                 -- Show reward dialog
                 currentDialog = {
@@ -953,6 +1070,101 @@ function handleQuestTurnInClick(x, y)
             end
             return
         end
+    end
+end
+
+function handlePauseMenuClick(x, y)
+    -- Convert screen coordinates to canvas coordinates
+    local screenWidth, screenHeight = love.graphics.getDimensions()
+    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
+    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
+    local canvasX = (x - offsetX) / SCALE
+    local canvasY = (y - offsetY) / SCALE
+
+    -- Button positions
+    local btnWidth = 100
+    local btnHeight = 20
+    local btnX = GAME_WIDTH / 2 - btnWidth / 2
+    local resumeY = 100
+    local quitY = 130
+
+    -- Check Resume button
+    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= resumeY and canvasY <= resumeY + btnHeight then
+        gameState = "playing"
+    end
+
+    -- Check Quit Game button
+    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= quitY and canvasY <= quitY + btnHeight then
+        love.event.quit()
+    end
+end
+
+function handleMainMenuClick(x, y)
+    -- Convert screen coordinates to canvas coordinates
+    local screenWidth, screenHeight = love.graphics.getDimensions()
+    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
+    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
+    local canvasX = (x - offsetX) / SCALE
+    local canvasY = (y - offsetY) / SCALE
+
+    -- Button positions
+    local btnWidth = 100
+    local btnHeight = 20
+    local btnX = GAME_WIDTH / 2 - btnWidth / 2
+    local playY = 100
+    local settingsY = 130
+    local quitY = 160
+
+    -- Check Play button
+    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= playY and canvasY <= playY + btnHeight then
+        gameState = "playing"
+    end
+
+    -- Check Settings button
+    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= settingsY and canvasY <= settingsY + btnHeight then
+        gameState = "settings"
+    end
+
+    -- Check Quit button
+    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= quitY and canvasY <= quitY + btnHeight then
+        love.event.quit()
+    end
+end
+
+function handleSettingsClick(x, y)
+    -- Convert screen coordinates to canvas coordinates
+    local screenWidth, screenHeight = love.graphics.getDimensions()
+    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
+    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
+    local canvasX = (x - offsetX) / SCALE
+    local canvasY = (y - offsetY) / SCALE
+
+    -- Back button
+    local btnWidth = 100
+    local btnHeight = 20
+    local btnX = GAME_WIDTH / 2 - btnWidth / 2
+    local backY = 160
+
+    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= backY and canvasY <= backY + btnHeight then
+        gameState = "mainMenu"
+    end
+
+    -- Volume slider
+    local sliderX = GAME_WIDTH / 2 - 50
+    local sliderY = 100
+    local sliderWidth = 100
+    local sliderHeight = 10
+
+    if canvasX >= sliderX and canvasX <= sliderX + sliderWidth and canvasY >= sliderY - 5 and canvasY <= sliderY + sliderHeight + 5 then
+        draggingSlider = true
+        volume = math.max(0, math.min(1, (canvasX - sliderX) / sliderWidth))
+        love.audio.setVolume(volume)
+    end
+end
+
+function love.mousereleased(x, y, button)
+    if button == 1 then
+        draggingSlider = false
     end
 end
 
@@ -987,12 +1199,152 @@ function drawToasts()
     end
 end
 
+function isMouseOverButton(btnX, btnY, btnWidth, btnHeight)
+    -- Convert screen coordinates to canvas coordinates
+    local screenWidth, screenHeight = love.graphics.getDimensions()
+    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
+    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
+    local canvasX = (mouseX - offsetX) / SCALE
+    local canvasY = (mouseY - offsetY) / SCALE
+
+    return canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= btnY and canvasY <= btnY + btnHeight
+end
+
+function drawPauseMenu()
+    -- Semi-transparent background overlay
+    love.graphics.setColor(0, 0, 0, 0.7)
+    love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, GAME_HEIGHT)
+
+    -- Title
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Paused", 0, 60, GAME_WIDTH, "center")
+
+    -- Buttons
+    local btnWidth = 100
+    local btnHeight = 20
+    local btnX = GAME_WIDTH / 2 - btnWidth / 2
+
+    -- Resume button
+    local resumeHover = isMouseOverButton(btnX, 100, btnWidth, btnHeight)
+    love.graphics.setColor(resumeHover and 0.3 or 0.2, resumeHover and 0.2 or 0.15, resumeHover and 0.15 or 0.1)
+    love.graphics.rectangle("fill", btnX, 100, btnWidth, btnHeight)
+    love.graphics.setColor(resumeHover and 1 or 0.8, resumeHover and 0.8 or 0.6, resumeHover and 0.4 or 0.2)
+    love.graphics.rectangle("line", btnX, 100, btnWidth, btnHeight)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Resume", btnX, 100 + 3, btnWidth, "center")
+
+    -- Quit Game button
+    local quitHover = isMouseOverButton(btnX, 130, btnWidth, btnHeight)
+    love.graphics.setColor(quitHover and 0.3 or 0.2, quitHover and 0.2 or 0.15, quitHover and 0.15 or 0.1)
+    love.graphics.rectangle("fill", btnX, 130, btnWidth, btnHeight)
+    love.graphics.setColor(quitHover and 1 or 0.8, quitHover and 0.8 or 0.6, quitHover and 0.4 or 0.2)
+    love.graphics.rectangle("line", btnX, 130, btnWidth, btnHeight)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Quit Game", btnX, 130 + 3, btnWidth, "center")
+end
+
+function drawMainMenu()
+    -- Background
+    love.graphics.setColor(0.05, 0.05, 0.1)
+    love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, GAME_HEIGHT)
+
+    -- Title
+    love.graphics.setFont(titleFont)
+    love.graphics.setColor(0.9, 0.7, 0.3)
+    love.graphics.printf("Go Fetch", 0, 40, GAME_WIDTH, "center")
+    love.graphics.setFont(font)
+
+    -- Buttons
+    local btnWidth = 100
+    local btnHeight = 20
+    local btnX = GAME_WIDTH / 2 - btnWidth / 2
+
+    -- Play button
+    local playHover = isMouseOverButton(btnX, 100, btnWidth, btnHeight)
+    love.graphics.setColor(playHover and 0.3 or 0.2, playHover and 0.2 or 0.15, playHover and 0.15 or 0.1)
+    love.graphics.rectangle("fill", btnX, 100, btnWidth, btnHeight)
+    love.graphics.setColor(playHover and 1 or 0.8, playHover and 0.8 or 0.6, playHover and 0.4 or 0.2)
+    love.graphics.rectangle("line", btnX, 100, btnWidth, btnHeight)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Play", btnX, 100 + 3, btnWidth, "center")
+
+    -- Settings button
+    local settingsHover = isMouseOverButton(btnX, 130, btnWidth, btnHeight)
+    love.graphics.setColor(settingsHover and 0.3 or 0.2, settingsHover and 0.2 or 0.15, settingsHover and 0.15 or 0.1)
+    love.graphics.rectangle("fill", btnX, 130, btnWidth, btnHeight)
+    love.graphics.setColor(settingsHover and 1 or 0.8, settingsHover and 0.8 or 0.6, settingsHover and 0.4 or 0.2)
+    love.graphics.rectangle("line", btnX, 130, btnWidth, btnHeight)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Settings", btnX, 130 + 3, btnWidth, "center")
+
+    -- Quit button
+    local quitHover = isMouseOverButton(btnX, 160, btnWidth, btnHeight)
+    love.graphics.setColor(quitHover and 0.3 or 0.2, quitHover and 0.2 or 0.15, quitHover and 0.15 or 0.1)
+    love.graphics.rectangle("fill", btnX, 160, btnWidth, btnHeight)
+    love.graphics.setColor(quitHover and 1 or 0.8, quitHover and 0.8 or 0.6, quitHover and 0.4 or 0.2)
+    love.graphics.rectangle("line", btnX, 160, btnWidth, btnHeight)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Quit", btnX, 160 + 3, btnWidth, "center")
+end
+
+function drawSettings()
+    -- Background
+    love.graphics.setColor(0.05, 0.05, 0.1)
+    love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, GAME_HEIGHT)
+
+    -- Title
+    love.graphics.setColor(0.9, 0.7, 0.3)
+    love.graphics.printf("Settings", 0, 40, GAME_WIDTH, "center")
+
+    -- Volume label
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Volume", 0, 80, GAME_WIDTH, "center")
+
+    -- Volume slider
+    local sliderX = GAME_WIDTH / 2 - 50
+    local sliderY = 100
+    local sliderWidth = 100
+    local sliderHeight = 10
+
+    -- Slider background
+    love.graphics.setColor(0.2, 0.2, 0.2)
+    love.graphics.rectangle("fill", sliderX, sliderY, sliderWidth, sliderHeight)
+
+    -- Slider fill
+    love.graphics.setColor(0.8, 0.6, 0.2)
+    love.graphics.rectangle("fill", sliderX, sliderY, sliderWidth * volume, sliderHeight)
+
+    -- Slider border
+    love.graphics.setColor(0.5, 0.5, 0.5)
+    love.graphics.rectangle("line", sliderX, sliderY, sliderWidth, sliderHeight)
+
+    -- Volume percentage
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf(math.floor(volume * 100) .. "%", 0, 115, GAME_WIDTH, "center")
+
+    -- Back button
+    local btnWidth = 100
+    local btnHeight = 20
+    local btnX = GAME_WIDTH / 2 - btnWidth / 2
+    local backHover = isMouseOverButton(btnX, 160, btnWidth, btnHeight)
+    love.graphics.setColor(backHover and 0.3 or 0.2, backHover and 0.2 or 0.15, backHover and 0.15 or 0.1)
+    love.graphics.rectangle("fill", btnX, 160, btnWidth, btnHeight)
+    love.graphics.setColor(backHover and 1 or 0.8, backHover and 0.8 or 0.6, backHover and 0.4 or 0.2)
+    love.graphics.rectangle("line", btnX, 160, btnWidth, btnHeight)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Back", btnX, 160 + 3, btnWidth, "center")
+end
+
 function love.draw()
     -- Draw to canvas
     love.graphics.setCanvas(canvas)
     love.graphics.clear(0.1, 0.1, 0.1)
 
-    if gameState == "playing" or gameState == "dialog" then
+    if gameState == "mainMenu" then
+        drawMainMenu()
+    elseif gameState == "settings" then
+        drawSettings()
+    elseif gameState == "playing" or gameState == "dialog" then
         -- Draw world (manual camera offset, no translate)
         local camX = camera.x
         local camY = camera.y
@@ -1056,7 +1408,7 @@ function love.draw()
         love.graphics.setColor(0, 0, 0, 0.7)
         love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, 12)
         love.graphics.setColor(1, 1, 1)
-        love.graphics.print("Q: Quest log  I: Inventory", 2, -1)
+        love.graphics.print("Q: Quest log  I: Inventory", 2, -2)
         
         -- Draw gold display
         local goldText = "Gold: " .. playerGold
@@ -1065,7 +1417,35 @@ function love.draw()
         love.graphics.print(goldText, GAME_WIDTH / 2 - goldTextWidth / 2, -1)
         
         -- Draw cheat indicators
-        CheatConsole.drawIndicators(GAME_WIDTH, font, playerAbilities)
+        CheatConsole.drawIndicators(GAME_WIDTH, font, abilityManager)
+
+    elseif gameState == "pauseMenu" then
+        -- Draw game world in background
+        local camX = camera.x
+        local camY = camera.y
+
+        -- Draw the Tiled map
+        love.graphics.setColor(1, 1, 1)
+        map:draw(-camX, -camY)
+
+        -- Draw NPCs (only on current map)
+        for _, npc in ipairs(npcs) do
+            if npc.map == currentMap then
+                love.graphics.setColor(1, 1, 1)
+                love.graphics.draw(npcSprite, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+            end
+        end
+
+        -- Draw player
+        love.graphics.setColor(1, 1, 1)
+        local currentSprite = playerSprite
+        if player.moving then
+            currentSprite = (player.walkFrame == 0) and playerWalk0 or playerWalk1
+        end
+        love.graphics.draw(currentSprite, player.x - player.size/2 - camX, player.y - player.size/2 - camY)
+
+        -- Draw pause menu overlay
+        drawPauseMenu()
 
     elseif gameState == "questLog" then
         drawQuestLog()
@@ -1281,11 +1661,7 @@ function drawQuestTurnIn()
 
     -- Draw player
     love.graphics.setColor(1, 1, 1)
-    local currentSprite = playerSprite
-    if player.isWalking then
-        currentSprite = (player.walkFrame == 0) and playerWalk0 or playerWalk1
-    end
-    love.graphics.draw(currentSprite, player.x - player.size/2 - camX, player.y - player.size/2 - camY)
+    love.graphics.draw(playerSprite, player.x - player.size/2 - camX, player.y - player.size/2 - camY)
 
     -- Draw dialog box
     local quest = currentDialog.quest
@@ -1342,56 +1718,6 @@ function drawQuestTurnIn()
     -- Footer hint
     love.graphics.setColor(0.5, 0.5, 0.5)
     love.graphics.print("[ESC] Cancel", boxX + 4, boxY + boxH - 17)
-end
-
-function drawCheatPrompt()
-    local boxX, boxY = 10, GAME_HEIGHT - 92
-    local boxW, boxH = GAME_WIDTH - 20, 87
-
-    -- Background with slight transparency
-    love.graphics.setColor(0, 0, 0, 0.92)
-    love.graphics.rectangle("fill", boxX, boxY, boxW, boxH)
-
-    -- Border (console green style)
-    love.graphics.setColor(0.2, 1, 0.2)
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", boxX, boxY, boxW, boxH)
-    love.graphics.setLineWidth(1)
-
-    -- Title
-    love.graphics.setColor(0.2, 1, 0.2)
-    love.graphics.print("CHEAT CONSOLE", boxX+4, boxY+4)
-    
-    -- Hint
-    love.graphics.setColor(0.6, 0.6, 0.6)
-    love.graphics.print("Type 'help' for available cheats", boxX+4, boxY+16)
-
-    -- History (last 3 commands)
-    local y = boxY + 30
-    love.graphics.setColor(0.4, 0.8, 0.4)
-    for i = math.min(3, #cheats.cheatHistory), 1, -1 do
-        love.graphics.print("> " .. cheats.cheatHistory[i], boxX+4, y)
-        y = y + 10
-    end
-
-    -- Input prompt
-    y = boxY + boxH - 24
-    love.graphics.setColor(0.2, 1, 0.2)
-    love.graphics.print("> ", boxX+4, y)
-    
-    -- Input text
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.print(cheats.cheatInput, boxX+16, y)
-    
-    -- Cursor (blinking)
-    if math.floor(love.timer.getTime() * 2) % 2 == 0 then
-        local cursorX = boxX + 16 + font:getWidth(cheats.cheatInput)
-        love.graphics.rectangle("fill", cursorX, y, 6, 10)
-    end
-    
-    -- Instructions (inside the box, with padding)
-    love.graphics.setColor(0.5, 0.5, 0.5)
-    love.graphics.print("[Enter] Submit  [Up/Down] History  [Esc/~] Close", boxX+4, boxY+boxH-14)
 end
 
 function drawInventory()
