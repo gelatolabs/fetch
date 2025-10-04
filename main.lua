@@ -86,7 +86,7 @@ local EffectType = AbilitySystem.EffectType
 -- Register abilities
 abilityManager:registerAbility({
     id = "swim",
-    name = "Swimming",
+    name = "Swim",
     aliases = {"swim", "swimming"},
     type = AbilityType.PASSIVE,
     effects = {EffectType.WATER_TRAVERSAL},
@@ -1685,7 +1685,18 @@ function drawQuestTurnIn()
 
     -- Draw player
     love.graphics.setColor(1, 1, 1)
-    love.graphics.draw(playerSprite, player.x - player.size/2 - camX, player.y - player.size/2 - camY)
+    local currentQuad = playerQuads[player.direction][player.moving and (player.walkFrame + 1) or 1]
+    local scaleX = (player.facing == "left") and -1 or 1
+    local offsetX = (player.facing == "left") and player.size or 0
+    love.graphics.draw(
+        playerTileset,
+        currentQuad,
+        player.x - player.size/2 - camX + offsetX,
+        player.y - player.size/2 - camY,
+        0,
+        scaleX,
+        1
+    )
 
     -- Draw dialog box
     local quest = currentDialog.quest
