@@ -10,6 +10,7 @@
  <tile id="2">
   <properties>
    <property name="collides" type="bool" value="true"/>
+   <property name="height" type="float" value="1"/>
   </properties>
   <image source="../tiles/wall.png" width="16" height="16"/>
  </tile>
@@ -19,6 +20,7 @@
  <tile id="4">
   <properties>
    <property name="collides" type="bool" value="true"/>
+   <property name="height" type="float" value="0.5"/>
   </properties>
   <image source="../tiles/bush.png" width="16" height="16"/>
  </tile>
@@ -47,11 +49,15 @@
   <image source="../tiles/path.png" width="16" height="16"/>
  </tile>
  <tile id="13">
+  <properties>
+   <property name="height" type="float" value="0.1"/>
+  </properties>
   <image source="../tiles/rock_small.png" width="16" height="16"/>
  </tile>
  <tile id="14">
   <properties>
    <property name="collides" type="bool" value="true"/>
+   <property name="height" type="float" value="0.5"/>
   </properties>
   <image source="../tiles/rock.png" width="16" height="16"/>
  </tile>
@@ -61,6 +67,7 @@
  <tile id="16">
   <properties>
    <property name="collides" type="bool" value="true"/>
+   <property name="height" type="float" value="1"/>
   </properties>
   <image source="../tiles/tree.png" width="16" height="16"/>
  </tile>
