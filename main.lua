@@ -380,6 +380,24 @@ local function isWaterTile(x, y)
     return false
 end
 
+-- Helper function to check if an NPC is at a position
+local function isNPCAt(x, y)
+    for _, npc in ipairs(npcs) do
+        if npc.map == currentMap then
+            -- Check if NPC occupies this position (using grid-based collision)
+            local npcGridX = math.floor(npc.x / 16)
+            local npcGridY = math.floor(npc.y / 16)
+            local targetGridX = math.floor(x / 16)
+            local targetGridY = math.floor(y / 16)
+            
+            if npcGridX == targetGridX and npcGridY == targetGridY then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 function love.update(dt)
     -- Update map
     map:update(dt)
@@ -476,7 +494,10 @@ function love.update(dt)
                 local targetPixelY = newGridY * 16 + 8
                 
                 local canCrossWater = abilityManager:hasEffect(EffectType.WATER_TRAVERSAL)
-                if not isColliding(targetPixelX, targetPixelY, canCrossWater) then
+                local tileBlocked = isColliding(targetPixelX, targetPixelY, canCrossWater)
+                local npcBlocked = isNPCAt(targetPixelX, targetPixelY)
+                
+                if not tileBlocked and not npcBlocked then
                     player.targetGridX = newGridX
                     player.targetGridY = newGridY
                     player.moving = true
