@@ -743,6 +743,8 @@ function love.keypressed(key)
             gameState = "playing"
             currentDialog = nil
         end
+    elseif key == "f" then
+        love.window.setFullscreen(not love.window.getFullscreen())
     end
 end
 
