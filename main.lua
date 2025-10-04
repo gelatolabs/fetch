@@ -24,7 +24,7 @@ local playerQuads = {
 local npcSprite
 
 -- Game state
--- mainMenu, settings, playing, dialog, questLog, inventory, questTurnIn
+-- mainMenu, settings, playing, dialog, questLog, inventory, questTurnIn, shop
 local gameState = "mainMenu"
 
 -- Settings
@@ -77,6 +77,12 @@ local completedQuests = {}
 -- Inventory
 local inventory = {}
 
+-- Shop inventory
+local shopInventory = {
+    {itemId = "item_rubber_duck", price = 10, description = "A cheerful rubber duck. Perfect for bath time or just keeping you company!"},
+    {itemId = "item_labubu", price = 10000, description = "An extremely rare and adorable Labubu collectible. Highly sought after by collectors!"}
+}
+
 -- Item registry (single source of truth for all items)
 local itemRegistry = {
     item_cat = {id = "item_cat", name = "Fluffy Cat", aliases = {"cat"}},
@@ -84,7 +90,9 @@ local itemRegistry = {
     item_package = {id = "item_package", name = "Sealed Package", aliases = {"package"}},
     item_floaties = {id = "item_floaties", name = "Swimming Floaties", aliases = {"floaties", "floaty"}},
     item_wood = {id = "item_wood", name = "Wooden Planks", aliases = {"wood", "planks"}},
-    item_shoes = {id = "item_shoes", name = "Jumping Shoes", aliases = {"shoes", "boots", "jumping shoes"}}
+    item_shoes = {id = "item_shoes", name = "Jumping Shoes", aliases = {"shoes", "boots", "jumping shoes"}},
+    item_rubber_duck = {id = "item_rubber_duck", name = "Rubber Duck", aliases = {"duck", "rubber duck"}},
+    item_labubu = {id = "item_labubu", name = "Labubu", aliases = {"labubu"}}
 }
 
 -- Ability System
@@ -168,6 +176,7 @@ local currentDialog = nil
 local nearbyDoor = nil
 local mouseX = 0
 local mouseY = 0
+local selectedShopItem = nil
 
 -- Toast system
 local toasts = {}
@@ -978,6 +987,12 @@ function love.mousepressed(x, y, button)
         return
     end
 
+    -- Handle shop clicks
+    if gameState == "shop" and button == 1 then
+        handleShopClick(x, y)
+        return
+    end
+
     if button == 1 and gameState == "questTurnIn" then
         -- Convert screen coordinates to canvas coordinates
         local screenWidth, screenHeight = love.graphics.getDimensions()
@@ -1059,6 +1074,8 @@ function love.keypressed(key)
             gameState = "pauseMenu"
         elseif gameState == "pauseMenu" then
             gameState = "playing"
+        elseif gameState == "shop" then
+            gameState = "playing"
         elseif gameState ~= "mainMenu" and gameState ~= "settings" then
             gameState = "playing"
             currentDialog = nil
@@ -1114,7 +1131,11 @@ function enterDoor(door)
 end
 
 function interactWithNPC(npc)
-    if npc.isQuestGiver then
+    if npc.isShopkeeper then
+        -- Open shop UI
+        selectedShopItem = 1  -- Select first item by default
+        gameState = "shop"
+    elseif npc.isQuestGiver then
         local quest = quests[npc.questId]
         if not quest.active and not quest.completed then
             -- Offer quest
@@ -1812,6 +1833,8 @@ function love.draw()
         drawQuestLog()
     elseif gameState == "inventory" then
         drawInventory()
+    elseif gameState == "shop" then
+        drawShop()
     elseif gameState == "questTurnIn" then
         drawQuestTurnIn()
     end
@@ -2162,4 +2185,224 @@ function drawInventory()
     -- Footer
     love.graphics.setColor(0.5, 0.5, 0.5)
     love.graphics.print("[I] Close", boxX+4, boxY+boxH-15)
+end
+
+function drawShop()
+    local boxX, boxY = 10, 10
+    local boxW, boxH = GAME_WIDTH - 20, GAME_HEIGHT - 20
+
+    -- Background
+    love.graphics.setColor(0.05, 0.05, 0.1, 0.98)
+    love.graphics.rectangle("fill", boxX, boxY, boxW, boxH)
+
+    -- Fancy border
+    drawFancyBorder(boxX, boxY, boxW, boxH, {0.8, 0.6, 0.2})
+
+    -- Title bar
+    love.graphics.setColor(0.15, 0.1, 0.05, 0.95)
+    love.graphics.rectangle("fill", boxX+2, boxY+2, boxW-4, 12)
+    love.graphics.setColor(1, 0.8, 0.3)
+    love.graphics.printf("SHOP", boxX+2, boxY, boxW-4, "center")
+
+    -- Your gold
+    local goldText = "Gold: " .. playerGold
+    love.graphics.setColor(1, 0.84, 0)
+    love.graphics.print(goldText, boxX+4, boxY+16)
+
+    -- Left side: Item grid
+    local gridX = boxX + 4
+    local gridY = boxY + 30
+    local slotSize = 20
+    local padding = 4
+
+    for i, shopItem in ipairs(shopInventory) do
+        local slotX = gridX + ((i - 1) % 6) * (slotSize + padding)
+        local slotY = gridY + math.floor((i - 1) / 6) * (slotSize + padding)
+
+        -- Check if selected
+        local isSelected = selectedShopItem == i
+        local alreadyOwns = hasItem(shopItem.itemId)
+
+        -- Slot background
+        if isSelected then
+            love.graphics.setColor(0.3, 0.25, 0.15, 0.9)
+        else
+            love.graphics.setColor(0.1, 0.1, 0.15, 0.8)
+        end
+        love.graphics.rectangle("fill", slotX, slotY, slotSize, slotSize)
+
+        -- Item representation
+        if alreadyOwns then
+            love.graphics.setColor(0.4, 0.4, 0.4)
+        else
+            love.graphics.setColor(0.9, 0.7, 0.3)
+        end
+        love.graphics.rectangle("fill", slotX+2, slotY+2, slotSize-4, slotSize-4)
+
+        -- Border
+        if isSelected then
+            love.graphics.setColor(1, 0.8, 0.3)
+        elseif alreadyOwns then
+            love.graphics.setColor(0.4, 0.4, 0.4)
+        else
+            love.graphics.setColor(0.8, 0.6, 0.2)
+        end
+        love.graphics.rectangle("line", slotX, slotY, slotSize, slotSize)
+    end
+
+    -- Right side: Item details
+    if selectedShopItem then
+        local shopItem = shopInventory[selectedShopItem]
+        if shopItem then
+            local itemData = itemRegistry[shopItem.itemId]
+            local itemName = itemData and itemData.name or shopItem.itemId
+            local alreadyOwns = hasItem(shopItem.itemId)
+            local canAfford = playerGold >= shopItem.price
+
+            local detailX = boxX + 150
+            local detailY = boxY + 30
+            local detailW = boxW - 150 - 8
+
+            -- Item display (2x size)
+            local displaySize = 40
+            love.graphics.setColor(0.1, 0.1, 0.15, 0.8)
+            love.graphics.rectangle("fill", detailX, detailY, displaySize, displaySize)
+
+            if alreadyOwns then
+                love.graphics.setColor(0.4, 0.4, 0.4)
+            else
+                love.graphics.setColor(0.9, 0.7, 0.3)
+            end
+            love.graphics.rectangle("fill", detailX+4, detailY+4, displaySize-8, displaySize-8)
+
+            love.graphics.setColor(0.8, 0.6, 0.2)
+            love.graphics.rectangle("line", detailX, detailY, displaySize, displaySize)
+
+            -- Item name
+            love.graphics.setColor(1, 0.9, 0.7)
+            love.graphics.print(itemName, detailX + displaySize + 6, detailY)
+
+            -- Price
+            if alreadyOwns then
+                love.graphics.setColor(0.5, 0.5, 0.5)
+                love.graphics.print("Owned", detailX + displaySize + 6, detailY + 12)
+            else
+                love.graphics.setColor(1, 0.84, 0)
+                love.graphics.print(shopItem.price .. "g", detailX + displaySize + 6, detailY + 12)
+            end
+
+            -- Description
+            local descY = detailY + displaySize + 8
+            love.graphics.setColor(0.8, 0.8, 0.8)
+
+            -- Wrap description text
+            local wrapWidth = detailW - 4
+            local _, wrappedText = font:getWrap(shopItem.description, wrapWidth)
+            for i, line in ipairs(wrappedText) do
+                love.graphics.print(line, detailX, descY + (i-1) * 10)
+            end
+
+            -- Purchase button
+            if not alreadyOwns then
+                local btnY = boxY + boxH - 40
+                local btnW = 80
+                local btnH = 20
+                local btnX = detailX + (detailW - btnW) / 2
+
+                local isHovered = isMouseOverButton(btnX, btnY, btnW, btnH)
+
+                -- Button background
+                if not canAfford then
+                    love.graphics.setColor(0.3, 0.1, 0.1, 0.7)
+                elseif isHovered then
+                    love.graphics.setColor(0.3, 0.25, 0.15)
+                else
+                    love.graphics.setColor(0.2, 0.15, 0.1)
+                end
+                love.graphics.rectangle("fill", btnX, btnY, btnW, btnH)
+
+                -- Button border
+                if not canAfford then
+                    love.graphics.setColor(0.6, 0.2, 0.2)
+                elseif isHovered then
+                    love.graphics.setColor(1, 0.8, 0.4)
+                else
+                    love.graphics.setColor(0.8, 0.6, 0.2)
+                end
+                love.graphics.rectangle("line", btnX, btnY, btnW, btnH)
+
+                -- Button text
+                if not canAfford then
+                    love.graphics.setColor(0.7, 0.4, 0.4)
+                else
+                    love.graphics.setColor(1, 0.9, 0.7)
+                end
+                love.graphics.printf("Purchase", btnX, btnY + 3, btnW, "center")
+            end
+        end
+    end
+
+    -- Footer
+    love.graphics.setColor(0.5, 0.5, 0.5)
+    love.graphics.print("[ESC] Close", boxX+4, boxY+boxH-15)
+end
+
+function handleShopClick(x, y)
+    -- Convert screen coordinates to canvas coordinates
+    local screenWidth, screenHeight = love.graphics.getDimensions()
+    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
+    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
+    local canvasX = (x - offsetX) / SCALE
+    local canvasY = (y - offsetY) / SCALE
+
+    local boxX, boxY = 10, 10
+    local boxW = GAME_WIDTH - 20
+    local boxH = GAME_HEIGHT - 20
+
+    -- Check grid item clicks
+    local gridX = boxX + 4
+    local gridY = boxY + 30
+    local slotSize = 20
+    local padding = 4
+
+    for i, shopItem in ipairs(shopInventory) do
+        local slotX = gridX + ((i - 1) % 6) * (slotSize + padding)
+        local slotY = gridY + math.floor((i - 1) / 6) * (slotSize + padding)
+
+        if canvasX >= slotX and canvasX <= slotX + slotSize and canvasY >= slotY and canvasY <= slotY + slotSize then
+            selectedShopItem = i
+            return
+        end
+    end
+
+    -- Check purchase button click
+    if selectedShopItem then
+        local shopItem = shopInventory[selectedShopItem]
+        if shopItem then
+            local alreadyOwns = hasItem(shopItem.itemId)
+            local canAfford = playerGold >= shopItem.price
+
+            if not alreadyOwns then
+                local btnY = boxY + boxH - 40
+                local btnW = 80
+                local btnH = 20
+                local detailX = boxX + 150
+                local detailW = boxW - 150 - 8
+                local btnX = detailX + (detailW - btnW) / 2
+
+                if canvasX >= btnX and canvasX <= btnX + btnW and canvasY >= btnY and canvasY <= btnY + btnH then
+                    if canAfford then
+                        -- Purchase item
+                        playerGold = playerGold - shopItem.price
+                        table.insert(inventory, shopItem.itemId)
+                        local itemData = itemRegistry[shopItem.itemId]
+                        showToast("Purchased " .. (itemData and itemData.name or shopItem.itemId) .. "!", {0, 1, 0})
+                    else
+                        showToast("Not enough gold!", {1, 0, 0})
+                    end
+                    return
+                end
+            end
+        end
+    end
 end
