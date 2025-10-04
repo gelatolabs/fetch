@@ -53,8 +53,8 @@ function CheatConsole.processCode(code, gameState)
             gameState.showToast("Usage: unlock <ability> (e.g. unlock swim)", {1, 1, 0.3})
         elseif gameState.playerAbilities[param] ~= nil then
             gameState.playerAbilities[param] = true
-            local abilityNames = {swim = "Swimming"}
-            local displayName = abilityNames[param] or param
+            local abilityData = gameState.getAbilityFromRegistry(param)
+            local displayName = abilityData and abilityData.name or param
             gameState.showToast("Unlocked: " .. displayName, {1, 0.5, 0})
         else
             gameState.showToast("Unknown ability: " .. param, {1, 0.3, 0.3})
@@ -65,8 +65,8 @@ function CheatConsole.processCode(code, gameState)
             gameState.showToast("Usage: lock <ability> (e.g. lock swim)", {1, 1, 0.3})
         elseif gameState.playerAbilities[param] ~= nil then
             gameState.playerAbilities[param] = false
-            local abilityNames = {swim = "Swimming"}
-            local displayName = abilityNames[param] or param
+            local abilityData = gameState.getAbilityFromRegistry(param)
+            local displayName = abilityData and abilityData.name or param
             gameState.showToast("Locked: " .. displayName, {1, 0.5, 0})
         else
             gameState.showToast("Unknown ability: " .. param, {1, 0.3, 0.3})
