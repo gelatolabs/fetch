@@ -51,11 +51,7 @@ local camera = {
 -- World map
 local map
 local world = {
-    tileSize = 16,
-    width = 50,
-    height = 50,
-    -- Simple collision map (0 = walkable, 1 = wall)
-    tiles = {}
+    tileSize = 16
 }
 
 -- NPCs
@@ -174,54 +170,13 @@ function love.load()
 
     -- Load sprites
     playerSprite = love.graphics.newImage("sprites/player.png")
-    -- playerSprite:setFilter("nearest", "nearest")
     playerWalk0 = love.graphics.newImage("sprites/player-walk0.png")
-    -- playerWalk0:setFilter("nearest", "nearest")
     playerWalk1 = love.graphics.newImage("sprites/player-walk1.png")
-    -- playerWalk1:setFilter("nearest", "nearest")
     npcSprite = love.graphics.newImage("sprites/npc.png")
-    -- npcSprite:setFilter("nearest", "nearest")
 
     -- Load Tiled map
     map = sti(mapPaths[currentMap])
-
-    -- Calculate map bounds from chunks
-    local layer = map.layers[1]
-    if layer and layer.chunks then
-        local minX, minY = math.huge, math.huge
-        local maxX, maxY = -math.huge, -math.huge
-        
-        for _, chunk in ipairs(layer.chunks) do
-            minX = math.min(minX, chunk.x)
-            minY = math.min(minY, chunk.y)
-            maxX = math.max(maxX, chunk.x + chunk.width)
-            maxY = math.max(maxY, chunk.y + chunk.height)
-        end
-        
-        -- Store map bounds in pixels
-        world.minX = minX * world.tileSize
-        world.minY = minY * world.tileSize
-        world.maxX = maxX * world.tileSize
-        world.maxY = maxY * world.tileSize
-    end
-
-    -- Initialize world (all walkable for now)
-    for y = 1, world.height do
-        world.tiles[y] = {}
-        for x = 1, world.width do
-            world.tiles[y][x] = 0
-        end
-    end
-
-    -- Add border walls
-    for x = 1, world.width do
-        world.tiles[1][x] = 1
-        world.tiles[world.height][x] = 1
-    end
-    for y = 1, world.height do
-        world.tiles[y][1] = 1
-        world.tiles[y][world.width] = 1
-    end
+    calculateMapBounds()
 
     -- Load game data
     loadGameData()
@@ -239,6 +194,34 @@ function love.load()
     -- Initialize camera centered on player
     camera.x = player.x - GAME_WIDTH / 2
     camera.y = player.y - GAME_HEIGHT / 2
+end
+
+-- Helper function to calculate map bounds from chunks
+function calculateMapBounds()
+    local layer = map.layers[1]
+    if layer and layer.chunks then
+        local minX, minY = math.huge, math.huge
+        local maxX, maxY = -math.huge, -math.huge
+        
+        for _, chunk in ipairs(layer.chunks) do
+            minX = math.min(minX, chunk.x)
+            minY = math.min(minY, chunk.y)
+            maxX = math.max(maxX, chunk.x + chunk.width)
+            maxY = math.max(maxY, chunk.y + chunk.height)
+        end
+        
+        -- Store map bounds in pixels
+        world.minX = minX * world.tileSize
+        world.minY = minY * world.tileSize
+        world.maxX = maxX * world.tileSize
+        world.maxY = maxY * world.tileSize
+    else
+        -- If no chunks, set no bounds (allow full movement)
+        world.minX = nil
+        world.minY = nil
+        world.maxX = nil
+        world.maxY = nil
+    end
 end
 
 -- Helper function to find a valid spawn position near a given location
@@ -431,6 +414,18 @@ function love.update(dt)
     end
 end
 
+-- Helper function to check if a tile should block movement
+local function shouldCollideWithTile(tile, canSwim)
+    if not tile or not tile.properties or not tile.properties.collides then
+        return false
+    end
+    -- If it's water and player can swim, allow passage
+    if canSwim and tile.properties.is_water then
+        return false
+    end
+    return true
+end
+
 function isColliding(x, y, canSwim)
     -- Noclip cheat bypasses all collision
     if CheatConsole.isNoclipActive() then
@@ -467,11 +462,7 @@ function isColliding(x, y, canSwim)
                         if chunk.data[localY] and chunk.data[localY][localX] then
                             local tile = chunk.data[localY][localX]
                             hasTile = true
-                            if tile.properties and tile.properties.collides then
-                                -- If it's water and player can swim, allow passage
-                                if canSwim and tile.properties.is_water then
-                                    return false
-                                end
+                            if shouldCollideWithTile(tile, canSwim) then
                                 return true
                             end
                         end
@@ -483,11 +474,7 @@ function isColliding(x, y, canSwim)
                 if layer.data[tileY + 1] and layer.data[tileY + 1][tileX + 1] then
                     local tile = layer.data[tileY + 1][tileX + 1]
                     hasTile = true
-                    if tile and tile.properties and tile.properties.collides then
-                        -- If it's water and player can swim, allow passage
-                        if canSwim and tile.properties.is_water then
-                            return false
-                        end
+                    if shouldCollideWithTile(tile, canSwim) then
                         return true
                     end
                 end
@@ -609,37 +596,7 @@ function enterDoor(door)
     -- Load the new map
     currentMap = door.targetMap
     map = sti(mapPaths[currentMap])
-
-    -- Recalculate map bounds for new map
-    local layer = map.layers[1]
-    if layer and layer.chunks then
-        local minX, minY = math.huge, math.huge
-        local maxX, maxY = -math.huge, -math.huge
-
-        for _, chunk in ipairs(layer.chunks) do
-            -- Chunk coordinates are in tiles, convert to pixels
-            local chunkMinX = chunk.x * 16
-            local chunkMinY = chunk.y * 16
-            local chunkMaxX = (chunk.x + chunk.width) * 16
-            local chunkMaxY = (chunk.y + chunk.height) * 16
-
-            minX = math.min(minX, chunkMinX)
-            minY = math.min(minY, chunkMinY)
-            maxX = math.max(maxX, chunkMaxX)
-            maxY = math.max(maxY, chunkMaxY)
-        end
-
-        world.minX = minX
-        world.minY = minY
-        world.maxX = maxX
-        world.maxY = maxY
-    else
-        -- If no chunks, set no bounds (allow full movement)
-        world.minX = nil
-        world.minY = nil
-        world.maxX = nil
-        world.maxY = nil
-    end
+    calculateMapBounds()
 
     -- Set player position to target door location
     player.gridX = door.targetX
@@ -763,6 +720,30 @@ function interactWithNPC(npc)
     end
 end
 
+-- Helper function to complete a quest
+local function completeQuest(quest)
+    quest.active = false
+    quest.completed = true
+    table.remove(activeQuests, indexOf(activeQuests, quest.id))
+    table.insert(completedQuests, quest.id)
+    
+    -- Grant ability if quest provides one
+    if quest.grantsAbility then
+        playerAbilities[quest.grantsAbility] = true
+        local abilityData = getAbilityFromRegistry(quest.grantsAbility)
+        local abilityName = abilityData and abilityData.name or quest.grantsAbility
+        showToast("Learned: " .. abilityName .. "!", {0.3, 0.8, 1.0})
+    end
+    
+    -- Award gold
+    if quest.goldReward and quest.goldReward > 0 then
+        playerGold = playerGold + quest.goldReward
+        showToast("+" .. quest.goldReward .. " Gold", {1, 0.84, 0})
+    end
+    
+    showToast("Quest Complete: " .. quest.name, {0, 1, 0})
+end
+
 function handleDialogInput()
     if currentDialog.type == "questOffer" then
         -- Accept quest
@@ -774,26 +755,7 @@ function handleDialogInput()
     elseif currentDialog.type == "questTurnIn" then
         -- Complete quest
         removeItem(currentDialog.quest.requiredItem)
-        currentDialog.quest.active = false
-        currentDialog.quest.completed = true
-        table.remove(activeQuests, indexOf(activeQuests, currentDialog.quest.id))
-        table.insert(completedQuests, currentDialog.quest.id)
-        
-        -- Grant ability if quest provides one
-        if currentDialog.quest.grantsAbility then
-            playerAbilities[currentDialog.quest.grantsAbility] = true
-            local abilityData = getAbilityFromRegistry(currentDialog.quest.grantsAbility)
-            local abilityName = abilityData and abilityData.name or currentDialog.quest.grantsAbility
-            showToast("Learned: " .. abilityName .. "!", {0.3, 0.8, 1.0})
-        end
-        
-        -- Award gold
-        if currentDialog.quest.goldReward and currentDialog.quest.goldReward > 0 then
-            playerGold = playerGold + currentDialog.quest.goldReward
-            showToast("+" .. currentDialog.quest.goldReward .. " Gold", {1, 0.84, 0})
-        end
-        
-        showToast("Quest Complete: " .. currentDialog.quest.name, {0, 1, 0})
+        completeQuest(currentDialog.quest)
         gameState = "playing"
         currentDialog = nil
     elseif currentDialog.type == "itemGive" then
@@ -808,19 +770,7 @@ function handleDialogInput()
     elseif currentDialog.type == "abilityGive" then
         -- Learn ability
         playerAbilities[currentDialog.ability] = true
-        
-        -- Complete the quest
-        local quest = currentDialog.quest
-        quest.active = false
-        quest.completed = true
-        table.remove(activeQuests, indexOf(activeQuests, quest.id))
-        table.insert(completedQuests, quest.id)
-        
-        -- Get ability name for toast
-        local abilityData = getAbilityFromRegistry(currentDialog.ability)
-        local abilityName = abilityData and abilityData.name or currentDialog.ability
-        showToast("Learned: " .. abilityName .. "!", {0.3, 0.8, 1.0})
-        showToast("Quest Complete: " .. quest.name, {0, 1, 0})
+        completeQuest(currentDialog.quest)
         gameState = "playing"
         currentDialog = nil
     else
@@ -941,28 +891,9 @@ function handleQuestTurnInClick(x, y)
         -- Check if click is within this item slot
         if x >= slotX and x <= slotX + slotSize and y >= slotY and y <= slotY + slotSize then
             if itemId == quest.requiredItem then
-                -- Correct item clicked! Remove item and show reward dialog
+                -- Correct item clicked! Remove item and complete quest
                 removeItem(quest.requiredItem)
-                quest.active = false
-                quest.completed = true
-                table.remove(activeQuests, indexOf(activeQuests, quest.id))
-                table.insert(completedQuests, quest.id)
-                
-                -- Grant ability if quest provides one
-                if quest.grantsAbility then
-                    playerAbilities[quest.grantsAbility] = true
-                    local abilityData = getAbilityFromRegistry(quest.grantsAbility)
-                    local abilityName = abilityData and abilityData.name or quest.grantsAbility
-                    showToast("Learned: " .. abilityName .. "!", {0.3, 0.8, 1.0})
-                end
-                
-                -- Award gold
-                if quest.goldReward and quest.goldReward > 0 then
-                    playerGold = playerGold + quest.goldReward
-                    showToast("+" .. quest.goldReward .. " Gold", {1, 0.84, 0})
-                end
-                
-                showToast("Quest Complete: " .. quest.name, {0, 1, 0})
+                completeQuest(quest)
 
                 -- Show reward dialog
                 currentDialog = {
@@ -1459,11 +1390,7 @@ function drawQuestTurnIn()
 
     -- Draw player
     love.graphics.setColor(1, 1, 1)
-    local currentSprite = playerSprite
-    if player.isWalking then
-        currentSprite = (player.walkFrame == 0) and playerWalk0 or playerWalk1
-    end
-    love.graphics.draw(currentSprite, player.x - player.size/2 - camX, player.y - player.size/2 - camY)
+    love.graphics.draw(playerSprite, player.x - player.size/2 - camX, player.y - player.size/2 - camY)
 
     -- Draw dialog box
     local quest = currentDialog.quest
@@ -1520,56 +1447,6 @@ function drawQuestTurnIn()
     -- Footer hint
     love.graphics.setColor(0.5, 0.5, 0.5)
     love.graphics.print("[ESC] Cancel", boxX + 4, boxY + boxH - 17)
-end
-
-function drawCheatPrompt()
-    local boxX, boxY = 10, GAME_HEIGHT - 92
-    local boxW, boxH = GAME_WIDTH - 20, 87
-
-    -- Background with slight transparency
-    love.graphics.setColor(0, 0, 0, 0.92)
-    love.graphics.rectangle("fill", boxX, boxY, boxW, boxH)
-
-    -- Border (console green style)
-    love.graphics.setColor(0.2, 1, 0.2)
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", boxX, boxY, boxW, boxH)
-    love.graphics.setLineWidth(1)
-
-    -- Title
-    love.graphics.setColor(0.2, 1, 0.2)
-    love.graphics.print("CHEAT CONSOLE", boxX+4, boxY+4)
-    
-    -- Hint
-    love.graphics.setColor(0.6, 0.6, 0.6)
-    love.graphics.print("Type 'help' for available cheats", boxX+4, boxY+16)
-
-    -- History (last 3 commands)
-    local y = boxY + 30
-    love.graphics.setColor(0.4, 0.8, 0.4)
-    for i = math.min(3, #cheats.cheatHistory), 1, -1 do
-        love.graphics.print("> " .. cheats.cheatHistory[i], boxX+4, y)
-        y = y + 10
-    end
-
-    -- Input prompt
-    y = boxY + boxH - 24
-    love.graphics.setColor(0.2, 1, 0.2)
-    love.graphics.print("> ", boxX+4, y)
-    
-    -- Input text
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.print(cheats.cheatInput, boxX+16, y)
-    
-    -- Cursor (blinking)
-    if math.floor(love.timer.getTime() * 2) % 2 == 0 then
-        local cursorX = boxX + 16 + font:getWidth(cheats.cheatInput)
-        love.graphics.rectangle("fill", cursorX, y, 6, 10)
-    end
-    
-    -- Instructions (inside the box, with padding)
-    love.graphics.setColor(0.5, 0.5, 0.5)
-    love.graphics.print("[Enter] Submit  [Up/Down] History  [Esc/~] Close", boxX+4, boxY+boxH-14)
 end
 
 function drawInventory()
