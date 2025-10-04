@@ -21,21 +21,21 @@ local npcSprite
 -- playing, dialog, questLog, inventory
 local gameState = "playing"
 
--- Player
+-- Player (Pokemon-style grid movement)
 local player = {
-    x = 160,
+    x = 168,  -- Current pixel position
     y = 120,
+    gridX = 10, -- Grid position (in tiles)
+    gridY = 7,
     size = 16,
     direction = "down",
-    isWalking = false,
-    walkTimer = 0,
-    walkFrame = 0, -- 0 or 1
     moving = false,
-    targetX = 160,
-    targetY = 120
+    moveTimer = 0,
+    moveDuration = 0.15,  -- Time to move one tile (in seconds)
+    walkFrame = 0  -- 0 or 1 for animation
 }
 
--- Camera
+-- Camera (Pokemon-style: always centered on player)
 local camera = {
     x = 0,
     y = 0
@@ -107,6 +107,26 @@ function love.load()
     -- Load Tiled map
     map = sti("tiled/map.lua")
 
+    -- Calculate map bounds from chunks
+    local layer = map.layers[1]
+    if layer and layer.chunks then
+        local minX, minY = math.huge, math.huge
+        local maxX, maxY = -math.huge, -math.huge
+        
+        for _, chunk in ipairs(layer.chunks) do
+            minX = math.min(minX, chunk.x)
+            minY = math.min(minY, chunk.y)
+            maxX = math.max(maxX, chunk.x + chunk.width)
+            maxY = math.max(maxY, chunk.y + chunk.height)
+        end
+        
+        -- Store map bounds in pixels
+        world.minX = minX * world.tileSize
+        world.minY = minY * world.tileSize
+        world.maxX = maxX * world.tileSize
+        world.maxY = maxY * world.tileSize
+    end
+
     -- Initialize world (all walkable for now)
     for y = 1, world.height do
         world.tiles[y] = {}
@@ -127,6 +147,10 @@ function love.load()
 
     -- Load game data
     loadGameData()
+    
+    -- Initialize camera centered on player
+    camera.x = player.x - GAME_WIDTH / 2
+    camera.y = player.y - GAME_HEIGHT / 2
 end
 
 function loadGameData()
@@ -154,73 +178,99 @@ function love.update(dt)
     end
 
     if gameState == "playing" then
-        -- Grid-based movement: move to target position
+        -- Pokemon-style grid-based movement
         if player.moving then
-            local speed = 128 -- pixels per second
-            local dx = player.targetX - player.x
-            local dy = player.targetY - player.y
-            local dist = math.sqrt(dx * dx + dy * dy)
-
-            if dist < 2 then
-                -- Snap to target
-                player.x = player.targetX
-                player.y = player.targetY
-                player.moving = false
-                player.isWalking = false
-            else
-                -- Move towards target
-                player.x = player.x + (dx / dist) * speed * dt
-                player.y = player.y + (dy / dist) * speed * dt
+            -- Increment move timer
+            player.moveTimer = player.moveTimer + dt
+            
+            -- Calculate interpolation progress (0 to 1)
+            local progress = math.min(player.moveTimer / player.moveDuration, 1)
+            
+            -- Smooth easing (ease-out)
+            local eased = 1 - (1 - progress) * (1 - progress)
+            
+            -- Calculate start and end positions
+            local startX = player.gridX * 16 + 8
+            local startY = player.gridY * 16 + 8
+            local endX = player.targetGridX * 16 + 8
+            local endY = player.targetGridY * 16 + 8
+            
+            -- Interpolate player position
+            player.x = startX + (endX - startX) * eased
+            player.y = startY + (endY - startY) * eased
+            
+            -- Update walk animation frame
+            if player.moveTimer >= player.moveDuration / 2 and player.walkFrame == 0 then
+                player.walkFrame = 1
             end
-
-            -- Update walk animation
-            player.walkTimer = player.walkTimer + dt
-            if player.walkTimer >= 0.15 then
-                player.walkFrame = 1 - player.walkFrame
-                player.walkTimer = 0
+            
+            -- Check if movement is complete
+            if progress >= 1 then
+                player.gridX = player.targetGridX
+                player.gridY = player.targetGridY
+                player.x = endX
+                player.y = endY
+                player.moving = false
+                player.moveTimer = 0
+                player.walkFrame = 0
             end
         else
-            -- Check for input and start new movement
+            -- Check for input to start new movement
             local moveDir = nil
-
+            local newGridX, newGridY = player.gridX, player.gridY
+            
             if love.keyboard.isDown("w") or love.keyboard.isDown("up") then
                 moveDir = "up"
+                newGridY = player.gridY - 1
             elseif love.keyboard.isDown("s") or love.keyboard.isDown("down") then
                 moveDir = "down"
+                newGridY = player.gridY + 1
             elseif love.keyboard.isDown("a") or love.keyboard.isDown("left") then
                 moveDir = "left"
+                newGridX = player.gridX - 1
             elseif love.keyboard.isDown("d") or love.keyboard.isDown("right") then
                 moveDir = "right"
+                newGridX = player.gridX + 1
             end
-
+            
             if moveDir then
-                local newX, newY = player.x, player.y
-
-                if moveDir == "up" then
-                    newY = player.y - 16
-                elseif moveDir == "down" then
-                    newY = player.y + 16
-                elseif moveDir == "left" then
-                    newX = player.x - 16
-                elseif moveDir == "right" then
-                    newX = player.x + 16
-                end
-
                 player.direction = moveDir
-
-                -- Check collision at target position
-                if not isColliding(newX, newY) then
-                    player.targetX = newX
-                    player.targetY = newY
+                
+                -- Check collision at target grid position
+                local targetPixelX = newGridX * 16 + 8
+                local targetPixelY = newGridY * 16 + 8
+                
+                if not isColliding(targetPixelX, targetPixelY) then
+                    player.targetGridX = newGridX
+                    player.targetGridY = newGridY
                     player.moving = true
-                    player.isWalking = true
+                    player.moveTimer = 0
                 end
             end
         end
-
-        -- Update camera to snap to 16px grid
-        camera.x = math.floor((player.x - GAME_WIDTH / 2) / 16) * 16
-        camera.y = math.floor((player.y - GAME_HEIGHT / 2) / 16) * 16
+        
+        -- Pokemon-style camera: always centered on player, smooth during movement
+        camera.x = player.x - GAME_WIDTH / 2
+        camera.y = player.y - GAME_HEIGHT / 2
+        
+        -- Clamp camera to map bounds
+        if world.minX and world.maxX then
+            local mapWidth = world.maxX - world.minX
+            local mapHeight = world.maxY - world.minY
+            
+            -- Only clamp if map is larger than screen
+            if mapWidth > GAME_WIDTH then
+                camera.x = math.max(world.minX, math.min(camera.x, world.maxX - GAME_WIDTH))
+            else
+                camera.x = world.minX + (mapWidth - GAME_WIDTH) / 2
+            end
+            
+            if mapHeight > GAME_HEIGHT then
+                camera.y = math.max(world.minY, math.min(camera.y, world.maxY - GAME_HEIGHT))
+            else
+                camera.y = world.minY + (mapHeight - GAME_HEIGHT) / 2
+            end
+        end
 
         -- Check for nearby NPCs
         nearbyNPC = nil
@@ -247,6 +297,9 @@ function isColliding(x, y)
 
     -- Handle chunked maps
     if layer.chunks then
+        -- Check if the position is within any chunk (map bounds)
+        local foundInChunk = false
+        
         for _, chunk in ipairs(layer.chunks) do
             -- Check if the tile position is within this chunk
             local chunkX = chunk.x
@@ -256,6 +309,8 @@ function isColliding(x, y)
             
             if tileX >= chunkX and tileX < chunkX + chunkWidth and
                tileY >= chunkY and tileY < chunkY + chunkHeight then
+                foundInChunk = true
+                
                 -- Convert to local chunk coordinates (1-based)
                 local localX = tileX - chunkX + 1
                 local localY = tileY - chunkY + 1
@@ -270,6 +325,11 @@ function isColliding(x, y)
                 break
             end
         end
+        
+        -- If not in any chunk, it's outside the map bounds
+        if not foundInChunk then
+            return true
+        end
     else
         -- Handle non-chunked maps
         if layer.data[tileY + 1] and layer.data[tileY + 1][tileX + 1] then
@@ -277,6 +337,9 @@ function isColliding(x, y)
             if tile and tile.properties and tile.properties.collides then
                 return true
             end
+        else
+            -- Outside map bounds
+            return true
         end
     end
 
@@ -508,7 +571,7 @@ function love.draw()
         -- Draw player with appropriate sprite
         love.graphics.setColor(1, 1, 1)
         local currentSprite = playerSprite
-        if player.isWalking then
+        if player.moving then
             currentSprite = (player.walkFrame == 0) and playerWalk0 or playerWalk1
         end
         love.graphics.draw(currentSprite, player.x - player.size/2 - camX, player.y - player.size/2 - camY)
