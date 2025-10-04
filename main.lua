@@ -72,6 +72,11 @@ local itemRegistry = {
     item_floaties = {id = "item_floaties", name = "Swimming Floaties", aliases = {"floaties", "floaty"}}
 }
 
+-- Ability registry (single source of truth for all abilities)
+local abilityRegistry = {
+    swim = {id = "swim", name = "Swimming", aliases = {"swim", "swimming"}}
+}
+
 -- Player abilities
 local playerAbilities = {
     swim = false
@@ -523,6 +528,8 @@ function love.keypressed(key)
         inventory = inventory,
         getAllItemIds = getAllItemIds,
         getItemFromRegistry = getItemFromRegistry,
+        getAllAbilityIds = getAllAbilityIds,
+        getAbilityFromRegistry = getAbilityFromRegistry,
         hasItem = hasItem,
         getGold = function() return playerGold end,
         setGold = function(amount) playerGold = amount end
@@ -739,8 +746,8 @@ function handleDialogInput()
         -- Grant ability if quest provides one
         if currentDialog.quest.grantsAbility then
             playerAbilities[currentDialog.quest.grantsAbility] = true
-            local abilityNames = {swim = "Swimming"}
-            local abilityName = abilityNames[currentDialog.quest.grantsAbility] or currentDialog.quest.grantsAbility
+            local abilityData = getAbilityFromRegistry(currentDialog.quest.grantsAbility)
+            local abilityName = abilityData and abilityData.name or currentDialog.quest.grantsAbility
             showToast("Learned: " .. abilityName .. "!", {0.3, 0.8, 1.0})
         end
         
@@ -774,10 +781,9 @@ function handleDialogInput()
         table.insert(completedQuests, quest.id)
         
         -- Get ability name for toast
-        local abilityNames = {
-            swim = "Swimming"
-        }
-        showToast("Learned: " .. (abilityNames[currentDialog.ability] or currentDialog.ability) .. "!", {0.3, 0.8, 1.0})
+        local abilityData = getAbilityFromRegistry(currentDialog.ability)
+        local abilityName = abilityData and abilityData.name or currentDialog.ability
+        showToast("Learned: " .. abilityName .. "!", {0.3, 0.8, 1.0})
         showToast("Quest Complete: " .. quest.name, {0, 1, 0})
         gameState = "playing"
         currentDialog = nil
@@ -820,6 +826,34 @@ function getAllItemIds()
     local ids = {}
     for itemId, _ in pairs(itemRegistry) do
         table.insert(ids, itemId)
+    end
+    return ids
+end
+
+-- Get ability info from registry by ID or alias
+function getAbilityFromRegistry(nameOrAlias)
+    -- First check if it's a direct ability ID
+    if abilityRegistry[nameOrAlias] then
+        return abilityRegistry[nameOrAlias]
+    end
+    
+    -- Then check aliases
+    for abilityId, abilityData in pairs(abilityRegistry) do
+        for _, alias in ipairs(abilityData.aliases) do
+            if alias == nameOrAlias then
+                return abilityData
+            end
+        end
+    end
+    
+    return nil
+end
+
+-- Get all ability IDs from registry
+function getAllAbilityIds()
+    local ids = {}
+    for abilityId, _ in pairs(abilityRegistry) do
+        table.insert(ids, abilityId)
     end
     return ids
 end
@@ -881,8 +915,8 @@ function handleQuestTurnInClick(x, y)
                 -- Grant ability if quest provides one
                 if quest.grantsAbility then
                     playerAbilities[quest.grantsAbility] = true
-                    local abilityNames = {swim = "Swimming"}
-                    local abilityName = abilityNames[quest.grantsAbility] or quest.grantsAbility
+                    local abilityData = getAbilityFromRegistry(quest.grantsAbility)
+                    local abilityName = abilityData and abilityData.name or quest.grantsAbility
                     showToast("Learned: " .. abilityName .. "!", {0.3, 0.8, 1.0})
                 end
                 
