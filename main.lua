@@ -177,6 +177,7 @@ local nearbyDoor = nil
 local mouseX = 0
 local mouseY = 0
 local selectedShopItem = nil
+local winScreenTimer = 0
 
 -- Toast system
 local toasts = {}
@@ -541,6 +542,15 @@ function love.update(dt)
         if toasts[i].timer <= 0 then
             table.remove(toasts, i)
         end
+    end
+
+    -- Handle win screen timer
+    if gameState == "winScreen" then
+        winScreenTimer = winScreenTimer + dt
+        if winScreenTimer >= 5 then  -- 5 seconds
+            love.event.quit()
+        end
+        return
     end
 
     if gameState == "playing" and not CheatConsole.isOpen() then
@@ -1232,25 +1242,30 @@ local function completeQuest(quest)
     quest.completed = true
     table.remove(activeQuests, indexOf(activeQuests, quest.id))
     table.insert(completedQuests, quest.id)
-    
+
     -- Grant ability if quest provides one
     if quest.grantsAbility then
         local context = {showToast = showToast}
         abilityManager:grantAbility(quest.grantsAbility, context)
-        
+
         local ability = abilityManager:getAbility(quest.grantsAbility)
         if ability then
             showToast("Learned: " .. ability.name .. "!", ability.color)
         end
     end
-    
+
     -- Award gold
     if quest.goldReward and quest.goldReward > 0 then
         playerGold = playerGold + quest.goldReward
         showToast("+" .. quest.goldReward .. " Gold", {1, 0.84, 0})
     end
-    
+
     showToast("Quest Complete: " .. quest.name, {0, 1, 0})
+
+    -- Check if main quest was completed (win condition)
+    if quest.isMainQuest then
+        gameState = "winScreen"
+    end
 end
 
 function handleDialogInput()
@@ -1283,7 +1298,12 @@ function handleDialogInput()
         gameState = "playing"
         currentDialog = nil
     else
-        gameState = "playing"
+        -- Check if this was a reward dialog after completing a main quest
+        if currentDialog.completedMainQuest then
+            gameState = "winScreen"
+        else
+            gameState = "playing"
+        end
         currentDialog = nil
     end
 end
@@ -1398,7 +1418,8 @@ function handleQuestTurnInClick(x, y)
                 currentDialog = {
                     type = "generic",
                     npc = currentDialog.npc,
-                    text = quest.reward
+                    text = quest.reward,
+                    completedMainQuest = quest.isMainQuest  -- Track if this was a main quest
                 }
                 gameState = "dialog"
             else
@@ -1837,6 +1858,8 @@ function love.draw()
         drawShop()
     elseif gameState == "questTurnIn" then
         drawQuestTurnIn()
+    elseif gameState == "winScreen" then
+        drawWinScreen()
     end
 
     -- Draw cheat console (overlay on top of everything)
@@ -1977,17 +2000,42 @@ function drawQuestLog()
     -- Content area
     local y = boxY + 18
 
-    -- Active quests header
-    love.graphics.setColor(0.9, 0.7, 0.3)
-    love.graphics.print("Active:", boxX+4, y)
+    -- Separate main and side quests
+    local activeMainQuests = {}
+    local activeSideQuests = {}
+    local completedMainQuests = {}
+    local completedSideQuests = {}
+
+    for _, questId in ipairs(activeQuests) do
+        local quest = quests[questId]
+        if quest.isMainQuest then
+            table.insert(activeMainQuests, questId)
+        else
+            table.insert(activeSideQuests, questId)
+        end
+    end
+
+    for _, questId in ipairs(completedQuests) do
+        local quest = quests[questId]
+        if quest.isMainQuest then
+            table.insert(completedMainQuests, questId)
+        else
+            table.insert(completedSideQuests, questId)
+        end
+    end
+
+    -- Main Quests Section
+    love.graphics.setColor(1, 0.8, 0.3)
+    love.graphics.print("MAIN QUEST", boxX+4, y)
     y = y + 12
 
-    if #activeQuests == 0 then
+    if #activeMainQuests == 0 and #completedMainQuests == 0 then
         love.graphics.setColor(0.4, 0.4, 0.4)
         love.graphics.print("None", boxX+6, y)
         y = y + 12
     else
-        for _, questId in ipairs(activeQuests) do
+        -- Active main quests
+        for _, questId in ipairs(activeMainQuests) do
             local quest = quests[questId]
             love.graphics.setColor(1, 0.9, 0.3)
             love.graphics.print("- " .. quest.name, boxX+6, y)
@@ -1996,23 +2044,43 @@ function drawQuestLog()
             love.graphics.printf(quest.description, boxX+8, y, boxW-12, "left")
             y = y + 24
         end
+
+        -- Completed main quests
+        for _, questId in ipairs(completedMainQuests) do
+            local quest = quests[questId]
+            love.graphics.setColor(0.3, 0.9, 0.3)
+            love.graphics.print("- " .. quest.name .. " (Completed)", boxX+6, y)
+            y = y + 12
+        end
     end
 
-    y = y + 4
+    y = y + 6
 
-    -- Completed quests header
-    love.graphics.setColor(0.9, 0.7, 0.3)
-    love.graphics.print("Completed:", boxX+4, y)
+    -- Side Quests Section
+    love.graphics.setColor(0.8, 0.7, 0.5)
+    love.graphics.print("SIDE QUESTS", boxX+4, y)
     y = y + 12
 
-    if #completedQuests == 0 then
+    if #activeSideQuests == 0 and #completedSideQuests == 0 then
         love.graphics.setColor(0.4, 0.4, 0.4)
         love.graphics.print("None", boxX+6, y)
     else
-        for _, questId in ipairs(completedQuests) do
+        -- Active side quests
+        for _, questId in ipairs(activeSideQuests) do
+            local quest = quests[questId]
+            love.graphics.setColor(0.9, 0.8, 0.5)
+            love.graphics.print("- " .. quest.name, boxX+6, y)
+            y = y + 10
+            love.graphics.setColor(0.7, 0.7, 0.7)
+            love.graphics.printf(quest.description, boxX+8, y, boxW-12, "left")
+            y = y + 24
+        end
+
+        -- Completed side quests
+        for _, questId in ipairs(completedSideQuests) do
             local quest = quests[questId]
             love.graphics.setColor(0.3, 0.9, 0.3)
-            love.graphics.print("- " .. quest.name, boxX+6, y)
+            love.graphics.print("- " .. quest.name .. " (Completed)", boxX+6, y)
             y = y + 12
         end
     end
@@ -2345,6 +2413,32 @@ function drawShop()
     -- Footer
     love.graphics.setColor(0.5, 0.5, 0.5)
     love.graphics.print("[ESC] Close", boxX+4, boxY+boxH-15)
+end
+
+function drawWinScreen()
+    -- Background
+    love.graphics.setColor(0, 0, 0, 0.95)
+    love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, GAME_HEIGHT)
+
+    -- Title
+    love.graphics.setFont(titleFont)
+    love.graphics.setColor(1, 0.84, 0)
+    love.graphics.printf("QUEST COMPLETE!", 0, 60, GAME_WIDTH, "center")
+    love.graphics.setFont(font)
+
+    -- Message
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("You have completed the Royal Gift quest!", 0, 110, GAME_WIDTH, "center")
+    love.graphics.printf("The King is very pleased with the Labubu!", 0, 125, GAME_WIDTH, "center")
+
+    -- Stats
+    love.graphics.setColor(0.8, 0.8, 0.8)
+    love.graphics.printf("Final Gold: " .. playerGold, 0, 155, GAME_WIDTH, "center")
+    love.graphics.printf("Quests Completed: " .. #completedQuests, 0, 170, GAME_WIDTH, "center")
+
+    -- Footer
+    love.graphics.setColor(0.6, 0.6, 0.6)
+    love.graphics.printf("The game will close in a moment...", 0, 200, GAME_WIDTH, "center")
 end
 
 function handleShopClick(x, y)
