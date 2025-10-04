@@ -327,8 +327,20 @@ function interactWithNPC(npc)
             gameState = "dialog"
         end
     elseif npc.givesItem then
-        -- Give item
-        if not hasItem(npc.givesItem) then
+        -- Check if the required quest is active
+        local requiredQuest = npc.requiresQuest and quests[npc.requiresQuest]
+        local questActive = requiredQuest and requiredQuest.active
+
+        if not questActive then
+            -- Quest not active, show generic dialog
+            currentDialog = {
+                type = "generic",
+                npc = npc,
+                text = npc.noQuestText or "Hello there!"
+            }
+            gameState = "dialog"
+        elseif not hasItem(npc.givesItem) then
+            -- Quest active and don't have item, give it
             currentDialog = {
                 type = "itemGive",
                 npc = npc,
@@ -336,6 +348,7 @@ function interactWithNPC(npc)
             }
             gameState = "dialog"
         else
+            -- Already have the item
             currentDialog = {
                 type = "generic",
                 npc = npc,
