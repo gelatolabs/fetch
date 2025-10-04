@@ -15,9 +15,8 @@ local font
 local titleFont
 
 -- Sprites
-local playerSprite
-local playerWalk0
-local playerWalk1
+local playerTileset
+local playerQuads = {}
 local npcSprite
 
 -- Game state
@@ -37,6 +36,7 @@ local player = {
     gridY = -10,
     size = 16,
     direction = "down",
+    facing = "right",  -- Add this line: remembers last horizontal direction
     moving = false,
     moveTimer = 0,
     moveDuration = 0.15,  -- Time to move one tile (in seconds)
@@ -221,9 +221,22 @@ function love.load()
     titleFont:setFilter("nearest", "nearest")
 
     -- Load sprites
-    playerSprite = love.graphics.newImage("sprites/player.png")
-    playerWalk0 = love.graphics.newImage("sprites/player-walk0.png")
-    playerWalk1 = love.graphics.newImage("sprites/player-walk1.png")
+    playerTileset = love.graphics.newImage("tiles/player-tileset.png")
+    -- Create quads for player animation
+    playerQuads = {
+        down = {
+            love.graphics.newQuad(0, 0, 16, 16, playerTileset:getDimensions()),
+            love.graphics.newQuad(16, 0, 16, 16, playerTileset:getDimensions())
+        },
+        up = {
+            love.graphics.newQuad(32, 0, 16, 16, playerTileset:getDimensions()),
+            love.graphics.newQuad(48, 0, 16, 16, playerTileset:getDimensions())
+        }
+    }
+    -- Also use down frames for left/right (will be flipped horizontally)
+    playerQuads.left = playerQuads.down
+    playerQuads.right = playerQuads.down
+    
     npcSprite = love.graphics.newImage("sprites/npc.png")
 
     -- Load Tiled map
@@ -480,9 +493,11 @@ function love.update(dt)
                 newGridY = player.gridY + 1
             elseif love.keyboard.isDown("a") or love.keyboard.isDown("left") then
                 moveDir = "left"
+                player.facing = "left"
                 newGridX = player.gridX - 1
             elseif love.keyboard.isDown("d") or love.keyboard.isDown("right") then
                 moveDir = "right"
+                player.facing = "right"
                 newGridX = player.gridX + 1
             end
             
@@ -1360,11 +1375,18 @@ function love.draw()
 
         -- Draw player with appropriate sprite
         love.graphics.setColor(1, 1, 1)
-        local currentSprite = playerSprite
-        if player.moving then
-            currentSprite = (player.walkFrame == 0) and playerWalk0 or playerWalk1
-        end
-        love.graphics.draw(currentSprite, player.x - player.size/2 - camX, player.y - player.size/2 - camY)
+        local currentQuad = playerQuads[player.direction][player.moving and (player.walkFrame + 1) or 1]
+        local scaleX = (player.facing == "left") and -1 or 1  -- Use facing instead of direction
+        local offsetX = (player.facing == "left") and player.size or 0  -- Use facing instead of direction
+        love.graphics.draw(
+            playerTileset,
+            currentQuad,
+            player.x - player.size/2 - camX + offsetX,
+            player.y - player.size/2 - camY,
+            0,
+            scaleX,
+            1
+        )
 
         -- Draw interaction prompt
         if nearbyDoor and gameState == "playing" then
