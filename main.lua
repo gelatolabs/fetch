@@ -2,6 +2,7 @@
 local sti = require "sti"
 local questData = require "quests"
 local CheatConsole = require "cheat_console"
+local AbilitySystem = require "ability_system"
 
 -- Game constants
 local GAME_WIDTH = 320
@@ -39,7 +40,8 @@ local player = {
     moving = false,
     moveTimer = 0,
     moveDuration = 0.15,  -- Time to move one tile (in seconds)
-    walkFrame = 0  -- 0 or 1 for animation
+    walkFrame = 0,  -- 0 or 1 for animation
+    wasOnWater = false  -- Track if player was on water last frame
 }
 
 -- Camera (Pokemon-style: always centered on player)
@@ -70,18 +72,66 @@ local itemRegistry = {
     item_cat = {id = "item_cat", name = "Fluffy Cat", aliases = {"cat"}},
     item_book = {id = "item_book", name = "Ancient Tome", aliases = {"book"}},
     item_package = {id = "item_package", name = "Sealed Package", aliases = {"package"}},
-    item_floaties = {id = "item_floaties", name = "Swimming Floaties", aliases = {"floaties", "floaty"}}
+    item_floaties = {id = "item_floaties", name = "Swimming Floaties", aliases = {"floaties", "floaty"}},
+    item_wood = {id = "item_wood", name = "Wooden Planks", aliases = {"wood", "planks"}}
 }
 
--- Ability registry (single source of truth for all abilities)
-local abilityRegistry = {
-    swim = {id = "swim", name = "Swimming", aliases = {"swim", "swimming"}}
-}
+-- Ability System
+local abilityManager = AbilitySystem.PlayerAbilityManager.new()
 
--- Player abilities
-local playerAbilities = {
-    swim = false
-}
+-- Local references for convenience
+local AbilityType = AbilitySystem.AbilityType
+local EffectType = AbilitySystem.EffectType
+
+-- Register abilities
+abilityManager:registerAbility({
+    id = "swim",
+    name = "Swimming",
+    aliases = {"swim", "swimming"},
+    type = AbilityType.PASSIVE,
+    effects = {EffectType.WATER_TRAVERSAL},
+    description = "Allows you to swim across water tiles freely",
+    color = {0.3, 0.8, 1.0},
+    onAcquire = function(context, ability)
+        if context and context.showToast then
+            context.showToast("You can now swim across water!", {0.3, 0.8, 1.0})
+        end
+    end
+})
+
+abilityManager:registerAbility({
+    id = "boat",
+    name = "Boat",
+    aliases = {"boat", "raft"},
+    type = AbilityType.CONSUMABLE,
+    effects = {EffectType.WATER_TRAVERSAL},
+    description = "A makeshift boat that breaks after crossing water 3 times",
+    maxUses = 3,
+    consumeOnUse = true,
+    color = {0.7, 0.7, 1.0},
+    onAcquire = function(context, ability)
+        if context and context.showToast then
+            context.showToast("Boat has " .. ability.maxUses .. " crossings", {0.7, 0.7, 1.0})
+        end
+    end,
+    onUse = function(context, ability)
+        if context and context.showToast then
+            if ability.currentUses > 0 then
+                context.showToast("Boat crossings remaining: " .. ability.currentUses, {0.7, 0.7, 1.0})
+            end
+        end
+    end,
+    onExpire = function(context)
+        if context and context.showToast then
+            context.showToast("Your boat broke apart!", {1, 0.5, 0.2})
+        end
+    end
+})
+
+-- Legacy compatibility (will be removed after full migration)
+local playerAbilities = {}
+local boatUses = 0
+local MAX_BOAT_USES = 3
 
 -- Player gold
 local playerGold = 0
@@ -284,6 +334,52 @@ function loadGameData()
     end
 end
 
+-- Helper function to check if a position is water
+local function isWaterTile(x, y)
+    local tileX = math.floor(x / world.tileSize)
+    local tileY = math.floor(y / world.tileSize)
+    
+    -- Check all tile layers
+    for _, layer in ipairs(map.layers) do
+        if layer.type == "tilelayer" then
+            -- Handle chunked maps
+            if layer.chunks then
+                for _, chunk in ipairs(layer.chunks) do
+                    local chunkX = chunk.x
+                    local chunkY = chunk.y
+                    local chunkWidth = chunk.width
+                    local chunkHeight = chunk.height
+                    
+                    if tileX >= chunkX and tileX < chunkX + chunkWidth and
+                       tileY >= chunkY and tileY < chunkY + chunkHeight then
+                        
+                        local localX = tileX - chunkX + 1
+                        local localY = tileY - chunkY + 1
+                        
+                        if chunk.data[localY] and chunk.data[localY][localX] then
+                            local tile = chunk.data[localY][localX]
+                            if tile.properties and tile.properties.is_water then
+                                return true
+                            end
+                        end
+                        break
+                    end
+                end
+            else
+                -- Handle non-chunked maps
+                if layer.data[tileY + 1] and layer.data[tileY + 1][tileX + 1] then
+                    local tile = layer.data[tileY + 1][tileX + 1]
+                    if tile and tile.properties and tile.properties.is_water then
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    
+    return false
+end
+
 function love.update(dt)
     -- Update map
     map:update(dt)
@@ -332,6 +428,26 @@ function love.update(dt)
                 player.moving = false
                 player.moveTimer = 0
                 player.walkFrame = 0
+                
+                -- Check if player transitioned from water to land (boat use)
+                local isOnWater = isWaterTile(endX, endY)
+                if player.wasOnWater and not isOnWater then
+                    -- Transitioning from water to land - consume boat use
+                    local boatAbility = abilityManager:getAbility("boat")
+                    if boatAbility and not abilityManager:hasAbility("swim") then
+                        -- Use boat ability (consumes a use)
+                        local context = {showToast = showToast}
+                        boatAbility:use(context)
+                        
+                        -- Remove ability if expired
+                        if boatAbility.currentUses <= 0 then
+                            abilityManager:removeAbility("boat")
+                        end
+                    end
+                end
+                
+                -- Update water state for next frame
+                player.wasOnWater = isOnWater
             end
         else
             -- Check for input to start new movement
@@ -355,11 +471,12 @@ function love.update(dt)
             if moveDir then
                 player.direction = moveDir
                 
-                -- Check collision at target grid position (with swim ability)
+                -- Check collision at target grid position (with water traversal abilities)
                 local targetPixelX = newGridX * 16 + 8
                 local targetPixelY = newGridY * 16 + 8
                 
-                if not isColliding(targetPixelX, targetPixelY, playerAbilities.swim) then
+                local canCrossWater = abilityManager:hasEffect(EffectType.WATER_TRAVERSAL)
+                if not isColliding(targetPixelX, targetPixelY, canCrossWater) then
                     player.targetGridX = newGridX
                     player.targetGridY = newGridY
                     player.moving = true
@@ -556,7 +673,7 @@ function love.keypressed(key)
     -- Create game state object for cheat console
     local gameStateForCheats = {
         showToast = showToast,
-        playerAbilities = playerAbilities,
+        abilityManager = abilityManager,
         activeQuests = activeQuests,
         completedQuests = completedQuests,
         quests = quests,
@@ -745,10 +862,13 @@ local function completeQuest(quest)
     
     -- Grant ability if quest provides one
     if quest.grantsAbility then
-        playerAbilities[quest.grantsAbility] = true
-        local abilityData = getAbilityFromRegistry(quest.grantsAbility)
-        local abilityName = abilityData and abilityData.name or quest.grantsAbility
-        showToast("Learned: " .. abilityName .. "!", {0.3, 0.8, 1.0})
+        local context = {showToast = showToast}
+        abilityManager:grantAbility(quest.grantsAbility, context)
+        
+        local ability = abilityManager:getAbility(quest.grantsAbility)
+        if ability then
+            showToast("Learned: " .. ability.name .. "!", ability.color)
+        end
     end
     
     -- Award gold
@@ -834,30 +954,20 @@ end
 
 -- Get ability info from registry by ID or alias
 function getAbilityFromRegistry(nameOrAlias)
-    -- First check if it's a direct ability ID
-    if abilityRegistry[nameOrAlias] then
-        return abilityRegistry[nameOrAlias]
+    local ability = abilityManager:getRegisteredAbility(nameOrAlias)
+    if ability then
+        return {
+            id = ability.id,
+            name = ability.name,
+            aliases = ability.aliases
+        }
     end
-    
-    -- Then check aliases
-    for abilityId, abilityData in pairs(abilityRegistry) do
-        for _, alias in ipairs(abilityData.aliases) do
-            if alias == nameOrAlias then
-                return abilityData
-            end
-        end
-    end
-    
     return nil
 end
 
 -- Get all ability IDs from registry
 function getAllAbilityIds()
-    local ids = {}
-    for abilityId, _ in pairs(abilityRegistry) do
-        table.insert(ids, abilityId)
-    end
-    return ids
+    return abilityManager:getAllRegisteredAbilityIds()
 end
 
 function removeItem(itemId)
@@ -1264,7 +1374,7 @@ function love.draw()
         love.graphics.print(goldText, GAME_WIDTH / 2 - goldTextWidth / 2, -1)
         
         -- Draw cheat indicators
-        CheatConsole.drawIndicators(GAME_WIDTH, font, playerAbilities)
+        CheatConsole.drawIndicators(GAME_WIDTH, font, abilityManager)
 
     elseif gameState == "pauseMenu" then
         -- Draw game world in background
