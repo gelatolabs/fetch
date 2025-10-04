@@ -13,7 +13,7 @@ quests.npcs = {
         size = 16,
         name = "Elder",
         isIntroNPC = true,  -- Special flag for intro dialog
-        introTest = "Hey you! You're finally awake!\n\nWe're in a bit of a jam here, aren't we?\n\nHere's what you should know.\n\nTalk to villagers (press E) to learn what they need.\n\nPress L for your quest log and I for your inventory.\n\nGood luck on your journey!"
+        introText = "Hey you! You're finally awake!\n\nWe're in a bit of a jam here, aren't we?\n\nHere's what you should know.\n\nTalk to villagers (press E) to learn what they need.\n\nPress L for your quest log and I for your inventory.\n\nGood luck on your journey!"
     },
     -- Quest Chain 1: Lost Cat
     {
