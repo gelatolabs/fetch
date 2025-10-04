@@ -28,6 +28,25 @@ quests.npcs = {
         itemGiveText = "I found this cat wandering around! You can have it.",
         noQuestText = "I'm playing with my toys right now!"
     },
+    {
+        id = "npc_shopkeeper",
+        map = "shop",
+        x = 0 * 16 + 8,  -- Grid position (0, -4)
+        y = -4 * 16 + 8,
+        size = 16,
+        name = "Shopkeeper",
+        isShopkeeper = true
+    },
+    {
+        id = "npc_king",
+        map = "shop",
+        x = -4 * 16 + 8,  -- Grid position (-4, 5)
+        y = 5 * 16 + 8,
+        size = 16,
+        name = "King",
+        questId = "quest_royal_gift",
+        isQuestGiver = true
+    },
     -- Quest Chain 2: Missing Book
     {
         id = "npc_librarian",
@@ -223,6 +242,18 @@ quests.questData = {
         reward = "Nice! Now I can jump around like a pro!\nYou're no pro, but you probably jump over bushes now.",
         goldReward = 0,
         reminderText = "I really need those shoes!",
+        active = false,
+        completed = false
+    },
+    quest_royal_gift = {
+        id = "quest_royal_gift",
+        name = "Royal Gift",
+        description = "The king seeks a rare Labubu for his collection!",
+        questGiver = "npc_king",
+        requiredItem = "item_labubu",
+        reward = "Excellent! This Labubu will be the crown jewel of my collection!",
+        goldReward = 5000,
+        reminderText = "I'm still searching for that rare Labubu. Perhaps the shopkeeper has one?",
         active = false,
         completed = false
     }
