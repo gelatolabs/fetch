@@ -174,9 +174,24 @@ function CheatConsole.processCode(code, gameState)
             end
         end
         
+    elseif command == "screenfetch" then
+        local screenfetch = [[   __
+ <(o )___
+  ( ._> /
+   `---'
+
+OS: DuckOS 0.1
+Kernel: Mallard 4.20
+Shell: /bin/quack
+WM: PondView
+CPU: Feather 6502
+RAM: 4KB DDR0.5
+GPU: GooseForce 128]]
+        gameState.showToast(screenfetch, {0.3, 0.8, 1})
+
     elseif command == "help" or command == "?" then
-        gameState.showToast("Cheats: noclip, grid, unlock/lock, god, fetch, gold/setgold", {1, 1, 0.3})
-        
+        gameState.showToast("Cheats: noclip, grid, unlock/lock, god, fetch, gold/setgold, screenfetch", {1, 1, 0.3})
+
     else
         gameState.showToast("Unknown cheat: " .. code, {1, 0.3, 0.3})
     end
@@ -194,7 +209,10 @@ function CheatConsole.textInput(text)
 end
 
 -- Handle key press
-function CheatConsole.keyPressed(key, gameState)
+function CheatConsole.keyPressed(key, gameState, currentGameState)
+    -- Don't allow opening console on main menu or settings
+    local canOpenConsole = currentGameState ~= "mainMenu" and currentGameState ~= "settings"
+
     -- Cheat prompt handling
     if CheatConsole.state.showPrompt then
         if key == "return" then
@@ -248,8 +266,10 @@ function CheatConsole.keyPressed(key, gameState)
     
     -- Toggle cheat prompt with tilde/backtick
     if key == "`" or key == "~" then
-        CheatConsole.state.showPrompt = not CheatConsole.state.showPrompt
-        CheatConsole.state.input = ""
+        if canOpenConsole then
+            CheatConsole.state.showPrompt = not CheatConsole.state.showPrompt
+            CheatConsole.state.input = ""
+        end
         return true
     end
     

@@ -86,7 +86,7 @@ local EffectType = AbilitySystem.EffectType
 -- Register abilities
 abilityManager:registerAbility({
     id = "swim",
-    name = "Swimming",
+    name = "Swim",
     aliases = {"swim", "swimming"},
     type = AbilityType.PASSIVE,
     effects = {EffectType.WATER_TRAVERSAL},
@@ -724,7 +724,7 @@ function love.keypressed(key)
     }
     
     -- Handle cheat console keys
-    if CheatConsole.keyPressed(key, gameStateForCheats) then
+    if CheatConsole.keyPressed(key, gameStateForCheats, gameState) then
         return  -- Key was handled by console
     end
     
@@ -1179,10 +1179,23 @@ function drawToasts()
             alpha = toast.timer / 0.5
         end
 
-        -- Measure text width
-        local textWidth = font:getWidth(toast.message)
-        local boxW = textWidth + 8
-        local boxH = 12
+        -- Split message into lines and measure dimensions
+        local lines = {}
+        for line in toast.message:gmatch("[^\n]+") do
+            table.insert(lines, line)
+        end
+
+        -- Calculate box dimensions
+        local maxWidth = 0
+        for _, line in ipairs(lines) do
+            local lineWidth = font:getWidth(line)
+            if lineWidth > maxWidth then
+                maxWidth = lineWidth
+            end
+        end
+
+        local boxW = maxWidth + 8
+        local boxH = #lines * 10 + 2
         local boxX = GAME_WIDTH - boxW - 2 -- Align to right with 2px padding
 
         -- Background
@@ -1193,9 +1206,11 @@ function drawToasts()
         love.graphics.setColor(toast.color[1], toast.color[2], toast.color[3], alpha)
         love.graphics.rectangle("line", boxX, y, boxW, boxH)
 
-        -- Text
+        -- Text (line by line)
         love.graphics.setColor(toast.color[1], toast.color[2], toast.color[3], alpha)
-        love.graphics.print(toast.message, boxX + 4, y - 2)
+        for lineIdx, line in ipairs(lines) do
+            love.graphics.print(line, boxX + 4, y + (lineIdx - 1) * 10 - 1)
+        end
 
         y = y + boxH + 2
     end
@@ -1440,11 +1455,18 @@ function love.draw()
 
         -- Draw player
         love.graphics.setColor(1, 1, 1)
-        local currentSprite = playerSprite
-        if player.moving then
-            currentSprite = (player.walkFrame == 0) and playerWalk0 or playerWalk1
-        end
-        love.graphics.draw(currentSprite, player.x - player.size/2 - camX, player.y - player.size/2 - camY)
+        local currentQuad = playerQuads[player.direction][player.moving and (player.walkFrame + 1) or 1]
+        local scaleX = (player.facing == "left") and -1 or 1
+        local offsetX = (player.facing == "left") and player.size or 0
+        love.graphics.draw(
+            playerTileset,
+            currentQuad,
+            player.x - player.size/2 - camX + offsetX,
+            player.y - player.size/2 - camY,
+            0,
+            scaleX,
+            1
+        )
 
         -- Draw pause menu overlay
         drawPauseMenu()
@@ -1663,7 +1685,18 @@ function drawQuestTurnIn()
 
     -- Draw player
     love.graphics.setColor(1, 1, 1)
-    love.graphics.draw(playerSprite, player.x - player.size/2 - camX, player.y - player.size/2 - camY)
+    local currentQuad = playerQuads[player.direction][player.moving and (player.walkFrame + 1) or 1]
+    local scaleX = (player.facing == "left") and -1 or 1
+    local offsetX = (player.facing == "left") and player.size or 0
+    love.graphics.draw(
+        playerTileset,
+        currentQuad,
+        player.x - player.size/2 - camX + offsetX,
+        player.y - player.size/2 - camY,
+        0,
+        scaleX,
+        1
+    )
 
     -- Draw dialog box
     local quest = currentDialog.quest
