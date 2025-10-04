@@ -10,6 +10,11 @@ local currentDialogPage = 1
 
 -- Helper function to split text into dialog pages
 local function splitDialogPages(text)
+    -- Handle nil or empty text
+    if not text or text == "" then
+        return {""}
+    end
+    
     local pages = {}
     -- Split on double newline first
     for page in text:gmatch("[^\n\n]+") do
@@ -25,7 +30,9 @@ end
 -- Show a dialog
 function DialogSystem.showDialog(dialogData)
     currentDialog = dialogData
-    dialogPages = splitDialogPages(dialogData.text)
+    -- Ensure text field exists, default to empty string if not
+    local text = dialogData.text or ""
+    dialogPages = splitDialogPages(text)
     currentDialogPage = 1
     return "dialog"  -- Return the game state to switch to
 end
