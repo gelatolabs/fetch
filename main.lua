@@ -223,13 +223,45 @@ function love.update(dt)
 end
 
 function isColliding(x, y)
-    local tileX = math.floor(x / world.tileSize) + 1
-    local tileY = math.floor(y / world.tileSize) + 1
+    local tileX = math.floor(x / world.tileSize)
+    local tileY = math.floor(y / world.tileSize)
 
-    -- Check collision with map tiles using STI
-    for _, layer in ipairs(map.layers) do
-        if layer.type == "tilelayer" and layer.visible and layer.data then
-            local tile = layer.data[tileY] and layer.data[tileY][tileX]
+    -- Get the tile layer (first layer in the map)
+    local layer = map.layers[1]
+    
+    if not layer or layer.type ~= "tilelayer" then
+        return false
+    end
+
+    -- Handle chunked maps
+    if layer.chunks then
+        for _, chunk in ipairs(layer.chunks) do
+            -- Check if the tile position is within this chunk
+            local chunkX = chunk.x
+            local chunkY = chunk.y
+            local chunkWidth = chunk.width
+            local chunkHeight = chunk.height
+            
+            if tileX >= chunkX and tileX < chunkX + chunkWidth and
+               tileY >= chunkY and tileY < chunkY + chunkHeight then
+                -- Convert to local chunk coordinates (1-based)
+                local localX = tileX - chunkX + 1
+                local localY = tileY - chunkY + 1
+                
+                -- Get the tile from chunk data
+                if chunk.data[localY] and chunk.data[localY][localX] then
+                    local tile = chunk.data[localY][localX]
+                    if tile.properties and tile.properties.collides then
+                        return true
+                    end
+                end
+                break
+            end
+        end
+    else
+        -- Handle non-chunked maps
+        if layer.data[tileY + 1] and layer.data[tileY + 1][tileX + 1] then
+            local tile = layer.data[tileY + 1][tileX + 1]
             if tile and tile.properties and tile.properties.collides then
                 return true
             end
