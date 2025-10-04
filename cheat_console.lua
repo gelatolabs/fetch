@@ -209,7 +209,10 @@ function CheatConsole.textInput(text)
 end
 
 -- Handle key press
-function CheatConsole.keyPressed(key, gameState)
+function CheatConsole.keyPressed(key, gameState, currentGameState)
+    -- Don't allow opening console on main menu or settings
+    local canOpenConsole = currentGameState ~= "mainMenu" and currentGameState ~= "settings"
+
     -- Cheat prompt handling
     if CheatConsole.state.showPrompt then
         if key == "return" then
@@ -263,8 +266,10 @@ function CheatConsole.keyPressed(key, gameState)
     
     -- Toggle cheat prompt with tilde/backtick
     if key == "`" or key == "~" then
-        CheatConsole.state.showPrompt = not CheatConsole.state.showPrompt
-        CheatConsole.state.input = ""
+        if canOpenConsole then
+            CheatConsole.state.showPrompt = not CheatConsole.state.showPrompt
+            CheatConsole.state.input = ""
+        end
         return true
     end
     
