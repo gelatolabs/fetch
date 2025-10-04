@@ -1,11 +1,14 @@
 local quests = {}
 
 -- Quest Chain 1: Lost Cat
+-- NPCs positioned on tile grid (grid coordinates * 16 + 8 for center)
+-- Note: If any NPC spawns on a collision tile (water/wall), the game will
+-- automatically find the nearest valid spawn location within 20 tiles.
 quests.npcs = {
     {
         id = "npc_cat_owner",
-        x = 200,
-        y = 200,
+        x = -10 * 16 + 8,  -- Grid position (-10, -12) - upper left area
+        y = -12 * 16 + 8,
         size = 16,
         name = "Old Lady",
         questId = "quest_lost_cat",
@@ -13,8 +16,8 @@ quests.npcs = {
     },
     {
         id = "npc_cat_finder",
-        x = 600,
-        y = 200,
+        x = 20 * 16 + 8,  -- Grid position (20, -10) - upper right area
+        y = -10 * 16 + 8,
         size = 16,
         name = "Child",
         givesItem = "item_cat",
@@ -26,8 +29,8 @@ quests.npcs = {
     -- Quest Chain 2: Missing Book
     {
         id = "npc_librarian",
-        x = 350,
-        y = 450,
+        x = -8 * 16 + 8,  -- Grid position (-8, 2) - left side, above water
+        y = 2 * 16 + 8,
         size = 16,
         name = "Librarian",
         questId = "quest_missing_book",
@@ -35,8 +38,8 @@ quests.npcs = {
     },
     {
         id = "npc_reader",
-        x = 150,
-        y = 450,
+        x = 5 * 16 + 8,  -- Grid position (5, -8) - upper middle area
+        y = -8 * 16 + 8,
         size = 16,
         name = "Reader",
         givesItem = "item_book",
@@ -48,8 +51,8 @@ quests.npcs = {
     -- Quest Chain 3: Delivery Package
     {
         id = "npc_merchant",
-        x = 500,
-        y = 350,
+        x = 25 * 16 + 8,  -- Grid position (25, -5) - right side, upper area
+        y = -5 * 16 + 8,
         size = 16,
         name = "Merchant",
         questId = "quest_delivery",
@@ -57,8 +60,8 @@ quests.npcs = {
     },
     {
         id = "npc_courier",
-        x = 250,
-        y = 150,
+        x = -5 * 16 + 8,  -- Grid position (-5, -14) - left side, very top
+        y = -14 * 16 + 8,
         size = 16,
         name = "Courier",
         givesItem = "item_package",
