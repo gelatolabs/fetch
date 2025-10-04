@@ -1166,16 +1166,8 @@ function interactWithNPC(npc)
         local quest = quests[npc.questId]
         if not quest.active and not quest.completed then
             -- Offer quest
-<<<<<<< Updated upstream
             local questText = quest.name .. "\n" .. quest.description
             currentDialog = {
-||||||| Stash base
-            local questText = quest.name .. "\n" .. quest.description
-            gameState = DialogSystem.showDialog({
-=======
-            local questText = quest.description
-            gameState = DialogSystem.showDialog({
->>>>>>> Stashed changes
                 type = "questOffer",
                 npc = npc,
                 quest = quest
