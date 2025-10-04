@@ -23,15 +23,15 @@ local gameState = "playing"
 
 -- Player
 local player = {
-    x = 160,
-    y = 120,
+    x = 168,  -- 10 tiles * 16 + 8 (centered on tile)
+    y = 120,  -- 7 tiles * 16 + 8 (centered on tile)
     size = 16,
     direction = "down",
     isWalking = false,
     walkTimer = 0,
     walkFrame = 0, -- 0 or 1
     moving = false,
-    targetX = 160,
+    targetX = 168,
     targetY = 120
 }
 
@@ -102,6 +102,26 @@ function love.load()
 
     -- Load Tiled map
     map = sti("tiled/map.lua")
+
+    -- Calculate map bounds from chunks
+    local layer = map.layers[1]
+    if layer and layer.chunks then
+        local minX, minY = math.huge, math.huge
+        local maxX, maxY = -math.huge, -math.huge
+        
+        for _, chunk in ipairs(layer.chunks) do
+            minX = math.min(minX, chunk.x)
+            minY = math.min(minY, chunk.y)
+            maxX = math.max(maxX, chunk.x + chunk.width)
+            maxY = math.max(maxY, chunk.y + chunk.height)
+        end
+        
+        -- Store map bounds in pixels
+        world.minX = minX * world.tileSize
+        world.minY = minY * world.tileSize
+        world.maxX = maxX * world.tileSize
+        world.maxY = maxY * world.tileSize
+    end
 
     -- Initialize world (all walkable for now)
     for y = 1, world.height do
@@ -209,6 +229,25 @@ function love.update(dt)
         -- Update camera to snap to 16px grid
         camera.x = math.floor((player.x - GAME_WIDTH / 2) / 16) * 16
         camera.y = math.floor((player.y - GAME_HEIGHT / 2) / 16) * 16
+        
+        -- Clamp camera to map bounds
+        if world.minX and world.maxX then
+            local mapWidth = world.maxX - world.minX
+            local mapHeight = world.maxY - world.minY
+            
+            -- Only clamp if map is larger than screen
+            if mapWidth > GAME_WIDTH then
+                camera.x = math.max(world.minX, math.min(camera.x, world.maxX - GAME_WIDTH))
+            else
+                camera.x = world.minX + (mapWidth - GAME_WIDTH) / 2
+            end
+            
+            if mapHeight > GAME_HEIGHT then
+                camera.y = math.max(world.minY, math.min(camera.y, world.maxY - GAME_HEIGHT))
+            else
+                camera.y = world.minY + (mapHeight - GAME_HEIGHT) / 2
+            end
+        end
 
         -- Check for nearby NPCs
         nearbyNPC = nil
@@ -235,6 +274,9 @@ function isColliding(x, y)
 
     -- Handle chunked maps
     if layer.chunks then
+        -- Check if the position is within any chunk (map bounds)
+        local foundInChunk = false
+        
         for _, chunk in ipairs(layer.chunks) do
             -- Check if the tile position is within this chunk
             local chunkX = chunk.x
@@ -244,6 +286,8 @@ function isColliding(x, y)
             
             if tileX >= chunkX and tileX < chunkX + chunkWidth and
                tileY >= chunkY and tileY < chunkY + chunkHeight then
+                foundInChunk = true
+                
                 -- Convert to local chunk coordinates (1-based)
                 local localX = tileX - chunkX + 1
                 local localY = tileY - chunkY + 1
@@ -258,6 +302,11 @@ function isColliding(x, y)
                 break
             end
         end
+        
+        -- If not in any chunk, it's outside the map bounds
+        if not foundInChunk then
+            return true
+        end
     else
         -- Handle non-chunked maps
         if layer.data[tileY + 1] and layer.data[tileY + 1][tileX + 1] then
@@ -265,6 +314,9 @@ function isColliding(x, y)
             if tile and tile.properties and tile.properties.collides then
                 return true
             end
+        else
+            -- Outside map bounds
+            return true
         end
     end
 
