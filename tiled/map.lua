@@ -67,6 +67,9 @@ return {
         },
         {
           id = 4,
+          properties = {
+            ["collides"] = true
+          },
           image = "../tiles/bush.png",
           width = 16,
           height = 16
@@ -127,6 +130,9 @@ return {
         },
         {
           id = 14,
+          properties = {
+            ["collides"] = true
+          },
           image = "../tiles/rock.png",
           width = 16,
           height = 16
@@ -139,6 +145,9 @@ return {
         },
         {
           id = 16,
+          properties = {
+            ["collides"] = true
+          },
           image = "../tiles/tree.png",
           width = 16,
           height = 16

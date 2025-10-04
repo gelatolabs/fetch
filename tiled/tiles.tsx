@@ -17,6 +17,9 @@
   <image source="../tiles/brown.png" width="16" height="16"/>
  </tile>
  <tile id="4">
+  <properties>
+   <property name="collides" type="bool" value="true"/>
+  </properties>
   <image source="../tiles/bush.png" width="16" height="16"/>
  </tile>
  <tile id="5">
@@ -47,12 +50,18 @@
   <image source="../tiles/rock_small.png" width="16" height="16"/>
  </tile>
  <tile id="14">
+  <properties>
+   <property name="collides" type="bool" value="true"/>
+  </properties>
   <image source="../tiles/rock.png" width="16" height="16"/>
  </tile>
  <tile id="15">
   <image source="../tiles/sand.png" width="16" height="16"/>
  </tile>
  <tile id="16">
+  <properties>
+   <property name="collides" type="bool" value="true"/>
+  </properties>
   <image source="../tiles/tree.png" width="16" height="16"/>
  </tile>
  <tile id="17">
