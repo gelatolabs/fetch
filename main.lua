@@ -481,7 +481,14 @@ function isColliding(x, y, canSwim)
     return not hasTile
 end
 
+function love.mousemoved(x, y, dx, dy)
+    -- Show mouse cursor when mouse is moved
+    love.mouse.setVisible(true)
+end
+
 function love.mousepressed(x, y, button)
+    love.mouse.setVisible(true)
+
     if button == 1 and gameState == "questTurnIn" then
         -- Convert screen coordinates to canvas coordinates
         local screenWidth, screenHeight = love.graphics.getDimensions()
@@ -500,6 +507,8 @@ function love.textinput(text)
 end
 
 function love.keypressed(key)
+    love.mouse.setVisible(false)
+
     -- Create game state object for cheat console
     local gameStateForCheats = {
         showToast = showToast,
