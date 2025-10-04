@@ -11,7 +11,8 @@ AbilitySystem.AbilityType = {
 
 -- Ability effects (only what we use)
 AbilitySystem.EffectType = {
-    WATER_TRAVERSAL = "water_traversal"
+    WATER_TRAVERSAL = "water_traversal",
+    JUMP = "jump"
 }
 
 -- Ability class
