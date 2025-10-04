@@ -10,6 +10,51 @@ local CheatConsole = nil
 local npcs = nil
 local currentMap = nil
 
+-- Map paths and door definitions
+local mapPaths = {
+    map = "tiled/map.lua",
+    shop = "tiled/shop.lua"
+}
+
+local doors = {
+    {
+        map = "map",
+        x = 21,
+        y = 9,
+        targetMap = "shop",
+        targetX = -9,
+        targetY = 0,
+        indoor = false
+    },
+    {
+        map = "shop",
+        x = -10,
+        y = -1,
+        targetMap = "map",
+        targetX = 21,
+        targetY = 9,
+        indoor = true
+    },
+    {
+        map = "shop",
+        x = -10,
+        y = 0,
+        targetMap = "map",
+        targetX = 21,
+        targetY = 9,
+        indoor = true
+    },
+    {
+        map = "shop",
+        x = -10,
+        y = 1,
+        targetMap = "map",
+        targetX = 21,
+        targetY = 9,
+        indoor = true
+    }
+}
+
 -- Initialize the map system with required references
 function MapSystem.init(mapRef, worldRef, cheatConsoleRef, npcsRef, currentMapRef)
     map = mapRef
@@ -23,6 +68,31 @@ end
 function MapSystem.updateReferences(mapRef, currentMapRef)
     if mapRef then map = mapRef end
     if currentMapRef then currentMap = currentMapRef end
+end
+
+-- Get the current map name
+function MapSystem.getCurrentMap()
+    return currentMap
+end
+
+-- Get map path by name
+function MapSystem.getMapPath(mapName)
+    return mapPaths[mapName]
+end
+
+-- Get all doors
+function MapSystem.getDoors()
+    return doors
+end
+
+-- Find a door at the given position on the current map
+function MapSystem.findDoorAt(gridX, gridY)
+    for _, door in ipairs(doors) do
+        if door.map == currentMap and door.x == gridX and door.y == gridY then
+            return door
+        end
+    end
+    return nil
 end
 
 -- Calculate map bounds from chunks
