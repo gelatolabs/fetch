@@ -94,6 +94,8 @@ local playerGold = 0
 local nearbyNPC = nil
 local currentDialog = nil
 local nearbyDoor = nil
+local mouseX = 0
+local mouseY = 0
 
 -- Toast system
 local toasts = {}
@@ -503,6 +505,10 @@ function love.mousemoved(x, y, dx, dy)
     -- Show mouse cursor when mouse is moved
     love.mouse.setVisible(true)
 
+    -- Track mouse position
+    mouseX = x
+    mouseY = y
+
     -- Handle slider dragging
     if draggingSlider and gameState == "settings" then
         -- Convert screen coordinates to canvas coordinates
@@ -525,6 +531,12 @@ function love.mousepressed(x, y, button)
     -- Handle main menu clicks
     if gameState == "mainMenu" and button == 1 then
         handleMainMenuClick(x, y)
+        return
+    end
+
+    -- Handle pause menu clicks
+    if gameState == "pauseMenu" and button == 1 then
+        handlePauseMenuClick(x, y)
         return
     end
 
@@ -598,7 +610,11 @@ function love.keypressed(key)
             gameState = "playing"
         end
     elseif key == "escape" then
-        if gameState ~= "playing" then
+        if gameState == "playing" then
+            gameState = "pauseMenu"
+        elseif gameState == "pauseMenu" then
+            gameState = "playing"
+        elseif gameState ~= "mainMenu" and gameState ~= "settings" then
             gameState = "playing"
             currentDialog = nil
         end
@@ -980,6 +996,32 @@ function handleQuestTurnInClick(x, y)
     end
 end
 
+function handlePauseMenuClick(x, y)
+    -- Convert screen coordinates to canvas coordinates
+    local screenWidth, screenHeight = love.graphics.getDimensions()
+    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
+    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
+    local canvasX = (x - offsetX) / SCALE
+    local canvasY = (y - offsetY) / SCALE
+
+    -- Button positions
+    local btnWidth = 100
+    local btnHeight = 20
+    local btnX = GAME_WIDTH / 2 - btnWidth / 2
+    local resumeY = 100
+    local quitY = 130
+
+    -- Check Resume button
+    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= resumeY and canvasY <= resumeY + btnHeight then
+        gameState = "playing"
+    end
+
+    -- Check Quit Game button
+    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= quitY and canvasY <= quitY + btnHeight then
+        love.event.quit()
+    end
+end
+
 function handleMainMenuClick(x, y)
     -- Convert screen coordinates to canvas coordinates
     local screenWidth, screenHeight = love.graphics.getDimensions()
@@ -1080,6 +1122,50 @@ function drawToasts()
     end
 end
 
+function isMouseOverButton(btnX, btnY, btnWidth, btnHeight)
+    -- Convert screen coordinates to canvas coordinates
+    local screenWidth, screenHeight = love.graphics.getDimensions()
+    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
+    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
+    local canvasX = (mouseX - offsetX) / SCALE
+    local canvasY = (mouseY - offsetY) / SCALE
+
+    return canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= btnY and canvasY <= btnY + btnHeight
+end
+
+function drawPauseMenu()
+    -- Semi-transparent background overlay
+    love.graphics.setColor(0, 0, 0, 0.7)
+    love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, GAME_HEIGHT)
+
+    -- Title
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Paused", 0, 60, GAME_WIDTH, "center")
+
+    -- Buttons
+    local btnWidth = 100
+    local btnHeight = 20
+    local btnX = GAME_WIDTH / 2 - btnWidth / 2
+
+    -- Resume button
+    local resumeHover = isMouseOverButton(btnX, 100, btnWidth, btnHeight)
+    love.graphics.setColor(resumeHover and 0.3 or 0.2, resumeHover and 0.2 or 0.15, resumeHover and 0.15 or 0.1)
+    love.graphics.rectangle("fill", btnX, 100, btnWidth, btnHeight)
+    love.graphics.setColor(resumeHover and 1 or 0.8, resumeHover and 0.8 or 0.6, resumeHover and 0.4 or 0.2)
+    love.graphics.rectangle("line", btnX, 100, btnWidth, btnHeight)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Resume", btnX, 100 + 3, btnWidth, "center")
+
+    -- Quit Game button
+    local quitHover = isMouseOverButton(btnX, 130, btnWidth, btnHeight)
+    love.graphics.setColor(quitHover and 0.3 or 0.2, quitHover and 0.2 or 0.15, quitHover and 0.15 or 0.1)
+    love.graphics.rectangle("fill", btnX, 130, btnWidth, btnHeight)
+    love.graphics.setColor(quitHover and 1 or 0.8, quitHover and 0.8 or 0.6, quitHover and 0.4 or 0.2)
+    love.graphics.rectangle("line", btnX, 130, btnWidth, btnHeight)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Quit Game", btnX, 130 + 3, btnWidth, "center")
+end
+
 function drawMainMenu()
     -- Background
     love.graphics.setColor(0.05, 0.05, 0.1)
@@ -1097,25 +1183,28 @@ function drawMainMenu()
     local btnX = GAME_WIDTH / 2 - btnWidth / 2
 
     -- Play button
-    love.graphics.setColor(0.2, 0.15, 0.1)
+    local playHover = isMouseOverButton(btnX, 100, btnWidth, btnHeight)
+    love.graphics.setColor(playHover and 0.3 or 0.2, playHover and 0.2 or 0.15, playHover and 0.15 or 0.1)
     love.graphics.rectangle("fill", btnX, 100, btnWidth, btnHeight)
-    love.graphics.setColor(0.8, 0.6, 0.2)
+    love.graphics.setColor(playHover and 1 or 0.8, playHover and 0.8 or 0.6, playHover and 0.4 or 0.2)
     love.graphics.rectangle("line", btnX, 100, btnWidth, btnHeight)
     love.graphics.setColor(1, 1, 1)
     love.graphics.printf("Play", btnX, 100 + 3, btnWidth, "center")
 
     -- Settings button
-    love.graphics.setColor(0.2, 0.15, 0.1)
+    local settingsHover = isMouseOverButton(btnX, 130, btnWidth, btnHeight)
+    love.graphics.setColor(settingsHover and 0.3 or 0.2, settingsHover and 0.2 or 0.15, settingsHover and 0.15 or 0.1)
     love.graphics.rectangle("fill", btnX, 130, btnWidth, btnHeight)
-    love.graphics.setColor(0.8, 0.6, 0.2)
+    love.graphics.setColor(settingsHover and 1 or 0.8, settingsHover and 0.8 or 0.6, settingsHover and 0.4 or 0.2)
     love.graphics.rectangle("line", btnX, 130, btnWidth, btnHeight)
     love.graphics.setColor(1, 1, 1)
     love.graphics.printf("Settings", btnX, 130 + 3, btnWidth, "center")
 
     -- Quit button
-    love.graphics.setColor(0.2, 0.15, 0.1)
+    local quitHover = isMouseOverButton(btnX, 160, btnWidth, btnHeight)
+    love.graphics.setColor(quitHover and 0.3 or 0.2, quitHover and 0.2 or 0.15, quitHover and 0.15 or 0.1)
     love.graphics.rectangle("fill", btnX, 160, btnWidth, btnHeight)
-    love.graphics.setColor(0.8, 0.6, 0.2)
+    love.graphics.setColor(quitHover and 1 or 0.8, quitHover and 0.8 or 0.6, quitHover and 0.4 or 0.2)
     love.graphics.rectangle("line", btnX, 160, btnWidth, btnHeight)
     love.graphics.setColor(1, 1, 1)
     love.graphics.printf("Quit", btnX, 160 + 3, btnWidth, "center")
@@ -1160,9 +1249,10 @@ function drawSettings()
     local btnWidth = 100
     local btnHeight = 20
     local btnX = GAME_WIDTH / 2 - btnWidth / 2
-    love.graphics.setColor(0.2, 0.15, 0.1)
+    local backHover = isMouseOverButton(btnX, 160, btnWidth, btnHeight)
+    love.graphics.setColor(backHover and 0.3 or 0.2, backHover and 0.2 or 0.15, backHover and 0.15 or 0.1)
     love.graphics.rectangle("fill", btnX, 160, btnWidth, btnHeight)
-    love.graphics.setColor(0.8, 0.6, 0.2)
+    love.graphics.setColor(backHover and 1 or 0.8, backHover and 0.8 or 0.6, backHover and 0.4 or 0.2)
     love.graphics.rectangle("line", btnX, 160, btnWidth, btnHeight)
     love.graphics.setColor(1, 1, 1)
     love.graphics.printf("Back", btnX, 160 + 3, btnWidth, "center")
@@ -1234,7 +1324,7 @@ function love.draw()
         love.graphics.setColor(0, 0, 0, 0.7)
         love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, 12)
         love.graphics.setColor(1, 1, 1)
-        love.graphics.print("Q: Quest log  I: Inventory", 2, -1)
+        love.graphics.print("Q: Quest log  I: Inventory", 2, -2)
         
         -- Draw gold display
         local goldText = "Gold: " .. playerGold
@@ -1244,6 +1334,34 @@ function love.draw()
         
         -- Draw cheat indicators
         CheatConsole.drawIndicators(GAME_WIDTH, font, playerAbilities)
+
+    elseif gameState == "pauseMenu" then
+        -- Draw game world in background
+        local camX = camera.x
+        local camY = camera.y
+
+        -- Draw the Tiled map
+        love.graphics.setColor(1, 1, 1)
+        map:draw(-camX, -camY)
+
+        -- Draw NPCs (only on current map)
+        for _, npc in ipairs(npcs) do
+            if npc.map == currentMap then
+                love.graphics.setColor(1, 1, 1)
+                love.graphics.draw(npcSprite, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+            end
+        end
+
+        -- Draw player
+        love.graphics.setColor(1, 1, 1)
+        local currentSprite = playerSprite
+        if player.moving then
+            currentSprite = (player.walkFrame == 0) and playerWalk0 or playerWalk1
+        end
+        love.graphics.draw(currentSprite, player.x - player.size/2 - camX, player.y - player.size/2 - camY)
+
+        -- Draw pause menu overlay
+        drawPauseMenu()
 
     elseif gameState == "questLog" then
         drawQuestLog()
