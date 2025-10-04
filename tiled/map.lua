@@ -53,7 +53,8 @@ return {
         {
           id = 2,
           properties = {
-            ["collides"] = true
+            ["collides"] = true,
+            ["height"] = 1
           },
           image = "../tiles/wall.png",
           width = 16,
@@ -68,7 +69,8 @@ return {
         {
           id = 4,
           properties = {
-            ["collides"] = true
+            ["collides"] = true,
+            ["height"] = 0.5
           },
           image = "../tiles/bush.png",
           width = 16,
@@ -124,6 +126,9 @@ return {
         },
         {
           id = 13,
+          properties = {
+            ["height"] = 0.1
+          },
           image = "../tiles/rock_small.png",
           width = 16,
           height = 16
@@ -131,7 +136,8 @@ return {
         {
           id = 14,
           properties = {
-            ["collides"] = true
+            ["collides"] = true,
+            ["height"] = 0.5
           },
           image = "../tiles/rock.png",
           width = 16,
@@ -146,7 +152,8 @@ return {
         {
           id = 16,
           properties = {
-            ["collides"] = true
+            ["collides"] = true,
+            ["height"] = 1
           },
           image = "../tiles/tree.png",
           width = 16,
@@ -162,6 +169,7 @@ return {
           id = 18,
           properties = {
             ["collides"] = true,
+            ["height"] = -0.1,
             ["is_water"] = true
           },
           image = "../tiles/water.png",
