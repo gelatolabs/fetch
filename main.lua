@@ -347,7 +347,7 @@ function isColliding(x, y)
 end
 
 function love.keypressed(key)
-    if key == "space" then
+    if key == "space" or key == "e" then
         if gameState == "playing" and nearbyNPC then
             interactWithNPC(nearbyNPC)
         elseif gameState == "dialog" then
@@ -578,7 +578,7 @@ function love.draw()
 
         -- Draw interaction prompt
         if nearbyNPC and gameState == "playing" then
-            drawTextBox(GAME_WIDTH/2 - 45, GAME_HEIGHT - 14, 90, 12, "SPACE: Talk", {1, 1, 1}, true)
+            drawTextBox(GAME_WIDTH/2 - 45, GAME_HEIGHT - 14, 90, 12, "[E] Talk", {1, 1, 1}, true)
         end
 
         -- Draw dialog
@@ -590,7 +590,7 @@ function love.draw()
         love.graphics.setColor(0, 0, 0, 0.7)
         love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, 12)
         love.graphics.setColor(1, 1, 1)
-        love.graphics.print("Q:Log I:Inv", 2, -1)
+        love.graphics.print("Q: Quest log  I: Inventory", 2, -1)
 
     elseif gameState == "questLog" then
         drawQuestLog()
@@ -680,16 +680,16 @@ function drawDialog()
 
     if currentDialog.type == "questOffer" then
         text = currentDialog.quest.name .. "\n" .. currentDialog.quest.description
-        buttonText = "[SPACE] Accept"
+        buttonText = "[E] Accept"
     elseif currentDialog.type == "questTurnIn" then
         text = currentDialog.quest.reward
-        buttonText = "[SPACE] Complete"
+        buttonText = "[E] Complete"
     elseif currentDialog.type == "itemGive" then
         text = currentDialog.npc.itemGiveText or "Here, take this!"
-        buttonText = "[SPACE] Receive"
+        buttonText = "[E] Receive"
     else
         text = currentDialog.text
-        buttonText = "[SPACE] Close"
+        buttonText = "[E] Close"
     end
 
     love.graphics.setColor(0.9, 0.9, 0.9)
