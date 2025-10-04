@@ -190,50 +190,8 @@ local introShown = false
 local toasts = {}
 local TOAST_DURATION = 3.0 -- seconds
 
--- Door/Map transition system
+-- Door/Map transition system (managed by MapSystem)
 local currentMap = "map"
-local mapPaths = {
-    map = "tiled/map.lua",
-    shop = "tiled/shop.lua"
-}
-local doors = {
-    {
-        map = "map",
-        x = 21,
-        y = 9,
-        targetMap = "shop",
-        targetX = -9,
-        targetY = 0,
-        indoor = false
-    },
-    {
-        map = "shop",
-        x = -10,
-        y = -1,
-        targetMap = "map",
-        targetX = 21,
-        targetY = 9,
-        indoor = true
-    },
-    {
-        map = "shop",
-        x = -10,
-        y = 0,
-        targetMap = "map",
-        targetX = 21,
-        targetY = 9,
-        indoor = true
-    },
-    {
-        map = "shop",
-        x = -10,
-        y = 1,
-        targetMap = "map",
-        targetX = 21,
-        targetY = 9,
-        indoor = true
-    }
-}
 
 function love.load()
     love.window.setTitle("Go Fetch")
@@ -314,7 +272,7 @@ function love.load()
     quackSound = love.audio.newSource("audio/quack.wav", "static")
 
     -- Load Tiled map
-    map = sti(mapPaths[currentMap])
+    map = sti(MapSystem.getMapPath(currentMap))
     
     -- Initialize MapSystem
     MapSystem.init(map, world, CheatConsole, npcs, currentMap)
@@ -656,15 +614,7 @@ function love.update(dt)
         end
 
         -- Check for nearby doors
-        nearbyDoor = nil
-        local playerTileX = player.gridX
-        local playerTileY = player.gridY
-        for _, door in ipairs(doors) do
-            if door.map == currentMap and door.x == playerTileX and door.y == playerTileY then
-                nearbyDoor = door
-                break
-            end
-        end
+        nearbyDoor = MapSystem.findDoorAt(player.gridX, player.gridY)
     end
 end
 
@@ -855,7 +805,7 @@ end
 function enterDoor(door)
     -- Load the new map
     currentMap = door.targetMap
-    map = sti(mapPaths[currentMap])
+    map = sti(MapSystem.getMapPath(currentMap))
     
     -- Update MapSystem references
     MapSystem.updateReferences(map, currentMap)
