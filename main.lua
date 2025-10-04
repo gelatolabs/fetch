@@ -66,6 +66,10 @@ local inventory = {}
 local nearbyNPC = nil
 local currentDialog = nil
 
+-- Toast system
+local toasts = {}
+local TOAST_DURATION = 3.0 -- seconds
+
 function love.load()
     love.window.setTitle("Go Fetch")
 
@@ -140,6 +144,14 @@ end
 function love.update(dt)
     -- Update map
     map:update(dt)
+
+    -- Update toasts
+    for i = #toasts, 1, -1 do
+        toasts[i].timer = toasts[i].timer - dt
+        if toasts[i].timer <= 0 then
+            table.remove(toasts, i)
+        end
+    end
 
     if gameState == "playing" then
         -- Grid-based movement: move to target position
@@ -364,6 +376,7 @@ function handleDialogInput()
         -- Accept quest
         currentDialog.quest.active = true
         table.insert(activeQuests, currentDialog.quest.id)
+        showToast("Quest Accepted: " .. currentDialog.quest.name, {1, 1, 0})
         gameState = "playing"
         currentDialog = nil
     elseif currentDialog.type == "questTurnIn" then
@@ -373,11 +386,19 @@ function handleDialogInput()
         currentDialog.quest.completed = true
         table.remove(activeQuests, indexOf(activeQuests, currentDialog.quest.id))
         table.insert(completedQuests, currentDialog.quest.id)
+        showToast("Quest Complete: " .. currentDialog.quest.name, {0, 1, 0})
         gameState = "playing"
         currentDialog = nil
     elseif currentDialog.type == "itemGive" then
         -- Receive item
         table.insert(inventory, currentDialog.item)
+        -- Get item name for toast
+        local itemNames = {
+            item_cat = "Fluffy Cat",
+            item_book = "Ancient Tome",
+            item_package = "Sealed Package"
+        }
+        showToast("Received: " .. (itemNames[currentDialog.item] or currentDialog.item), {0.7, 0.5, 0.9})
         gameState = "playing"
         currentDialog = nil
     else
@@ -411,6 +432,45 @@ function indexOf(tbl, value)
         end
     end
     return nil
+end
+
+function showToast(message, color)
+    table.insert(toasts, {
+        message = message,
+        timer = TOAST_DURATION,
+        color = color or {1, 1, 1}
+    })
+end
+
+function drawToasts()
+    local y = 14 -- Start below the top bar (12px height + 2px padding)
+    for i, toast in ipairs(toasts) do
+        -- Calculate fade-out alpha based on remaining time
+        local alpha = 1
+        if toast.timer < 0.5 then
+            alpha = toast.timer / 0.5
+        end
+
+        -- Measure text width
+        local textWidth = font:getWidth(toast.message)
+        local boxW = textWidth + 8
+        local boxH = 12
+        local boxX = GAME_WIDTH - boxW - 2 -- Align to right with 2px padding
+
+        -- Background
+        love.graphics.setColor(0.05, 0.05, 0.1, 0.9 * alpha)
+        love.graphics.rectangle("fill", boxX, y, boxW, boxH)
+
+        -- Border
+        love.graphics.setColor(toast.color[1], toast.color[2], toast.color[3], alpha)
+        love.graphics.rectangle("line", boxX, y, boxW, boxH)
+
+        -- Text
+        love.graphics.setColor(toast.color[1], toast.color[2], toast.color[3], alpha)
+        love.graphics.print(toast.message, boxX + 4, y - 2)
+
+        y = y + boxH + 2
+    end
 end
 
 function love.draw()
@@ -474,6 +534,9 @@ function love.draw()
     elseif gameState == "inventory" then
         drawInventory()
     end
+
+    -- Draw toasts (always on top)
+    drawToasts()
 
     -- Draw canvas to screen (centered)
     love.graphics.setCanvas()
