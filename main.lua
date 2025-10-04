@@ -41,7 +41,9 @@ local player = {
     moveTimer = 0,
     moveDuration = 0.15,  -- Time to move one tile (in seconds)
     walkFrame = 0,  -- 0 or 1 for animation
-    wasOnWater = false  -- Track if player was on water last frame
+    wasOnWater = false,  -- Track if player was on water last frame
+    jumping = false,  -- Track if player is jumping
+    jumpHeight = 0  -- Current jump height offset for rendering
 }
 
 -- Camera (Pokemon-style: always centered on player)
@@ -124,6 +126,21 @@ abilityManager:registerAbility({
     onExpire = function(context)
         if context and context.showToast then
             context.showToast("Your boat broke apart!", {1, 0.5, 0.2})
+        end
+    end
+})
+
+abilityManager:registerAbility({
+    id = "jump",
+    name = "Jump",
+    aliases = {"jump", "jumping", "leap"},
+    type = AbilityType.PASSIVE,
+    effects = {EffectType.JUMP},
+    description = "Allows you to jump over low obstacles (height ≤ 0.5)",
+    color = {1.0, 0.9, 0.3},
+    onAcquire = function(context, ability)
+        if context and context.showToast then
+            context.showToast("You can now jump over low obstacles!", {1.0, 0.9, 0.3})
         end
     end
 })
@@ -411,6 +428,53 @@ local function isNPCAt(x, y)
     return false
 end
 
+-- Helper function to check if a tile is a jumpable obstacle
+local function isJumpableObstacle(x, y)
+    local tileX = math.floor(x / world.tileSize)
+    local tileY = math.floor(y / world.tileSize)
+    
+    -- Check all tile layers
+    for _, layer in ipairs(map.layers) do
+        if layer.type == "tilelayer" then
+            -- Handle chunked maps
+            if layer.chunks then
+                for _, chunk in ipairs(layer.chunks) do
+                    local chunkX = chunk.x
+                    local chunkY = chunk.y
+                    local chunkWidth = chunk.width
+                    local chunkHeight = chunk.height
+                    
+                    if tileX >= chunkX and tileX < chunkX + chunkWidth and
+                       tileY >= chunkY and tileY < chunkY + chunkHeight then
+                        local localX = tileX - chunkX + 1
+                        local localY = tileY - chunkY + 1
+                        
+                        if chunk.data[localY] and chunk.data[localY][localX] then
+                            local tile = chunk.data[localY][localX]
+                            if tile and tile.properties and tile.properties.collides and 
+                               tile.properties.height and tile.properties.height <= 0.5 then
+                                return true
+                            end
+                        end
+                        break
+                    end
+                end
+            else
+                -- Handle non-chunked maps
+                if layer.data[tileY + 1] and layer.data[tileY + 1][tileX + 1] then
+                    local tile = layer.data[tileY + 1][tileX + 1]
+                    if tile and tile.properties and tile.properties.collides and 
+                       tile.properties.height and tile.properties.height <= 0.5 then
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    
+    return false
+end
+
 function love.update(dt)
     -- Update map
     map:update(dt)
@@ -445,6 +509,15 @@ function love.update(dt)
             player.x = startX + (endX - startX) * eased
             player.y = startY + (endY - startY) * eased
             
+            -- Calculate jump arc if jumping
+            if player.jumping then
+                -- Parabolic arc: height peaks at midpoint
+                local jumpProgress = progress
+                player.jumpHeight = math.sin(jumpProgress * math.pi) * 12  -- Peak height of 12 pixels
+            else
+                player.jumpHeight = 0
+            end
+            
             -- Update walk animation frame
             if player.moveTimer >= player.moveDuration / 2 and player.walkFrame == 0 then
                 player.walkFrame = 1
@@ -457,6 +530,8 @@ function love.update(dt)
                 player.x = endX
                 player.y = endY
                 player.moving = false
+                player.jumping = false
+                player.jumpHeight = 0
                 player.moveTimer = 0
                 player.walkFrame = 0
                 
@@ -504,19 +579,44 @@ function love.update(dt)
             if moveDir then
                 player.direction = moveDir
                 
-                -- Check collision at target grid position (with water traversal abilities)
+                -- Check collision at target grid position (with abilities)
                 local targetPixelX = newGridX * 16 + 8
                 local targetPixelY = newGridY * 16 + 8
                 
                 local canCrossWater = abilityManager:hasEffect(EffectType.WATER_TRAVERSAL)
+                local canJump = abilityManager:hasEffect(EffectType.JUMP)
                 local tileBlocked = isColliding(targetPixelX, targetPixelY, canCrossWater)
                 local npcBlocked = isNPCAt(targetPixelX, targetPixelY)
                 
-                if not tileBlocked and not npcBlocked then
+                -- Check if we should jump over an obstacle
+                if tileBlocked and canJump and isJumpableObstacle(targetPixelX, targetPixelY) then
+                    -- Try to jump OVER the obstacle (2 tiles total)
+                    local jumpLandingX = newGridX + (newGridX - player.gridX)
+                    local jumpLandingY = newGridY + (newGridY - player.gridY)
+                    local landingPixelX = jumpLandingX * 16 + 8
+                    local landingPixelY = jumpLandingY * 16 + 8
+                    
+                    -- Check if landing spot is valid (not blocked and not an NPC there)
+                    local landingBlocked = isColliding(landingPixelX, landingPixelY, canCrossWater)
+                    local landingNpcBlocked = isNPCAt(landingPixelX, landingPixelY)
+                    
+                    if not landingBlocked and not landingNpcBlocked then
+                        -- Perform jump over the obstacle
+                        player.targetGridX = jumpLandingX
+                        player.targetGridY = jumpLandingY
+                        player.moving = true
+                        player.jumping = true
+                        player.moveTimer = 0
+                        player.moveDuration = 0.25  -- Jumps take a bit longer
+                    end
+                elseif not tileBlocked and not npcBlocked then
+                    -- Normal movement
                     player.targetGridX = newGridX
                     player.targetGridY = newGridY
                     player.moving = true
+                    player.jumping = false
                     player.moveTimer = 0
+                    player.moveDuration = 0.15  -- Normal walk speed
                 end
             end
         end
@@ -567,6 +667,51 @@ function love.update(dt)
             end
         end
     end
+end
+
+-- Helper function to get tile height at a position
+local function getTileHeight(x, y)
+    local tileX = math.floor(x / world.tileSize)
+    local tileY = math.floor(y / world.tileSize)
+    
+    -- Check all tile layers for height property
+    for _, layer in ipairs(map.layers) do
+        if layer.type == "tilelayer" then
+            -- Handle chunked maps
+            if layer.chunks then
+                for _, chunk in ipairs(layer.chunks) do
+                    local chunkX = chunk.x
+                    local chunkY = chunk.y
+                    local chunkWidth = chunk.width
+                    local chunkHeight = chunk.height
+                    
+                    if tileX >= chunkX and tileX < chunkX + chunkWidth and
+                       tileY >= chunkY and tileY < chunkY + chunkHeight then
+                        local localX = tileX - chunkX + 1
+                        local localY = tileY - chunkY + 1
+                        
+                        if chunk.data[localY] and chunk.data[localY][localX] then
+                            local tile = chunk.data[localY][localX]
+                            if tile and tile.properties and tile.properties.height then
+                                return tile.properties.height
+                            end
+                        end
+                        break
+                    end
+                end
+            else
+                -- Handle non-chunked maps
+                if layer.data[tileY + 1] and layer.data[tileY + 1][tileX + 1] then
+                    local tile = layer.data[tileY + 1][tileX + 1]
+                    if tile and tile.properties and tile.properties.height then
+                        return tile.properties.height
+                    end
+                end
+            end
+        end
+    end
+    
+    return 0  -- Default height is 0
 end
 
 -- Helper function to check if a tile should block movement
@@ -1399,7 +1544,7 @@ function love.draw()
             playerTileset,
             currentQuad,
             player.x - player.size/2 - camX + offsetX,
-            player.y - player.size/2 - camY,
+            player.y - player.size/2 - camY - player.jumpHeight,  -- Apply jump height offset
             0,
             scaleX,
             1
@@ -1462,7 +1607,7 @@ function love.draw()
             playerTileset,
             currentQuad,
             player.x - player.size/2 - camX + offsetX,
-            player.y - player.size/2 - camY,
+            player.y - player.size/2 - camY - player.jumpHeight,  -- Apply jump height offset
             0,
             scaleX,
             1
@@ -1692,7 +1837,7 @@ function drawQuestTurnIn()
         playerTileset,
         currentQuad,
         player.x - player.size/2 - camX + offsetX,
-        player.y - player.size/2 - camY,
+        player.y - player.size/2 - camY - player.jumpHeight,  -- Apply jump height offset
         0,
         scaleX,
         1
