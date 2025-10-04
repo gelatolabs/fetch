@@ -77,6 +77,7 @@
  <tile id="18">
   <properties>
    <property name="collides" type="bool" value="true"/>
+   <property name="height" type="float" value="-0.1"/>
    <property name="is_water" type="bool" value="true"/>
   </properties>
   <image source="../tiles/water.png" width="16" height="16"/>
