@@ -439,6 +439,75 @@ function UISystem.drawQuestTurnIn(GAME_WIDTH, GAME_HEIGHT, questTurnInData, inve
     love.graphics.print("[ESC] Cancel", boxX + 4, boxY + boxH - 17)
 end
 
+-- Draw quest offer UI
+function UISystem.drawQuestOffer(GAME_WIDTH, GAME_HEIGHT, questOfferData, mouseX, mouseY, SCALE)
+    if not questOfferData then
+        return
+    end
+
+    local quest = questOfferData.quest
+    local npc = questOfferData.npc
+
+    -- Dialog box
+    local boxX = GAME_WIDTH / 2 - 100
+    local boxY = GAME_HEIGHT / 2 - 60
+    local boxW = 200
+    local boxH = 120
+
+    -- Background
+    love.graphics.setColor(0.05, 0.05, 0.1, 0.98)
+    love.graphics.rectangle("fill", boxX, boxY, boxW, boxH)
+
+    -- Fancy border
+    local borderColor = quest.isMainQuest and {1, 0.8, 0.3} or {0.7, 0.5, 0.2}
+    UISystem.drawFancyBorder(boxX, boxY, boxW, boxH, borderColor)
+
+    -- Title bar
+    love.graphics.setColor(0.15, 0.1, 0.05, 0.9)
+    love.graphics.rectangle("fill", boxX+2, boxY+2, boxW-4, 12)
+
+    if quest.isMainQuest then
+        love.graphics.setColor(1, 0.84, 0)
+        love.graphics.printf("MAIN QUEST", boxX, boxY, boxW, "center")
+    else
+        love.graphics.setColor(0.9, 0.7, 0.3)
+        love.graphics.printf("Quest Offered", boxX, boxY, boxW, "center")
+    end
+
+    -- Quest name
+    love.graphics.setColor(1, 0.9, 0.7)
+    love.graphics.printf(quest.name, boxX+4, boxY+18, boxW-8, "center")
+
+    -- Quest description
+    love.graphics.setColor(0.8, 0.8, 0.8)
+    love.graphics.printf(quest.description, boxX+6, boxY+34, boxW-12, "left")
+
+    -- Buttons
+    local btnW = 70
+    local btnH = 18
+    local btnY = boxY + boxH - btnH - 6
+    local acceptX = boxX + boxW/2 - btnW - 4
+    local rejectX = boxX + boxW/2 + 4
+
+    -- Accept button
+    local acceptHover = UISystem.isMouseOverButton(mouseX, mouseY, acceptX, btnY, btnW, btnH, GAME_WIDTH, GAME_HEIGHT, SCALE)
+    love.graphics.setColor(acceptHover and 0.2 or 0.15, acceptHover and 0.35 or 0.25, acceptHover and 0.15 or 0.1)
+    love.graphics.rectangle("fill", acceptX, btnY, btnW, btnH)
+    love.graphics.setColor(acceptHover and 0.4 or 0.2, acceptHover and 0.8 or 0.6, acceptHover and 0.3 or 0.2)
+    love.graphics.rectangle("line", acceptX, btnY, btnW, btnH)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Accept", acceptX, btnY + 2, btnW, "center")
+
+    -- Reject button
+    local rejectHover = UISystem.isMouseOverButton(mouseX, mouseY, rejectX, btnY, btnW, btnH, GAME_WIDTH, GAME_HEIGHT, SCALE)
+    love.graphics.setColor(rejectHover and 0.35 or 0.25, rejectHover and 0.2 or 0.15, rejectHover and 0.15 or 0.1)
+    love.graphics.rectangle("fill", rejectX, btnY, btnW, btnH)
+    love.graphics.setColor(rejectHover and 0.9 or 0.7, rejectHover and 0.4 or 0.3, rejectHover and 0.3 or 0.2)
+    love.graphics.rectangle("line", rejectX, btnY, btnW, btnH)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Reject", rejectX, btnY + 2, btnW, "center")
+end
+
 -- Draw inventory
 function UISystem.drawInventory(GAME_WIDTH, GAME_HEIGHT, inventory, itemRegistry)
     local boxX, boxY = 10, 10
