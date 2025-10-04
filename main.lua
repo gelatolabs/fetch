@@ -1,6 +1,7 @@
 -- Libraries
 local sti = require "sti"
 local questData = require "quests"
+local CheatConsole = require "cheat_console"
 
 -- Game constants
 local GAME_WIDTH = 320
@@ -62,6 +63,18 @@ local completedQuests = {}
 
 -- Inventory
 local inventory = {}
+
+-- Item registry (single source of truth for all items)
+local itemRegistry = {
+    item_cat = {id = "item_cat", name = "Fluffy Cat", aliases = {"cat"}},
+    item_book = {id = "item_book", name = "Ancient Tome", aliases = {"book"}},
+    item_package = {id = "item_package", name = "Sealed Package", aliases = {"package"}}
+}
+
+-- Player abilities
+local playerAbilities = {
+    swim = false
+}
 
 -- UI state
 local nearbyNPC = nil
@@ -280,7 +293,7 @@ function love.update(dt)
         end
     end
 
-    if gameState == "playing" then
+    if gameState == "playing" and not CheatConsole.isOpen() then
         -- Pokemon-style grid-based movement
         if player.moving then
             -- Increment move timer
@@ -339,11 +352,11 @@ function love.update(dt)
             if moveDir then
                 player.direction = moveDir
                 
-                -- Check collision at target grid position
+                -- Check collision at target grid position (with swim ability)
                 local targetPixelX = newGridX * 16 + 8
                 local targetPixelY = newGridY * 16 + 8
                 
-                if not isColliding(targetPixelX, targetPixelY) then
+                if not isColliding(targetPixelX, targetPixelY, playerAbilities.swim) then
                     player.targetGridX = newGridX
                     player.targetGridY = newGridY
                     player.moving = true
@@ -400,7 +413,13 @@ function love.update(dt)
     end
 end
 
-function isColliding(x, y)
+function isColliding(x, y, canSwim)
+    -- Noclip cheat bypasses all collision
+    if CheatConsole.isNoclipActive() then
+        return false
+    end
+    
+    canSwim = canSwim or false
     local tileX = math.floor(x / world.tileSize)
     local tileY = math.floor(y / world.tileSize)
 
@@ -430,11 +449,23 @@ function isColliding(x, y)
                         -- Get the tile from chunk data
                         if chunk.data[localY] and chunk.data[localY][localX] then
                             local tile = chunk.data[localY][localX]
+<<<<<<< Updated upstream
                             if tile then
                                 hasTile = true
                                 if tile.properties and tile.properties.collides then
                                     hasCollision = true
                                 end
+||||||| Stash base
+                            if tile.properties and tile.properties.collides then
+                                return true
+=======
+                            if tile.properties and tile.properties.collides then
+                                -- If it's water and player can swim, allow passage
+                                if canSwim and tile.properties.is_water then
+                                    return false
+                                end
+                                return true
+>>>>>>> Stashed changes
                             end
                         end
                         break
@@ -444,11 +475,23 @@ function isColliding(x, y)
                 -- Handle non-chunked maps
                 if layer.data[tileY + 1] and layer.data[tileY + 1][tileX + 1] then
                     local tile = layer.data[tileY + 1][tileX + 1]
+<<<<<<< Updated upstream
                     if tile then
                         hasTile = true
                         if tile.properties and tile.properties.collides then
                             hasCollision = true
                         end
+||||||| Stash base
+                    if tile and tile.properties and tile.properties.collides then
+                        return true
+=======
+                    if tile and tile.properties and tile.properties.collides then
+                        -- If it's water and player can swim, allow passage
+                        if canSwim and tile.properties.is_water then
+                            return false
+                        end
+                        return true
+>>>>>>> Stashed changes
                     end
                 end
             end
@@ -473,7 +516,30 @@ function love.mousepressed(x, y, button)
     end
 end
 
+function love.textinput(text)
+    CheatConsole.textInput(text)
+end
+
 function love.keypressed(key)
+    -- Create game state object for cheat console
+    local gameStateForCheats = {
+        showToast = showToast,
+        playerAbilities = playerAbilities,
+        activeQuests = activeQuests,
+        completedQuests = completedQuests,
+        quests = quests,
+        inventory = inventory,
+        getAllItemIds = getAllItemIds,
+        getItemFromRegistry = getItemFromRegistry,
+        hasItem = hasItem
+    }
+    
+    -- Handle cheat console keys
+    if CheatConsole.keyPressed(key, gameStateForCheats) then
+        return  -- Key was handled by console
+    end
+    
+    -- Normal game controls
     if key == "space" or key == "e" then
         if gameState == "playing" and nearbyDoor then
             enterDoor(nearbyDoor)
@@ -626,6 +692,37 @@ function interactWithNPC(npc)
             }
             gameState = "dialog"
         end
+    elseif npc.givesAbility then
+        -- Check if the required quest is active
+        local requiredQuest = npc.requiresQuest and quests[npc.requiresQuest]
+        local questActive = requiredQuest and requiredQuest.active
+
+        if not questActive then
+            -- Quest not active, show generic dialog
+            currentDialog = {
+                type = "generic",
+                npc = npc,
+                text = npc.noQuestText or "Hello there!"
+            }
+            gameState = "dialog"
+        elseif not playerAbilities[npc.givesAbility] then
+            -- Quest active and don't have ability, give it
+            currentDialog = {
+                type = "abilityGive",
+                npc = npc,
+                ability = npc.givesAbility,
+                quest = requiredQuest
+            }
+            gameState = "dialog"
+        else
+            -- Already have the ability
+            currentDialog = {
+                type = "generic",
+                npc = npc,
+                text = "You already learned that ability!"
+            }
+            gameState = "dialog"
+        end
     end
 end
 
@@ -650,13 +747,29 @@ function handleDialogInput()
     elseif currentDialog.type == "itemGive" then
         -- Receive item
         table.insert(inventory, currentDialog.item)
-        -- Get item name for toast
-        local itemNames = {
-            item_cat = "Fluffy Cat",
-            item_book = "Ancient Tome",
-            item_package = "Sealed Package"
+        -- Get item name from registry
+        local itemData = itemRegistry[currentDialog.item]
+        local itemName = itemData and itemData.name or currentDialog.item
+        showToast("Received: " .. itemName, {0.7, 0.5, 0.9})
+        gameState = "playing"
+        currentDialog = nil
+    elseif currentDialog.type == "abilityGive" then
+        -- Learn ability
+        playerAbilities[currentDialog.ability] = true
+        
+        -- Complete the quest
+        local quest = currentDialog.quest
+        quest.active = false
+        quest.completed = true
+        table.remove(activeQuests, indexOf(activeQuests, quest.id))
+        table.insert(completedQuests, quest.id)
+        
+        -- Get ability name for toast
+        local abilityNames = {
+            swim = "Swimming"
         }
-        showToast("Received: " .. (itemNames[currentDialog.item] or currentDialog.item), {0.7, 0.5, 0.9})
+        showToast("Learned: " .. (abilityNames[currentDialog.ability] or currentDialog.ability) .. "!", {0.3, 0.8, 1.0})
+        showToast("Quest Complete: " .. quest.name, {0, 1, 0})
         gameState = "playing"
         currentDialog = nil
     else
@@ -672,6 +785,34 @@ function hasItem(itemId)
         end
     end
     return false
+end
+
+-- Get item info from registry by ID or alias
+function getItemFromRegistry(nameOrAlias)
+    -- First check if it's a direct item ID
+    if itemRegistry[nameOrAlias] then
+        return itemRegistry[nameOrAlias]
+    end
+    
+    -- Then check aliases
+    for itemId, itemData in pairs(itemRegistry) do
+        for _, alias in ipairs(itemData.aliases) do
+            if alias == nameOrAlias then
+                return itemData
+            end
+        end
+    end
+    
+    return nil
+end
+
+-- Get all item IDs from registry
+function getAllItemIds()
+    local ids = {}
+    for itemId, _ in pairs(itemRegistry) do
+        table.insert(ids, itemId)
+    end
+    return ids
 end
 
 function removeItem(itemId)
@@ -706,11 +847,6 @@ function handleQuestTurnInClick(x, y)
     end
 
     local quest = currentDialog.quest
-    local itemNames = {
-        item_cat = "Fluffy Cat",
-        item_book = "Ancient Tome",
-        item_package = "Sealed Package"
-    }
 
     -- Calculate item slot positions (must match drawQuestTurnIn)
     local boxX = GAME_WIDTH / 2 - 75
@@ -836,11 +972,17 @@ function love.draw()
             drawDialog()
         end
 
+        -- Draw tile grid overlay (cheat)
+        CheatConsole.drawGrid(camX, camY, GAME_WIDTH, GAME_HEIGHT)
+
         -- Draw UI hints
         love.graphics.setColor(0, 0, 0, 0.7)
         love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, 12)
         love.graphics.setColor(1, 1, 1)
         love.graphics.print("Q: Quest log  I: Inventory", 2, -1)
+        
+        -- Draw cheat indicators
+        CheatConsole.drawIndicators(GAME_WIDTH, font, playerAbilities)
 
     elseif gameState == "questLog" then
         drawQuestLog()
@@ -849,6 +991,9 @@ function love.draw()
     elseif gameState == "questTurnIn" then
         drawQuestTurnIn()
     end
+
+    -- Draw cheat console (overlay on top of everything)
+    CheatConsole.draw(GAME_WIDTH, GAME_HEIGHT, font)
 
     -- Draw toasts (always on top)
     drawToasts()
@@ -939,6 +1084,9 @@ function drawDialog()
     elseif currentDialog.type == "itemGive" then
         text = currentDialog.npc.itemGiveText or "Here, take this!"
         buttonText = "[E] Receive"
+    elseif currentDialog.type == "abilityGive" then
+        text = currentDialog.npc.abilityGiveText or "You learned a new ability!"
+        buttonText = "[E] Learn"
     else
         text = currentDialog.text
         buttonText = "[E] Close"
@@ -1080,13 +1228,6 @@ function drawQuestTurnIn()
     love.graphics.setColor(0.7, 0.7, 0.7)
     love.graphics.print("Click the item:", boxX + 4, boxY + 14)
 
-    -- Item names
-    local itemNames = {
-        item_cat = "Fluffy Cat",
-        item_book = "Ancient Tome",
-        item_package = "Sealed Package"
-    }
-
     -- Draw inventory items
     local slotSize = 16
     local padding = 3
@@ -1108,14 +1249,66 @@ function drawQuestTurnIn()
         love.graphics.setColor(0.7, 0.5, 0.9)
         love.graphics.rectangle("fill", slotX + 2, slotY + 2, slotSize - 4, slotSize - 4)
 
-        -- Item name
+        -- Item name from registry
+        local itemData = itemRegistry[itemId]
+        local itemName = itemData and itemData.name or itemId
         love.graphics.setColor(1, 1, 1)
-        love.graphics.print(itemNames[itemId] or itemId, slotX + slotSize + 4, slotY + 2)
+        love.graphics.print(itemName, slotX + slotSize + 4, slotY + 2)
     end
 
     -- Footer hint
     love.graphics.setColor(0.5, 0.5, 0.5)
     love.graphics.print("[ESC] Cancel", boxX + 4, boxY + boxH - 17)
+end
+
+function drawCheatPrompt()
+    local boxX, boxY = 10, GAME_HEIGHT - 92
+    local boxW, boxH = GAME_WIDTH - 20, 87
+
+    -- Background with slight transparency
+    love.graphics.setColor(0, 0, 0, 0.92)
+    love.graphics.rectangle("fill", boxX, boxY, boxW, boxH)
+
+    -- Border (console green style)
+    love.graphics.setColor(0.2, 1, 0.2)
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle("line", boxX, boxY, boxW, boxH)
+    love.graphics.setLineWidth(1)
+
+    -- Title
+    love.graphics.setColor(0.2, 1, 0.2)
+    love.graphics.print("CHEAT CONSOLE", boxX+4, boxY+4)
+    
+    -- Hint
+    love.graphics.setColor(0.6, 0.6, 0.6)
+    love.graphics.print("Type 'help' for available cheats", boxX+4, boxY+16)
+
+    -- History (last 3 commands)
+    local y = boxY + 30
+    love.graphics.setColor(0.4, 0.8, 0.4)
+    for i = math.min(3, #cheats.cheatHistory), 1, -1 do
+        love.graphics.print("> " .. cheats.cheatHistory[i], boxX+4, y)
+        y = y + 10
+    end
+
+    -- Input prompt
+    y = boxY + boxH - 24
+    love.graphics.setColor(0.2, 1, 0.2)
+    love.graphics.print("> ", boxX+4, y)
+    
+    -- Input text
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.print(cheats.cheatInput, boxX+16, y)
+    
+    -- Cursor (blinking)
+    if math.floor(love.timer.getTime() * 2) % 2 == 0 then
+        local cursorX = boxX + 16 + font:getWidth(cheats.cheatInput)
+        love.graphics.rectangle("fill", cursorX, y, 6, 10)
+    end
+    
+    -- Instructions (inside the box, with padding)
+    love.graphics.setColor(0.5, 0.5, 0.5)
+    love.graphics.print("[Enter] Submit  [Up/Down] History  [Esc/~] Close", boxX+4, boxY+boxH-14)
 end
 
 function drawInventory()
@@ -1134,13 +1327,6 @@ function drawInventory()
     love.graphics.rectangle("fill", boxX+2, boxY+2, boxW-4, 12)
     love.graphics.setColor(0.8, 0.6, 0.9)
     love.graphics.printf("INVENTORY", boxX+2, boxY, boxW-4, "center")
-
-    -- Item names
-    local itemNames = {
-        item_cat = "Fluffy Cat",
-        item_book = "Ancient Tome",
-        item_package = "Sealed Package"
-    }
 
     -- Content area with item slots
     local slotSize = 20
@@ -1183,8 +1369,10 @@ function drawInventory()
         love.graphics.print("Empty", boxX+6, listY)
     else
         for _, itemId in ipairs(inventory) do
+            local itemData = itemRegistry[itemId]
+            local itemName = itemData and itemData.name or itemId
             love.graphics.setColor(0.7, 0.5, 0.9)
-            love.graphics.print("- " .. (itemNames[itemId] or itemId), boxX+6, listY)
+            love.graphics.print("- " .. itemName, boxX+6, listY)
             listY = listY + 12
         end
     end
