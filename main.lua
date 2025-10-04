@@ -606,24 +606,27 @@ function love.update(dt)
                 player.walkFrame = 0
 
                 -- Check if player transitioned from water to land (boat use)
+                -- Only check this if not jumping (jumping over water shouldn't consume boat)
                 local isOnWater = isWaterTile(endX, endY)
-                if player.wasOnWater and not isOnWater then
-                    -- Transitioning from water to land - consume boat use
-                    local boatAbility = abilityManager:getAbility("boat")
-                    if boatAbility and not abilityManager:hasAbility("swim") then
-                        -- Use boat ability (consumes a use)
-                        local context = {showToast = showToast}
-                        boatAbility:use(context)
+                if not player.jumping then
+                    if player.wasOnWater and not isOnWater then
+                        -- Transitioning from water to land - consume boat use
+                        local boatAbility = abilityManager:getAbility("boat")
+                        if boatAbility and not abilityManager:hasAbility("swim") then
+                            -- Use boat ability (consumes a use)
+                            local context = {showToast = showToast}
+                            boatAbility:use(context)
 
-                        -- Remove ability if expired
-                        if boatAbility.currentUses <= 0 then
-                            abilityManager:removeAbility("boat")
+                            -- Remove ability if expired
+                            if boatAbility.currentUses <= 0 then
+                                abilityManager:removeAbility("boat")
+                            end
                         end
                     end
-                end
 
-                -- Update water state for next frame
-                player.wasOnWater = isOnWater
+                    -- Update water state for next frame (only when not jumping)
+                    player.wasOnWater = isOnWater
+                end
 
                 -- Check if there's a queued movement to execute
                 if player.queuedDirection then
@@ -1665,6 +1668,11 @@ end
 
 -- Helper function to get the current player sprite set based on conditions
 local function getPlayerSpriteSet()
+    -- Don't use water sprites when jumping
+    if player.jumping then
+        return playerQuads.regular
+    end
+    
     -- Get the tile at player's position
     local tileX = math.floor(player.x / world.tileSize)
     local tileY = math.floor(player.y / world.tileSize)
