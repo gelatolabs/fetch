@@ -1181,7 +1181,15 @@ function enterDoor(door)
 end
 
 function interactWithNPC(npc)
-    if npc.isShopkeeper then
+    if npc.isIntroNPC then
+        -- Show manifesto if intro already shown, otherwise show intro text
+        local text = introShown and npc.manifestoText or npc.introText
+        gameState = DialogSystem.showDialog({
+            type = "generic",
+            npc = npc,
+            text = text
+        })
+    elseif npc.isShopkeeper then
         -- Open shop UI
         selectedShopItem = 1  -- Select first item by default
         gameState = "shop"
