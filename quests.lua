@@ -76,11 +76,35 @@ quests.npcs = {
         itemGiveText = "This package is ready for pickup. Take it!",
         noQuestText = "I've got deliveries to make. Very busy!"
     },
-    -- Quest Chain 4: Learn to Swim
+    -- Quest Chain 4: Build a Boat (to reach the swimmer)
+    {
+        id = "npc_boat_builder",
+        map = "map",
+        x = -6 * 16 + 8,  -- Grid position (-6, 8) - near water on accessible side
+        y = 8 * 16 + 8,
+        size = 16,
+        name = "Boat Builder",
+        questId = "quest_build_boat",
+        isQuestGiver = true
+    },
+    {
+        id = "npc_woodcutter",
+        map = "map",
+        x = 10 * 16 + 8,  -- Grid position (10, 5) - accessible area
+        y = 5 * 16 + 8,
+        size = 16,
+        name = "Woodcutter",
+        givesItem = "item_wood",
+        requiresQuest = "quest_build_boat",
+        requiresDialog = true,
+        itemGiveText = "Here's some quality wood for your boat. Take it to the builder!",
+        noQuestText = "Just chopping wood. Hard work!"
+    },
+    -- Quest Chain 5: Learn to Swim (requires boat to reach)
     {
         id = "npc_swimmer",
         map = "map",
-        x = -12 * 16 + 8,  -- Grid position (-12, 1) - near water
+        x = -12 * 16 + 8,  -- Grid position (-12, 1) - on island, requires boat
         y = 1 * 16 + 8,
         size = 16,
         name = "Swimmer",
@@ -139,6 +163,19 @@ quests.questData = {
         active = false,
         completed = false
     },
+    quest_build_boat = {
+        id = "quest_build_boat",
+        name = "Build a Boat",
+        description = "The boat builder can make you a boat to cross the water! He needs wood from the woodcutter.",
+        questGiver = "npc_boat_builder",
+        requiredItem = "item_wood",
+        grantsAbility = "boat",
+        reward = "There you go! A fine boat. You can now cross water to reach that island!",
+        goldReward = 0,
+        reminderText = "I need some good wood to build your boat. Try the woodcutter!",
+        active = false,
+        completed = false
+    },
     quest_learn_swim = {
         id = "quest_learn_swim",
         name = "Learn to Swim",
@@ -146,7 +183,7 @@ quests.questData = {
         questGiver = "npc_swimmer",
         requiredItem = "item_floaties",
         grantsAbility = "swim",
-        reward = "Perfect! Now I can teach you to swim. You can now cross water tiles!",
+        reward = "Perfect! Now I can teach you to swim. You can now cross water tiles freely!",
         goldReward = 0,
         reminderText = "The lifeguard has some floaties I need to teach you properly!",
         active = false,
