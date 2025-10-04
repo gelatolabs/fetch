@@ -11,6 +11,7 @@ local SCALE
 -- Graphics resources
 local canvas
 local font
+local titleFont
 
 -- Sprites
 local playerSprite
@@ -19,8 +20,12 @@ local playerWalk1
 local npcSprite
 
 -- Game state
--- playing, dialog, questLog, inventory, questTurnIn
-local gameState = "playing"
+-- mainMenu, settings, playing, dialog, questLog, inventory, questTurnIn
+local gameState = "mainMenu"
+
+-- Settings
+local volume = 1.0
+local draggingSlider = false
 
 -- Player (Pokemon-style grid movement)
 -- Initial spawn position (will be validated and adjusted if on collision tile)
@@ -156,6 +161,10 @@ function love.load()
     font = love.graphics.newFont("BitPotionExt.ttf", 16)
     font:setFilter("nearest", "nearest")
     love.graphics.setFont(font)
+
+    -- Load title font (twice as large)
+    titleFont = love.graphics.newFont("BitPotionExt.ttf", 32)
+    titleFont:setFilter("nearest", "nearest")
 
     -- Load sprites
     playerSprite = love.graphics.newImage("sprites/player.png")
@@ -487,10 +496,37 @@ end
 function love.mousemoved(x, y, dx, dy)
     -- Show mouse cursor when mouse is moved
     love.mouse.setVisible(true)
+
+    -- Handle slider dragging
+    if draggingSlider and gameState == "settings" then
+        -- Convert screen coordinates to canvas coordinates
+        local screenWidth, screenHeight = love.graphics.getDimensions()
+        local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
+        local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
+        local canvasX = (x - offsetX) / SCALE
+
+        local sliderX = GAME_WIDTH / 2 - 50
+        local sliderWidth = 100
+
+        volume = math.max(0, math.min(1, (canvasX - sliderX) / sliderWidth))
+        love.audio.setVolume(volume)
+    end
 end
 
 function love.mousepressed(x, y, button)
     love.mouse.setVisible(true)
+
+    -- Handle main menu clicks
+    if gameState == "mainMenu" and button == 1 then
+        handleMainMenuClick(x, y)
+        return
+    end
+
+    -- Handle settings menu clicks
+    if gameState == "settings" and button == 1 then
+        handleSettingsClick(x, y)
+        return
+    end
 
     if button == 1 and gameState == "questTurnIn" then
         -- Convert screen coordinates to canvas coordinates
@@ -893,6 +929,75 @@ function handleQuestTurnInClick(x, y)
     end
 end
 
+function handleMainMenuClick(x, y)
+    -- Convert screen coordinates to canvas coordinates
+    local screenWidth, screenHeight = love.graphics.getDimensions()
+    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
+    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
+    local canvasX = (x - offsetX) / SCALE
+    local canvasY = (y - offsetY) / SCALE
+
+    -- Button positions
+    local btnWidth = 100
+    local btnHeight = 20
+    local btnX = GAME_WIDTH / 2 - btnWidth / 2
+    local playY = 100
+    local settingsY = 130
+    local quitY = 160
+
+    -- Check Play button
+    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= playY and canvasY <= playY + btnHeight then
+        gameState = "playing"
+    end
+
+    -- Check Settings button
+    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= settingsY and canvasY <= settingsY + btnHeight then
+        gameState = "settings"
+    end
+
+    -- Check Quit button
+    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= quitY and canvasY <= quitY + btnHeight then
+        love.event.quit()
+    end
+end
+
+function handleSettingsClick(x, y)
+    -- Convert screen coordinates to canvas coordinates
+    local screenWidth, screenHeight = love.graphics.getDimensions()
+    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
+    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
+    local canvasX = (x - offsetX) / SCALE
+    local canvasY = (y - offsetY) / SCALE
+
+    -- Back button
+    local btnWidth = 100
+    local btnHeight = 20
+    local btnX = GAME_WIDTH / 2 - btnWidth / 2
+    local backY = 160
+
+    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= backY and canvasY <= backY + btnHeight then
+        gameState = "mainMenu"
+    end
+
+    -- Volume slider
+    local sliderX = GAME_WIDTH / 2 - 50
+    local sliderY = 100
+    local sliderWidth = 100
+    local sliderHeight = 10
+
+    if canvasX >= sliderX and canvasX <= sliderX + sliderWidth and canvasY >= sliderY - 5 and canvasY <= sliderY + sliderHeight + 5 then
+        draggingSlider = true
+        volume = math.max(0, math.min(1, (canvasX - sliderX) / sliderWidth))
+        love.audio.setVolume(volume)
+    end
+end
+
+function love.mousereleased(x, y, button)
+    if button == 1 then
+        draggingSlider = false
+    end
+end
+
 function drawToasts()
     local y = 14 -- Start below the top bar (12px height + 2px padding)
     for i, toast in ipairs(toasts) do
@@ -924,12 +1029,104 @@ function drawToasts()
     end
 end
 
+function drawMainMenu()
+    -- Background
+    love.graphics.setColor(0.05, 0.05, 0.1)
+    love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, GAME_HEIGHT)
+
+    -- Title
+    love.graphics.setFont(titleFont)
+    love.graphics.setColor(0.9, 0.7, 0.3)
+    love.graphics.printf("Go Fetch", 0, 40, GAME_WIDTH, "center")
+    love.graphics.setFont(font)
+
+    -- Buttons
+    local btnWidth = 100
+    local btnHeight = 20
+    local btnX = GAME_WIDTH / 2 - btnWidth / 2
+
+    -- Play button
+    love.graphics.setColor(0.2, 0.15, 0.1)
+    love.graphics.rectangle("fill", btnX, 100, btnWidth, btnHeight)
+    love.graphics.setColor(0.8, 0.6, 0.2)
+    love.graphics.rectangle("line", btnX, 100, btnWidth, btnHeight)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Play", btnX, 100 + 3, btnWidth, "center")
+
+    -- Settings button
+    love.graphics.setColor(0.2, 0.15, 0.1)
+    love.graphics.rectangle("fill", btnX, 130, btnWidth, btnHeight)
+    love.graphics.setColor(0.8, 0.6, 0.2)
+    love.graphics.rectangle("line", btnX, 130, btnWidth, btnHeight)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Settings", btnX, 130 + 3, btnWidth, "center")
+
+    -- Quit button
+    love.graphics.setColor(0.2, 0.15, 0.1)
+    love.graphics.rectangle("fill", btnX, 160, btnWidth, btnHeight)
+    love.graphics.setColor(0.8, 0.6, 0.2)
+    love.graphics.rectangle("line", btnX, 160, btnWidth, btnHeight)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Quit", btnX, 160 + 3, btnWidth, "center")
+end
+
+function drawSettings()
+    -- Background
+    love.graphics.setColor(0.05, 0.05, 0.1)
+    love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, GAME_HEIGHT)
+
+    -- Title
+    love.graphics.setColor(0.9, 0.7, 0.3)
+    love.graphics.printf("Settings", 0, 40, GAME_WIDTH, "center")
+
+    -- Volume label
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Volume", 0, 80, GAME_WIDTH, "center")
+
+    -- Volume slider
+    local sliderX = GAME_WIDTH / 2 - 50
+    local sliderY = 100
+    local sliderWidth = 100
+    local sliderHeight = 10
+
+    -- Slider background
+    love.graphics.setColor(0.2, 0.2, 0.2)
+    love.graphics.rectangle("fill", sliderX, sliderY, sliderWidth, sliderHeight)
+
+    -- Slider fill
+    love.graphics.setColor(0.8, 0.6, 0.2)
+    love.graphics.rectangle("fill", sliderX, sliderY, sliderWidth * volume, sliderHeight)
+
+    -- Slider border
+    love.graphics.setColor(0.5, 0.5, 0.5)
+    love.graphics.rectangle("line", sliderX, sliderY, sliderWidth, sliderHeight)
+
+    -- Volume percentage
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf(math.floor(volume * 100) .. "%", 0, 115, GAME_WIDTH, "center")
+
+    -- Back button
+    local btnWidth = 100
+    local btnHeight = 20
+    local btnX = GAME_WIDTH / 2 - btnWidth / 2
+    love.graphics.setColor(0.2, 0.15, 0.1)
+    love.graphics.rectangle("fill", btnX, 160, btnWidth, btnHeight)
+    love.graphics.setColor(0.8, 0.6, 0.2)
+    love.graphics.rectangle("line", btnX, 160, btnWidth, btnHeight)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Back", btnX, 160 + 3, btnWidth, "center")
+end
+
 function love.draw()
     -- Draw to canvas
     love.graphics.setCanvas(canvas)
     love.graphics.clear(0.1, 0.1, 0.1)
 
-    if gameState == "playing" or gameState == "dialog" then
+    if gameState == "mainMenu" then
+        drawMainMenu()
+    elseif gameState == "settings" then
+        drawSettings()
+    elseif gameState == "playing" or gameState == "dialog" then
         -- Draw world (manual camera offset, no translate)
         local camX = camera.x
         local camY = camera.y
