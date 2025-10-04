@@ -13,7 +13,7 @@ quests.npcs = {
         size = 16,
         name = "Elder",
         isIntroNPC = true,  -- Special flag for intro dialog
-        introText = "Welcome, young one! You've arrived at our village just in time.\n\nMany folks here need help with various tasks - fetching lost items, making deliveries, and more.\n\nAs the village's newest helper, it's your job to assist everyone!\n\nTalk to villagers (press E) to learn what they need.\n\nPress L for your quest log and I for your inventory.\n\nGood luck on your journey!"
+        introTest = "Hey you! You're finally awake!\n\nWe're in a bit of a jam here, aren't we?\n\nHere's what you should know.\n\nTalk to villagers (press E) to learn what they need.\n\nPress L for your quest log and I for your inventory.\n\nGood luck on your journey!"
     },
     -- Quest Chain 1: Lost Cat
     {
