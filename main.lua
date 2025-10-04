@@ -27,6 +27,9 @@ local gameState = "mainMenu"
 local volume = 1.0
 local draggingSlider = false
 
+-- Input tracking for movement priority
+local heldKeys = {}
+
 -- Player (Pokemon-style grid movement)
 -- Initial spawn position (will be validated and adjusted if on collision tile)
 local player = {
@@ -43,7 +46,8 @@ local player = {
     walkFrame = 0,  -- 0 or 1 for animation
     wasOnWater = false,  -- Track if player was on water last frame
     jumping = false,  -- Track if player is jumping
-    jumpHeight = 0  -- Current jump height offset for rendering
+    jumpHeight = 0,  -- Current jump height offset for rendering
+    queuedDirection = nil  -- Queued movement direction
 }
 
 -- Camera (Pokemon-style: always centered on player)
@@ -475,6 +479,16 @@ local function isJumpableObstacle(x, y)
     return false
 end
 
+function areOppositeDirections(dir1, dir2)
+    if (dir1 == "up" and dir2 == "down") or (dir1 == "down" and dir2 == "up") then
+        return true
+    end
+    if (dir1 == "left" and dir2 == "right") or (dir1 == "right" and dir2 == "left") then
+        return true
+    end
+    return false
+end
+
 function love.update(dt)
     -- Update map
     map:update(dt)
@@ -490,6 +504,29 @@ function love.update(dt)
     if gameState == "playing" and not CheatConsole.isOpen() then
         -- Pokemon-style grid-based movement
         if player.moving then
+            -- Check for input to queue movement
+            for i = #heldKeys, 1, -1 do
+                local key = heldKeys[i]
+                if love.keyboard.isDown(key) then
+                    local queueDir = nil
+                    if key == "w" or key == "up" then
+                        queueDir = "up"
+                    elseif key == "s" or key == "down" then
+                        queueDir = "down"
+                    elseif key == "a" or key == "left" then
+                        queueDir = "left"
+                    elseif key == "d" or key == "right" then
+                        queueDir = "right"
+                    end
+
+                    -- Queue if not opposite to current direction and not the same direction
+                    if queueDir and not areOppositeDirections(player.direction, queueDir) and queueDir ~= player.direction then
+                        player.queuedDirection = queueDir
+                        break
+                    end
+                end
+            end
+
             -- Increment move timer
             player.moveTimer = player.moveTimer + dt
             
@@ -534,7 +571,7 @@ function love.update(dt)
                 player.jumpHeight = 0
                 player.moveTimer = 0
                 player.walkFrame = 0
-                
+
                 -- Check if player transitioned from water to land (boat use)
                 local isOnWater = isWaterTile(endX, endY)
                 if player.wasOnWater and not isOnWater then
@@ -544,36 +581,110 @@ function love.update(dt)
                         -- Use boat ability (consumes a use)
                         local context = {showToast = showToast}
                         boatAbility:use(context)
-                        
+
                         -- Remove ability if expired
                         if boatAbility.currentUses <= 0 then
                             abilityManager:removeAbility("boat")
                         end
                     end
                 end
-                
+
                 -- Update water state for next frame
                 player.wasOnWater = isOnWater
+
+                -- Check if there's a queued movement to execute
+                if player.queuedDirection then
+                    local queuedDir = player.queuedDirection
+                    player.queuedDirection = nil
+
+                    -- Try to execute queued movement
+                    local newGridX, newGridY = player.gridX, player.gridY
+
+                    if queuedDir == "up" then
+                        newGridY = player.gridY - 1
+                    elseif queuedDir == "down" then
+                        newGridY = player.gridY + 1
+                    elseif queuedDir == "left" then
+                        player.facing = "left"
+                        newGridX = player.gridX - 1
+                    elseif queuedDir == "right" then
+                        player.facing = "right"
+                        newGridX = player.gridX + 1
+                    end
+
+                    -- Check collision for queued movement
+                    local targetPixelX = newGridX * 16 + 8
+                    local targetPixelY = newGridY * 16 + 8
+
+                    local canCrossWater = abilityManager:hasEffect(EffectType.WATER_TRAVERSAL)
+                    local canJump = abilityManager:hasEffect(EffectType.JUMP)
+                    local tileBlocked = isColliding(targetPixelX, targetPixelY, canCrossWater)
+                    local npcBlocked = isNPCAt(targetPixelX, targetPixelY)
+
+                    -- Check if we should jump over an obstacle
+                    if tileBlocked and canJump and isJumpableObstacle(targetPixelX, targetPixelY) then
+                        -- Try to jump OVER the obstacle (2 tiles total)
+                        local jumpLandingX = newGridX + (newGridX - player.gridX)
+                        local jumpLandingY = newGridY + (newGridY - player.gridY)
+                        local landingPixelX = jumpLandingX * 16 + 8
+                        local landingPixelY = jumpLandingY * 16 + 8
+
+                        -- Check if landing spot is valid
+                        local landingBlocked = isColliding(landingPixelX, landingPixelY, canCrossWater)
+                        local landingNpcBlocked = isNPCAt(landingPixelX, landingPixelY)
+
+                        if not landingBlocked and not landingNpcBlocked then
+                            -- Perform jump over the obstacle
+                            player.direction = queuedDir
+                            player.targetGridX = jumpLandingX
+                            player.targetGridY = jumpLandingY
+                            player.moving = true
+                            player.jumping = true
+                            player.moveTimer = 0
+                            player.moveDuration = 0.25
+                        end
+                    elseif not tileBlocked and not npcBlocked then
+                        -- Normal movement
+                        player.direction = queuedDir
+                        player.targetGridX = newGridX
+                        player.targetGridY = newGridY
+                        player.moving = true
+                        player.jumping = false
+                        player.moveTimer = 0
+                        player.moveDuration = 0.15
+                    end
+                end
             end
         else
             -- Check for input to start new movement
+            -- Prioritize most recently pressed key (last in heldKeys)
             local moveDir = nil
             local newGridX, newGridY = player.gridX, player.gridY
-            
-            if love.keyboard.isDown("w") or love.keyboard.isDown("up") then
-                moveDir = "up"
-                newGridY = player.gridY - 1
-            elseif love.keyboard.isDown("s") or love.keyboard.isDown("down") then
-                moveDir = "down"
-                newGridY = player.gridY + 1
-            elseif love.keyboard.isDown("a") or love.keyboard.isDown("left") then
-                moveDir = "left"
-                player.facing = "left"
-                newGridX = player.gridX - 1
-            elseif love.keyboard.isDown("d") or love.keyboard.isDown("right") then
-                moveDir = "right"
-                player.facing = "right"
-                newGridX = player.gridX + 1
+
+            -- Check held keys in reverse order (most recent first)
+            for i = #heldKeys, 1, -1 do
+                local key = heldKeys[i]
+                if love.keyboard.isDown(key) then
+                    if key == "w" or key == "up" then
+                        moveDir = "up"
+                        newGridY = player.gridY - 1
+                        break
+                    elseif key == "s" or key == "down" then
+                        moveDir = "down"
+                        newGridY = player.gridY + 1
+                        break
+                    elseif key == "a" or key == "left" then
+                        moveDir = "left"
+                        player.facing = "left"
+                        newGridX = player.gridX - 1
+                        break
+                    elseif key == "d" or key == "right" then
+                        moveDir = "right"
+                        player.facing = "right"
+                        newGridX = player.gridX + 1
+                        break
+                    end
+                end
             end
             
             if moveDir then
@@ -851,6 +962,19 @@ end
 function love.keypressed(key)
     love.mouse.setVisible(false)
 
+    -- Track movement keys for input priority
+    if key == "w" or key == "up" or key == "s" or key == "down" or
+       key == "a" or key == "left" or key == "d" or key == "right" then
+        -- Remove if already in list
+        for i = #heldKeys, 1, -1 do
+            if heldKeys[i] == key then
+                table.remove(heldKeys, i)
+            end
+        end
+        -- Add to end (most recent)
+        table.insert(heldKeys, key)
+    end
+
     -- Create game state object for cheat console
     local gameStateForCheats = {
         showToast = showToast,
@@ -905,6 +1029,15 @@ function love.keypressed(key)
         end
     elseif key == "f" then
         love.window.setFullscreen(not love.window.getFullscreen())
+    end
+end
+
+function love.keyreleased(key)
+    -- Remove from held keys list
+    for i = #heldKeys, 1, -1 do
+        if heldKeys[i] == key then
+            table.remove(heldKeys, i)
+        end
     end
 end
 
