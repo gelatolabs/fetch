@@ -142,8 +142,34 @@ function CheatConsole.processCode(code, gameState)
         end
         gameState.showToast("Unlocked all abilities", {1, 0.5, 0})
         
+    elseif command == "gold" or command == "money" then
+        if param == "" then
+            gameState.showToast("Usage: gold <amount> (e.g. gold 100)", {1, 1, 0.3})
+        else
+            local amount = tonumber(param)
+            if amount then
+                gameState.setGold(gameState.getGold() + amount)
+                gameState.showToast("Added " .. amount .. " gold", {1, 0.5, 0})
+            else
+                gameState.showToast("Invalid amount: " .. param, {1, 0.3, 0.3})
+            end
+        end
+        
+    elseif command == "setgold" or command == "setmoney" then
+        if param == "" then
+            gameState.showToast("Usage: setgold <amount> (e.g. setgold 500)", {1, 1, 0.3})
+        else
+            local amount = tonumber(param)
+            if amount then
+                gameState.setGold(amount)
+                gameState.showToast("Set gold to " .. amount, {1, 0.5, 0})
+            else
+                gameState.showToast("Invalid amount: " .. param, {1, 0.3, 0.3})
+            end
+        end
+        
     elseif command == "help" or command == "?" then
-        gameState.showToast("Cheats: noclip, grid, unlock/lock, god [off], fetch <item>", {1, 1, 0.3})
+        gameState.showToast("Cheats: noclip, grid, unlock/lock, god, fetch, gold/setgold", {1, 1, 0.3})
         
     else
         gameState.showToast("Unknown cheat: " .. code, {1, 0.3, 0.3})
