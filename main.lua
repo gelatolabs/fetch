@@ -22,6 +22,7 @@ local npcSprite
 local gameState = "playing"
 
 -- Player (Pokemon-style grid movement)
+-- Initial spawn position (will be validated and adjusted if on collision tile)
 local player = {
     x = 168,  -- Current pixel position
     y = 120,
@@ -148,14 +149,70 @@ function love.load()
     -- Load game data
     loadGameData()
     
+    -- Validate player spawn position
+    local newX, newY, success = findValidSpawnPosition(player.x, player.y, "Player", 15)
+    if newX ~= player.x or newY ~= player.y then
+        -- Update player position and grid position
+        player.x = newX
+        player.y = newY
+        player.gridX = math.floor(newX / 16)
+        player.gridY = math.floor(newY / 16)
+    end
+    
     -- Initialize camera centered on player
     camera.x = player.x - GAME_WIDTH / 2
     camera.y = player.y - GAME_HEIGHT / 2
 end
 
+-- Helper function to find a valid spawn position near a given location
+function findValidSpawnPosition(x, y, entityName, maxSearchRadius)
+    maxSearchRadius = maxSearchRadius or 20
+    
+    -- First check if current position is valid
+    if not isColliding(x, y) then
+        return x, y, true
+    end
+    
+    print("Warning: " .. entityName .. " spawned on collision tile at (" .. x .. ", " .. y .. ")")
+    
+    local gridX = math.floor(x / 16)
+    local gridY = math.floor(y / 16)
+    
+    -- Search in expanding circles for a valid position
+    for radius = 1, maxSearchRadius do
+        -- Create a list of positions at this radius (prioritize closer ones)
+        local positions = {}
+        
+        for offsetY = -radius, radius do
+            for offsetX = -radius, radius do
+                -- Only check positions at the current radius (not inside)
+                if math.abs(offsetX) == radius or math.abs(offsetY) == radius then
+                    local testX = (gridX + offsetX) * 16 + 8
+                    local testY = (gridY + offsetY) * 16 + 8
+                    
+                    if not isColliding(testX, testY) then
+                        -- Found a valid position
+                        print("  Moved to valid position: (" .. testX .. ", " .. testY .. ") [grid: " .. (gridX + offsetX) .. ", " .. (gridY + offsetY) .. "] (searched " .. radius .. " tiles away)")
+                        return testX, testY, true
+                    end
+                end
+            end
+        end
+    end
+    
+    -- If we get here, no valid position was found
+    print("  ERROR: Could not find valid spawn position within " .. maxSearchRadius .. " tiles!")
+    print("  Entity will spawn at original location but may be inaccessible!")
+    return x, y, false
+end
+
 function loadGameData()
-    -- Load NPCs from quest data
+    -- Load NPCs from quest data, validating positions
     for _, npcData in ipairs(questData.npcs) do
+        local newX, newY, success = findValidSpawnPosition(npcData.x, npcData.y, "NPC '" .. npcData.name .. "'", 20)
+        npcData.x = newX
+        npcData.y = newY
+        
         table.insert(npcs, npcData)
     end
 
@@ -288,20 +345,52 @@ function isColliding(x, y)
     local tileX = math.floor(x / world.tileSize)
     local tileY = math.floor(y / world.tileSize)
 
-    -- Get the tile layer (first layer in the map)
-    local layer = map.layers[1]
-    
-    if not layer or layer.type ~= "tilelayer" then
-        return false
+    -- Check all tile layers for collisions
+    for _, layer in ipairs(map.layers) do
+        if layer.type == "tilelayer" then
+            -- Handle chunked maps
+            if layer.chunks then
+                for _, chunk in ipairs(layer.chunks) do
+                    -- Check if the tile position is within this chunk
+                    local chunkX = chunk.x
+                    local chunkY = chunk.y
+                    local chunkWidth = chunk.width
+                    local chunkHeight = chunk.height
+                    
+                    if tileX >= chunkX and tileX < chunkX + chunkWidth and
+                       tileY >= chunkY and tileY < chunkY + chunkHeight then
+                        
+                        -- Convert to local chunk coordinates (1-based)
+                        local localX = tileX - chunkX + 1
+                        local localY = tileY - chunkY + 1
+                        
+                        -- Get the tile from chunk data
+                        if chunk.data[localY] and chunk.data[localY][localX] then
+                            local tile = chunk.data[localY][localX]
+                            if tile.properties and tile.properties.collides then
+                                return true
+                            end
+                        end
+                        break
+                    end
+                end
+            else
+                -- Handle non-chunked maps
+                if layer.data[tileY + 1] and layer.data[tileY + 1][tileX + 1] then
+                    local tile = layer.data[tileY + 1][tileX + 1]
+                    if tile and tile.properties and tile.properties.collides then
+                        return true
+                    end
+                end
+            end
+        end
     end
 
-    -- Handle chunked maps
-    if layer.chunks then
-        -- Check if the position is within any chunk (map bounds)
+    -- Check if outside map bounds (check first layer for bounds)
+    local firstLayer = map.layers[1]
+    if firstLayer and firstLayer.type == "tilelayer" and firstLayer.chunks then
         local foundInChunk = false
-        
-        for _, chunk in ipairs(layer.chunks) do
-            -- Check if the tile position is within this chunk
+        for _, chunk in ipairs(firstLayer.chunks) do
             local chunkX = chunk.x
             local chunkY = chunk.y
             local chunkWidth = chunk.width
@@ -310,35 +399,12 @@ function isColliding(x, y)
             if tileX >= chunkX and tileX < chunkX + chunkWidth and
                tileY >= chunkY and tileY < chunkY + chunkHeight then
                 foundInChunk = true
-                
-                -- Convert to local chunk coordinates (1-based)
-                local localX = tileX - chunkX + 1
-                local localY = tileY - chunkY + 1
-                
-                -- Get the tile from chunk data
-                if chunk.data[localY] and chunk.data[localY][localX] then
-                    local tile = chunk.data[localY][localX]
-                    if tile.properties and tile.properties.collides then
-                        return true
-                    end
-                end
                 break
             end
         end
         
         -- If not in any chunk, it's outside the map bounds
         if not foundInChunk then
-            return true
-        end
-    else
-        -- Handle non-chunked maps
-        if layer.data[tileY + 1] and layer.data[tileY + 1][tileX + 1] then
-            local tile = layer.data[tileY + 1][tileX + 1]
-            if tile and tile.properties and tile.properties.collides then
-                return true
-            end
-        else
-            -- Outside map bounds
             return true
         end
     end

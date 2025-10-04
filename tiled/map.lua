@@ -151,6 +151,10 @@ return {
         },
         {
           id = 18,
+          properties = {
+            ["collides"] = true,
+            ["is_water"] = true
+          },
           image = "../tiles/water.png",
           width = 16,
           height = 16
