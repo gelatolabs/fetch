@@ -5,6 +5,7 @@ local CheatConsole = require "cheat_console"
 local AbilitySystem = require "ability_system"
 local DialogSystem = require "dialog_system"
 local UISystem = require "ui_system"
+local MapSystem = require "map_system"
 
 -- Game constants
 local GAME_WIDTH = 320
@@ -314,13 +315,16 @@ function love.load()
 
     -- Load Tiled map
     map = sti(mapPaths[currentMap])
-    calculateMapBounds()
+    
+    -- Initialize MapSystem
+    MapSystem.init(map, world, CheatConsole, npcs, currentMap)
+    MapSystem.calculateMapBounds()
 
     -- Load game data
     loadGameData()
     
     -- Validate player spawn position
-    local newX, newY, success = findValidSpawnPosition(player.x, player.y, "Player", 15)
+    local newX, newY, success = MapSystem.findValidSpawnPosition(player.x, player.y, "Player", 15)
     if newX ~= player.x or newY ~= player.y then
         -- Update player position and grid position
         player.x = newX
@@ -334,80 +338,10 @@ function love.load()
     camera.y = player.y - GAME_HEIGHT / 2
 end
 
--- Helper function to calculate map bounds from chunks
-function calculateMapBounds()
-    local layer = map.layers[1]
-    if layer and layer.chunks then
-        local minX, minY = math.huge, math.huge
-        local maxX, maxY = -math.huge, -math.huge
-        
-        for _, chunk in ipairs(layer.chunks) do
-            minX = math.min(minX, chunk.x)
-            minY = math.min(minY, chunk.y)
-            maxX = math.max(maxX, chunk.x + chunk.width)
-            maxY = math.max(maxY, chunk.y + chunk.height)
-        end
-        
-        -- Store map bounds in pixels
-        world.minX = minX * world.tileSize
-        world.minY = minY * world.tileSize
-        world.maxX = maxX * world.tileSize
-        world.maxY = maxY * world.tileSize
-    else
-        -- If no chunks, set no bounds (allow full movement)
-        world.minX = nil
-        world.minY = nil
-        world.maxX = nil
-        world.maxY = nil
-    end
-end
-
--- Helper function to find a valid spawn position near a given location
-function findValidSpawnPosition(x, y, entityName, maxSearchRadius)
-    maxSearchRadius = maxSearchRadius or 20
-    
-    -- First check if current position is valid
-    if not isColliding(x, y) then
-        return x, y, true
-    end
-    
-    print("Warning: " .. entityName .. " spawned on collision tile at (" .. x .. ", " .. y .. ")")
-    
-    local gridX = math.floor(x / 16)
-    local gridY = math.floor(y / 16)
-    
-    -- Search in expanding circles for a valid position
-    for radius = 1, maxSearchRadius do
-        -- Create a list of positions at this radius (prioritize closer ones)
-        local positions = {}
-        
-        for offsetY = -radius, radius do
-            for offsetX = -radius, radius do
-                -- Only check positions at the current radius (not inside)
-                if math.abs(offsetX) == radius or math.abs(offsetY) == radius then
-                    local testX = (gridX + offsetX) * 16 + 8
-                    local testY = (gridY + offsetY) * 16 + 8
-                    
-                    if not isColliding(testX, testY) then
-                        -- Found a valid position
-                        print("  Moved to valid position: (" .. testX .. ", " .. testY .. ") [grid: " .. (gridX + offsetX) .. ", " .. (gridY + offsetY) .. "] (searched " .. radius .. " tiles away)")
-                        return testX, testY, true
-                    end
-                end
-            end
-        end
-    end
-    
-    -- If we get here, no valid position was found
-    print("  ERROR: Could not find valid spawn position within " .. maxSearchRadius .. " tiles!")
-    print("  Entity will spawn at original location but may be inaccessible!")
-    return x, y, false
-end
-
 function loadGameData()
     -- Load NPCs from quest data, validating positions
     for _, npcData in ipairs(questData.npcs) do
-        local newX, newY, success = findValidSpawnPosition(npcData.x, npcData.y, "NPC '" .. npcData.name .. "'", 20)
+        local newX, newY, success = MapSystem.findValidSpawnPosition(npcData.x, npcData.y, "NPC '" .. npcData.name .. "'", 20)
         npcData.x = newX
         npcData.y = newY
         
@@ -420,116 +354,6 @@ function loadGameData()
     end
 end
 
--- Helper function to check if a position is water
-local function isWaterTile(x, y)
-    local tileX = math.floor(x / world.tileSize)
-    local tileY = math.floor(y / world.tileSize)
-    
-    -- Check all tile layers
-    for _, layer in ipairs(map.layers) do
-        if layer.type == "tilelayer" then
-            -- Handle chunked maps
-            if layer.chunks then
-                for _, chunk in ipairs(layer.chunks) do
-                    local chunkX = chunk.x
-                    local chunkY = chunk.y
-                    local chunkWidth = chunk.width
-                    local chunkHeight = chunk.height
-                    
-                    if tileX >= chunkX and tileX < chunkX + chunkWidth and
-                       tileY >= chunkY and tileY < chunkY + chunkHeight then
-                        
-                        local localX = tileX - chunkX + 1
-                        local localY = tileY - chunkY + 1
-                        
-                        if chunk.data[localY] and chunk.data[localY][localX] then
-                            local tile = chunk.data[localY][localX]
-                            if tile.properties and tile.properties.is_water then
-                                return true
-                            end
-                        end
-                        break
-                    end
-                end
-            else
-                -- Handle non-chunked maps
-                if layer.data[tileY + 1] and layer.data[tileY + 1][tileX + 1] then
-                    local tile = layer.data[tileY + 1][tileX + 1]
-                    if tile and tile.properties and tile.properties.is_water then
-                        return true
-                    end
-                end
-            end
-        end
-    end
-    
-    return false
-end
-
--- Helper function to check if an NPC is at a position
-local function isNPCAt(x, y)
-    for _, npc in ipairs(npcs) do
-        if npc.map == currentMap then
-            -- Check if NPC occupies this position (using grid-based collision)
-            local npcGridX = math.floor(npc.x / 16)
-            local npcGridY = math.floor(npc.y / 16)
-            local targetGridX = math.floor(x / 16)
-            local targetGridY = math.floor(y / 16)
-            
-            if npcGridX == targetGridX and npcGridY == targetGridY then
-                return true
-            end
-        end
-    end
-    return false
-end
-
--- Helper function to check if a tile is a jumpable obstacle
-local function isJumpableObstacle(x, y)
-    local tileX = math.floor(x / world.tileSize)
-    local tileY = math.floor(y / world.tileSize)
-    
-    -- Check all tile layers
-    for _, layer in ipairs(map.layers) do
-        if layer.type == "tilelayer" then
-            -- Handle chunked maps
-            if layer.chunks then
-                for _, chunk in ipairs(layer.chunks) do
-                    local chunkX = chunk.x
-                    local chunkY = chunk.y
-                    local chunkWidth = chunk.width
-                    local chunkHeight = chunk.height
-                    
-                    if tileX >= chunkX and tileX < chunkX + chunkWidth and
-                       tileY >= chunkY and tileY < chunkY + chunkHeight then
-                        local localX = tileX - chunkX + 1
-                        local localY = tileY - chunkY + 1
-                        
-                        if chunk.data[localY] and chunk.data[localY][localX] then
-                            local tile = chunk.data[localY][localX]
-                            if tile and tile.properties and tile.properties.collides and 
-                               tile.properties.height and tile.properties.height <= 0.5 then
-                                return true
-                            end
-                        end
-                        break
-                    end
-                end
-            else
-                -- Handle non-chunked maps
-                if layer.data[tileY + 1] and layer.data[tileY + 1][tileX + 1] then
-                    local tile = layer.data[tileY + 1][tileX + 1]
-                    if tile and tile.properties and tile.properties.collides and 
-                       tile.properties.height and tile.properties.height <= 0.5 then
-                        return true
-                    end
-                end
-            end
-        end
-    end
-    
-    return false
-end
 
 function areOppositeDirections(dir1, dir2)
     if (dir1 == "up" and dir2 == "down") or (dir1 == "down" and dir2 == "up") then
@@ -635,7 +459,7 @@ function love.update(dt)
 
                 -- Check if player transitioned from water to land (boat use)
                 -- Only check this if not jumping (jumping over water shouldn't consume boat)
-                local isOnWater = isWaterTile(endX, endY)
+                local isOnWater = MapSystem.isWaterTile(endX, endY)
                 if not player.jumping then
                     if player.wasOnWater and not isOnWater then
                         -- Transitioning from water to land - consume boat use
@@ -682,11 +506,11 @@ function love.update(dt)
 
                     local canCrossWater = abilityManager:hasEffect(EffectType.WATER_TRAVERSAL)
                     local canJump = abilityManager:hasEffect(EffectType.JUMP)
-                    local tileBlocked = isColliding(targetPixelX, targetPixelY, canCrossWater)
-                    local npcBlocked = isNPCAt(targetPixelX, targetPixelY)
+                    local tileBlocked = MapSystem.isColliding(targetPixelX, targetPixelY, canCrossWater)
+                    local npcBlocked = MapSystem.isNPCAt(targetPixelX, targetPixelY)
 
                     -- Check if we should jump over an obstacle
-                    if tileBlocked and canJump and isJumpableObstacle(targetPixelX, targetPixelY) then
+                    if tileBlocked and canJump and MapSystem.isJumpableObstacle(targetPixelX, targetPixelY) then
                         -- Try to jump OVER the obstacle (2 tiles total)
                         local jumpLandingX = newGridX + (newGridX - player.gridX)
                         local jumpLandingY = newGridY + (newGridY - player.gridY)
@@ -694,8 +518,8 @@ function love.update(dt)
                         local landingPixelY = jumpLandingY * 16 + 8
 
                         -- Check if landing spot is valid
-                        local landingBlocked = isColliding(landingPixelX, landingPixelY, canCrossWater)
-                        local landingNpcBlocked = isNPCAt(landingPixelX, landingPixelY)
+                        local landingBlocked = MapSystem.isColliding(landingPixelX, landingPixelY, canCrossWater)
+                        local landingNpcBlocked = MapSystem.isNPCAt(landingPixelX, landingPixelY)
 
                         if not landingBlocked and not landingNpcBlocked then
                             -- Perform jump over the obstacle
@@ -760,11 +584,11 @@ function love.update(dt)
                 
                 local canCrossWater = abilityManager:hasEffect(EffectType.WATER_TRAVERSAL)
                 local canJump = abilityManager:hasEffect(EffectType.JUMP)
-                local tileBlocked = isColliding(targetPixelX, targetPixelY, canCrossWater)
-                local npcBlocked = isNPCAt(targetPixelX, targetPixelY)
+                local tileBlocked = MapSystem.isColliding(targetPixelX, targetPixelY, canCrossWater)
+                local npcBlocked = MapSystem.isNPCAt(targetPixelX, targetPixelY)
                 
                 -- Check if we should jump over an obstacle
-                if tileBlocked and canJump and isJumpableObstacle(targetPixelX, targetPixelY) then
+                if tileBlocked and canJump and MapSystem.isJumpableObstacle(targetPixelX, targetPixelY) then
                     -- Try to jump OVER the obstacle (2 tiles total)
                     local jumpLandingX = newGridX + (newGridX - player.gridX)
                     local jumpLandingY = newGridY + (newGridY - player.gridY)
@@ -772,8 +596,8 @@ function love.update(dt)
                     local landingPixelY = jumpLandingY * 16 + 8
                     
                     -- Check if landing spot is valid (not blocked and not an NPC there)
-                    local landingBlocked = isColliding(landingPixelX, landingPixelY, canCrossWater)
-                    local landingNpcBlocked = isNPCAt(landingPixelX, landingPixelY)
+                    local landingBlocked = MapSystem.isColliding(landingPixelX, landingPixelY, canCrossWater)
+                    local landingNpcBlocked = MapSystem.isNPCAt(landingPixelX, landingPixelY)
                     
                     if not landingBlocked and not landingNpcBlocked then
                         -- Perform jump over the obstacle
@@ -844,122 +668,6 @@ function love.update(dt)
     end
 end
 
--- Helper function to get tile height at a position
-local function getTileHeight(x, y)
-    local tileX = math.floor(x / world.tileSize)
-    local tileY = math.floor(y / world.tileSize)
-    
-    -- Check all tile layers for height property
-    for _, layer in ipairs(map.layers) do
-        if layer.type == "tilelayer" then
-            -- Handle chunked maps
-            if layer.chunks then
-                for _, chunk in ipairs(layer.chunks) do
-                    local chunkX = chunk.x
-                    local chunkY = chunk.y
-                    local chunkWidth = chunk.width
-                    local chunkHeight = chunk.height
-                    
-                    if tileX >= chunkX and tileX < chunkX + chunkWidth and
-                       tileY >= chunkY and tileY < chunkY + chunkHeight then
-                        local localX = tileX - chunkX + 1
-                        local localY = tileY - chunkY + 1
-                        
-                        if chunk.data[localY] and chunk.data[localY][localX] then
-                            local tile = chunk.data[localY][localX]
-                            if tile and tile.properties and tile.properties.height then
-                                return tile.properties.height
-                            end
-                        end
-                        break
-                    end
-                end
-            else
-                -- Handle non-chunked maps
-                if layer.data[tileY + 1] and layer.data[tileY + 1][tileX + 1] then
-                    local tile = layer.data[tileY + 1][tileX + 1]
-                    if tile and tile.properties and tile.properties.height then
-                        return tile.properties.height
-                    end
-                end
-            end
-        end
-    end
-    
-    return 0  -- Default height is 0
-end
-
--- Helper function to check if a tile should block movement
-local function shouldCollideWithTile(tile, canSwim)
-    if not tile or not tile.properties or not tile.properties.collides then
-        return false
-    end
-    -- If it's water and player can swim, allow passage
-    if canSwim and tile.properties.is_water then
-        return false
-    end
-    return true
-end
-
-function isColliding(x, y, canSwim)
-    -- Noclip cheat bypasses all collision
-    if CheatConsole.isNoclipActive() then
-        return false
-    end
-    
-    canSwim = canSwim or false
-    local tileX = math.floor(x / world.tileSize)
-    local tileY = math.floor(y / world.tileSize)
-
-    -- Check if there's ANY tile at this position (to prevent walking into void)
-    local hasTile = false
-
-    -- Check all tile layers
-    for _, layer in ipairs(map.layers) do
-        if layer.type == "tilelayer" then
-            -- Handle chunked maps
-            if layer.chunks then
-                for _, chunk in ipairs(layer.chunks) do
-                    -- Check if the tile position is within this chunk
-                    local chunkX = chunk.x
-                    local chunkY = chunk.y
-                    local chunkWidth = chunk.width
-                    local chunkHeight = chunk.height
-
-                    if tileX >= chunkX and tileX < chunkX + chunkWidth and
-                       tileY >= chunkY and tileY < chunkY + chunkHeight then
-
-                        -- Convert to local chunk coordinates (1-based)
-                        local localX = tileX - chunkX + 1
-                        local localY = tileY - chunkY + 1
-
-                        -- Get the tile from chunk data
-                        if chunk.data[localY] and chunk.data[localY][localX] then
-                            local tile = chunk.data[localY][localX]
-                            hasTile = true
-                            if shouldCollideWithTile(tile, canSwim) then
-                                return true
-                            end
-                        end
-                        break
-                    end
-                end
-            else
-                -- Handle non-chunked maps
-                if layer.data[tileY + 1] and layer.data[tileY + 1][tileX + 1] then
-                    local tile = layer.data[tileY + 1][tileX + 1]
-                    hasTile = true
-                    if shouldCollideWithTile(tile, canSwim) then
-                        return true
-                    end
-                end
-            end
-        end
-    end
-
-    -- Collision if there's no tile at all (void)
-    return not hasTile
-end
 
 function love.mousemoved(x, y, dx, dy)
     -- Show mouse cursor when mouse is moved
@@ -1148,7 +856,10 @@ function enterDoor(door)
     -- Load the new map
     currentMap = door.targetMap
     map = sti(mapPaths[currentMap])
-    calculateMapBounds()
+    
+    -- Update MapSystem references
+    MapSystem.updateReferences(map, currentMap)
+    MapSystem.calculateMapBounds()
 
     -- Set player position to target door location
     player.gridX = door.targetX
@@ -1554,7 +1265,7 @@ local function getPlayerSpriteSet()
     -- Get the tile at player's position
     local tileX = math.floor(player.x / world.tileSize)
     local tileY = math.floor(player.y / world.tileSize)
-    local isOnWater = isWaterTile(player.x, player.y)
+    local isOnWater = MapSystem.isWaterTile(player.x, player.y)
 
     if isOnWater then
         if abilityManager:hasAbility("swim") then
