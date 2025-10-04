@@ -123,6 +123,30 @@ quests.npcs = {
         requiresDialog = true,
         itemGiveText = "Here are some floaties! They'll help you learn to swim. Take them back to the swimmer!",
         noQuestText = "The water is perfect today! Want to learn to swim?"
+    },
+    -- Quest Chain 6: Learn to Jump
+    {
+        id = "npc_athlete",
+        map = "map",
+        x = 15 * 16 + 8,  -- Grid position (15, -12) - upper right area
+        y = -12 * 16 + 8,
+        size = 16,
+        name = "Athlete",
+        questId = "quest_learn_jump",
+        isQuestGiver = true
+    },
+    {
+        id = "npc_coach",
+        map = "map",
+        x = 22 * 16 + 8,  -- Grid position (22, 3) - right side
+        y = 3 * 16 + 8,
+        size = 16,
+        name = "Coach",
+        givesItem = "item_shoes",
+        requiresQuest = "quest_learn_jump",
+        requiresDialog = true,
+        itemGiveText = "These are special jumping shoes! Take them to the athlete and they'll teach you!",
+        noQuestText = "I train athletes to be the best they can be!"
     }
 }
 
@@ -179,13 +203,26 @@ quests.questData = {
     quest_learn_swim = {
         id = "quest_learn_swim",
         name = "Learn to Swim",
-        description = "The swimmer needs floaties from the lifeguard to teach you how to swim!",
+        description = "I lost my floaties and can't swim without them!",
         questGiver = "npc_swimmer",
         requiredItem = "item_floaties",
         grantsAbility = "swim",
-        reward = "Perfect! Now I can teach you to swim. You can now cross water tiles freely!",
+        reward = "I feel a lot better now. I bet you can swim now too!",
         goldReward = 0,
-        reminderText = "The lifeguard has some floaties I need to teach you properly!",
+        reminderText = "I bet a lifeguard might have some floaties!",
+        active = false,
+        completed = false
+    },
+    quest_learn_jump = {
+        id = "quest_learn_jump",
+        name = "Learn to Jump",
+        description = "Ugh, I lost my shoes! Can you find them for me?",
+        questGiver = "npc_athlete",
+        requiredItem = "item_shoes",
+        grantsAbility = "jump",
+        reward = "Nice! Now I can jump around like a pro!\nYou're no pro, but you probably jump over bushes now.",
+        goldReward = 0,
+        reminderText = "I really need those shoes!",
         active = false,
         completed = false
     }

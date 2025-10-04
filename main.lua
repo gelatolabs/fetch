@@ -83,7 +83,8 @@ local itemRegistry = {
     item_book = {id = "item_book", name = "Ancient Tome", aliases = {"book"}},
     item_package = {id = "item_package", name = "Sealed Package", aliases = {"package"}},
     item_floaties = {id = "item_floaties", name = "Swimming Floaties", aliases = {"floaties", "floaty"}},
-    item_wood = {id = "item_wood", name = "Wooden Planks", aliases = {"wood", "planks"}}
+    item_wood = {id = "item_wood", name = "Wooden Planks", aliases = {"wood", "planks"}},
+    item_shoes = {id = "item_shoes", name = "Jumping Shoes", aliases = {"shoes", "boots", "jumping shoes"}}
 }
 
 -- Ability System
