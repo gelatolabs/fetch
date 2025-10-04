@@ -254,6 +254,7 @@ quests.questData = {
         reward = "Excellent! This Labubu will be the crown jewel of my collection!",
         goldReward = 5000,
         reminderText = "I'm still searching for that rare Labubu. Perhaps the shopkeeper has one?",
+        isMainQuest = true,
         active = false,
         completed = false
     }
