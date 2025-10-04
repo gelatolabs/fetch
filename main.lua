@@ -92,13 +92,13 @@ function love.load()
 
     -- Load sprites
     playerSprite = love.graphics.newImage("sprites/player.png")
-    playerSprite:setFilter("nearest", "nearest")
+    -- playerSprite:setFilter("nearest", "nearest")
     playerWalk0 = love.graphics.newImage("sprites/player-walk0.png")
-    playerWalk0:setFilter("nearest", "nearest")
+    -- playerWalk0:setFilter("nearest", "nearest")
     playerWalk1 = love.graphics.newImage("sprites/player-walk1.png")
-    playerWalk1:setFilter("nearest", "nearest")
+    -- playerWalk1:setFilter("nearest", "nearest")
     npcSprite = love.graphics.newImage("sprites/npc.png")
-    npcSprite:setFilter("nearest", "nearest")
+    -- npcSprite:setFilter("nearest", "nearest")
 
     -- Load Tiled map
     map = sti("tiled/map.lua")
@@ -546,7 +546,7 @@ function drawDialog()
         text = currentDialog.quest.reward
         buttonText = "[SPACE] Complete"
     elseif currentDialog.type == "itemGive" then
-        text = "Here, take this!"
+        text = currentDialog.npc.itemGiveText or "Here, take this!"
         buttonText = "[SPACE] Receive"
     else
         text = currentDialog.text

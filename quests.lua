@@ -18,7 +18,8 @@ quests.npcs = {
         size = 16,
         name = "Child",
         givesItem = "item_cat",
-        requiresDialog = true
+        requiresDialog = true,
+        itemGiveText = "I found this cat wandering around! You can have it."
     },
     -- Quest Chain 2: Missing Book
     {
@@ -37,7 +38,8 @@ quests.npcs = {
         size = 16,
         name = "Reader",
         givesItem = "item_book",
-        requiresDialog = true
+        requiresDialog = true,
+        itemGiveText = "Oh, I'm done with this book. Here you go!"
     },
     -- Quest Chain 3: Delivery Package
     {
@@ -56,7 +58,8 @@ quests.npcs = {
         size = 16,
         name = "Courier",
         givesItem = "item_package",
-        requiresDialog = true
+        requiresDialog = true,
+        itemGiveText = "This package is ready for pickup. Take it!"
     }
 }
 
