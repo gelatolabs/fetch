@@ -76,6 +76,9 @@ local playerAbilities = {
     swim = false
 }
 
+-- Player gold
+local playerGold = 0
+
 -- UI state
 local nearbyNPC = nil
 local currentDialog = nil
@@ -510,7 +513,9 @@ function love.keypressed(key)
         inventory = inventory,
         getAllItemIds = getAllItemIds,
         getItemFromRegistry = getItemFromRegistry,
-        hasItem = hasItem
+        hasItem = hasItem,
+        getGold = function() return playerGold end,
+        setGold = function(amount) playerGold = amount end
     }
     
     -- Handle cheat console keys
@@ -720,6 +725,13 @@ function handleDialogInput()
         currentDialog.quest.completed = true
         table.remove(activeQuests, indexOf(activeQuests, currentDialog.quest.id))
         table.insert(completedQuests, currentDialog.quest.id)
+        
+        -- Award gold
+        if currentDialog.quest.goldReward and currentDialog.quest.goldReward > 0 then
+            playerGold = playerGold + currentDialog.quest.goldReward
+            showToast("+" .. currentDialog.quest.goldReward .. " Gold", {1, 0.84, 0})
+        end
+        
         showToast("Quest Complete: " .. currentDialog.quest.name, {0, 1, 0})
         gameState = "playing"
         currentDialog = nil
@@ -847,6 +859,13 @@ function handleQuestTurnInClick(x, y)
                 quest.completed = true
                 table.remove(activeQuests, indexOf(activeQuests, quest.id))
                 table.insert(completedQuests, quest.id)
+                
+                -- Award gold
+                if quest.goldReward and quest.goldReward > 0 then
+                    playerGold = playerGold + quest.goldReward
+                    showToast("+" .. quest.goldReward .. " Gold", {1, 0.84, 0})
+                end
+                
                 showToast("Quest Complete: " .. quest.name, {0, 1, 0})
 
                 -- Show reward dialog
@@ -959,6 +978,12 @@ function love.draw()
         love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, 12)
         love.graphics.setColor(1, 1, 1)
         love.graphics.print("Q: Quest log  I: Inventory", 2, -1)
+        
+        -- Draw gold display
+        local goldText = "Gold: " .. playerGold
+        local goldTextWidth = font:getWidth(goldText)
+        love.graphics.setColor(1, 0.84, 0) -- Gold color
+        love.graphics.print(goldText, GAME_WIDTH / 2 - goldTextWidth / 2, -1)
         
         -- Draw cheat indicators
         CheatConsole.drawIndicators(GAME_WIDTH, font, playerAbilities)
