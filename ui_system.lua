@@ -341,7 +341,7 @@ function UISystem.drawQuestLog(GAME_WIDTH, GAME_HEIGHT, activeQuests, completedQ
 
     -- Footer
     love.graphics.setColor(0.5, 0.5, 0.5)
-    love.graphics.print("[Q] Close", boxX+4, boxY+boxH-15)
+    love.graphics.print("[L] Close", boxX+4, boxY+boxH-15)
 end
 
 -- Draw quest turn-in UI
