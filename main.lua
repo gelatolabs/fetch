@@ -18,7 +18,7 @@ local playerWalk1
 local npcSprite
 
 -- Game state
--- playing, dialog, questLog, inventory
+-- playing, dialog, questLog, inventory, questTurnIn
 local gameState = "playing"
 
 -- Player (Pokemon-style grid movement)
@@ -346,6 +346,20 @@ function isColliding(x, y)
     return false
 end
 
+function love.mousepressed(x, y, button)
+    if button == 1 and gameState == "questTurnIn" then
+        -- Convert screen coordinates to canvas coordinates
+        local screenWidth, screenHeight = love.graphics.getDimensions()
+        local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
+        local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
+
+        local canvasX = (x - offsetX) / SCALE
+        local canvasY = (y - offsetY) / SCALE
+
+        handleQuestTurnInClick(canvasX, canvasY)
+    end
+end
+
 function love.keypressed(key)
     if key == "space" or key == "e" then
         if gameState == "playing" and nearbyNPC then
@@ -385,19 +399,19 @@ function interactWithNPC(npc)
             }
             gameState = "dialog"
         elseif quest.active and hasItem(quest.requiredItem) then
-            -- Turn in quest
+            -- Turn in quest - show inventory selection UI
             currentDialog = {
                 type = "questTurnIn",
                 npc = npc,
                 quest = quest
             }
-            gameState = "dialog"
+            gameState = "questTurnIn"
         else
-            -- Quest already active or completed
+            -- Quest already active (but no item yet) or completed
             currentDialog = {
                 type = "generic",
                 npc = npc,
-                text = quest.active and "Come back when you have the item!" or "Thanks again!"
+                text = quest.active and (quest.reminderText or "Come back when you have the item!") or "Thanks again!"
             }
             gameState = "dialog"
         end
@@ -505,6 +519,56 @@ function showToast(message, color)
     })
 end
 
+function handleQuestTurnInClick(x, y)
+    if not currentDialog or currentDialog.type ~= "questTurnIn" then
+        return
+    end
+
+    local quest = currentDialog.quest
+    local itemNames = {
+        item_cat = "Fluffy Cat",
+        item_book = "Ancient Tome",
+        item_package = "Sealed Package"
+    }
+
+    -- Calculate item slot positions (must match drawQuestTurnIn)
+    local boxX = GAME_WIDTH / 2 - 75
+    local boxY = GAME_HEIGHT - 90
+    local slotSize = 16
+    local padding = 3
+    local startY = boxY + 30
+
+    for i, itemId in ipairs(inventory) do
+        local slotX = boxX + 6
+        local slotY = startY + (i - 1) * (slotSize + padding)
+
+        -- Check if click is within this item slot
+        if x >= slotX and x <= slotX + slotSize and y >= slotY and y <= slotY + slotSize then
+            if itemId == quest.requiredItem then
+                -- Correct item clicked! Remove item and show reward dialog
+                removeItem(quest.requiredItem)
+                quest.active = false
+                quest.completed = true
+                table.remove(activeQuests, indexOf(activeQuests, quest.id))
+                table.insert(completedQuests, quest.id)
+                showToast("Quest Complete: " .. quest.name, {0, 1, 0})
+
+                -- Show reward dialog
+                currentDialog = {
+                    type = "generic",
+                    npc = currentDialog.npc,
+                    text = quest.reward
+                }
+                gameState = "dialog"
+            else
+                -- Wrong item
+                showToast("That's not the right item!", {1, 0.5, 0})
+            end
+            return
+        end
+    end
+end
+
 function drawToasts()
     local y = 14 -- Start below the top bar (12px height + 2px padding)
     for i, toast in ipairs(toasts) do
@@ -596,6 +660,8 @@ function love.draw()
         drawQuestLog()
     elseif gameState == "inventory" then
         drawInventory()
+    elseif gameState == "questTurnIn" then
+        drawQuestTurnIn()
     end
 
     -- Draw toasts (always on top)
@@ -773,6 +839,95 @@ function drawQuestLog()
     -- Footer
     love.graphics.setColor(0.5, 0.5, 0.5)
     love.graphics.print("[Q] Close", boxX+4, boxY+boxH-15)
+end
+
+function drawQuestTurnIn()
+    if not currentDialog or currentDialog.type ~= "questTurnIn" then
+        return
+    end
+
+    -- Draw the game world in the background
+    local camX = camera.x
+    local camY = camera.y
+
+    -- Draw the Tiled map
+    love.graphics.setColor(1, 1, 1)
+    map:draw(-camX, -camY)
+
+    -- Draw NPCs
+    for _, npc in ipairs(npcs) do
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.draw(npcSprite, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+    end
+
+    -- Draw player
+    love.graphics.setColor(1, 1, 1)
+    local currentSprite = playerSprite
+    if player.isWalking then
+        currentSprite = (player.walkFrame == 0) and playerWalk0 or playerWalk1
+    end
+    love.graphics.draw(currentSprite, player.x - player.size/2 - camX, player.y - player.size/2 - camY)
+
+    -- Draw dialog box
+    local quest = currentDialog.quest
+    local boxX = GAME_WIDTH / 2 - 75
+    local boxY = GAME_HEIGHT - 90
+    local boxW = 150
+    local boxH = 85
+
+    -- Background
+    love.graphics.setColor(0.05, 0.05, 0.1, 0.98)
+    love.graphics.rectangle("fill", boxX, boxY, boxW, boxH)
+
+    -- Fancy border
+    drawFancyBorder(boxX, boxY, boxW, boxH, {0.7, 0.5, 0.2})
+
+    -- Title bar
+    love.graphics.setColor(0.15, 0.1, 0.05, 0.9)
+    love.graphics.rectangle("fill", boxX+2, boxY+2, boxW-4, 12)
+    love.graphics.setColor(0.9, 0.7, 0.3)
+    love.graphics.printf("Turn In Quest", boxX, boxY, boxW, "center")
+
+    -- Instruction
+    love.graphics.setColor(0.7, 0.7, 0.7)
+    love.graphics.print("Click the item:", boxX + 4, boxY + 14)
+
+    -- Item names
+    local itemNames = {
+        item_cat = "Fluffy Cat",
+        item_book = "Ancient Tome",
+        item_package = "Sealed Package"
+    }
+
+    -- Draw inventory items
+    local slotSize = 16
+    local padding = 3
+    local startY = boxY + 30 -- More padding between instruction and items
+
+    for i, itemId in ipairs(inventory) do
+        local slotX = boxX + 6
+        local slotY = startY + (i - 1) * (slotSize + padding)
+
+        -- Slot background
+        love.graphics.setColor(0.1, 0.1, 0.15, 0.8)
+        love.graphics.rectangle("fill", slotX, slotY, slotSize, slotSize)
+
+        -- Slot border
+        love.graphics.setColor(0.3, 0.25, 0.2)
+        love.graphics.rectangle("line", slotX, slotY, slotSize, slotSize)
+
+        -- Item icon (simple colored square)
+        love.graphics.setColor(0.7, 0.5, 0.9)
+        love.graphics.rectangle("fill", slotX + 2, slotY + 2, slotSize - 4, slotSize - 4)
+
+        -- Item name
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.print(itemNames[itemId] or itemId, slotX + slotSize + 4, slotY + 2)
+    end
+
+    -- Footer hint
+    love.graphics.setColor(0.5, 0.5, 0.5)
+    love.graphics.print("[ESC] Cancel", boxX + 4, boxY + boxH - 17)
 end
 
 function drawInventory()
