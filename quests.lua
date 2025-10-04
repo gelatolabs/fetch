@@ -75,6 +75,28 @@ quests.npcs = {
         requiresDialog = true,
         itemGiveText = "This package is ready for pickup. Take it!",
         noQuestText = "I've got deliveries to make. Very busy!"
+    },
+    -- Quest Chain 4: Learn to Swim
+    {
+        id = "npc_swimmer",
+        x = -12 * 16 + 8,  -- Grid position (-12, 1) - near water
+        y = 1 * 16 + 8,
+        size = 16,
+        name = "Swimmer",
+        questId = "quest_learn_swim",
+        isQuestGiver = true
+    },
+    {
+        id = "npc_lifeguard",
+        x = 18 * 16 + 8,  -- Grid position (18, -6) - far side
+        y = -6 * 16 + 8,
+        size = 16,
+        name = "Lifeguard",
+        givesAbility = "swim",
+        requiresQuest = "quest_learn_swim",
+        requiresDialog = true,
+        abilityGiveText = "You've shown great determination! I'll teach you to swim. Now you can cross water!",
+        noQuestText = "The water is perfect today! Want to learn to swim?"
     }
 }
 
@@ -109,6 +131,17 @@ quests.questData = {
         requiredItem = "item_package",
         reward = "Great! Here's your payment!",
         reminderText = "The courier has my package. Can you pick it up for me?",
+        active = false,
+        completed = false
+    },
+    quest_learn_swim = {
+        id = "quest_learn_swim",
+        name = "Learn to Swim",
+        description = "The swimmer wants you to prove you're ready to learn swimming. Find the lifeguard!",
+        questGiver = "npc_swimmer",
+        grantsAbility = "swim",
+        reward = "You learned to swim! You can now cross water tiles!",
+        reminderText = "Find the lifeguard to learn how to swim!",
         active = false,
         completed = false
     }
