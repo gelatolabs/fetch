@@ -52,19 +52,23 @@ local Icons = {
     cat = {x = 0, y = 192},
     book = {x = 16, y = 192},
     placeholder = {x = 32, y = 192},
-    floaties = {x = 48, y = 192}
+    floaties = {x = 48, y = 192},
+    labubu = {x = 64, y = 192},
+    package = {x = 80, y = 192},
+    rubber_duck = {x = 96, y = 192},
+    shoes = {x = 112, y = 192}
 }
 
 -- Item registry (single source of truth for all items)
 local itemRegistry = {
     item_cat = {id = "item_cat", name = "Fluffy Cat", aliases = {"cat"}, icon = Icons.cat},
     item_book = {id = "item_book", name = "Ancient Tome", aliases = {"book"}, icon = Icons.book},
-    item_package = {id = "item_package", name = "Sealed Package", aliases = {"package"}, icon = Icons.placeholder},
+    item_package = {id = "item_package", name = "Sealed Package", aliases = {"package"}, icon = Icons.package},
     item_floaties = {id = "item_floaties", name = "Swimming Floaties", aliases = {"floaties", "floaty"}, icon = Icons.floaties},
     item_wood = {id = "item_wood", name = "Wooden Planks", aliases = {"wood", "planks"}, icon = Icons.placeholder},
-    item_shoes = {id = "item_shoes", name = "Jumping Shoes", aliases = {"shoes", "boots", "jumping shoes"}, icon = Icons.placeholder},
-    item_rubber_duck = {id = "item_rubber_duck", name = "Rubber Duck", aliases = {"duck", "rubber duck"}, icon = Icons.placeholder, shopInfo = {price = 10, description = "A cheerful rubber duck. Perfect for bath time or just keeping you company!"}},
-    item_labubu = {id = "item_labubu", name = "Labubu", aliases = {"labubu"}, icon = Icons.placeholder, shopInfo = {price = 10000, description = "An extremely rare and adorable Labubu collectible. Highly sought after by collectors!"}}
+    item_shoes = {id = "item_shoes", name = "Jumping Shoes", aliases = {"shoes", "boots", "jumping shoes"}, icon = Icons.shoes},
+    item_rubber_duck = {id = "item_rubber_duck", name = "Rubber Duck", aliases = {"duck", "rubber duck"}, icon = Icons.rubber_duck, shopInfo = {price = 10, description = "A cheerful rubber duck. Perfect for bath time or just keeping you company!"}},
+    item_labubu = {id = "item_labubu", name = "Labubu", aliases = {"labubu"}, icon = Icons.labubu, shopInfo = {price = 10000, description = "An extremely rare and adorable Labubu collectible. Highly sought after by collectors!"}}
 }
 
 -- UI state
