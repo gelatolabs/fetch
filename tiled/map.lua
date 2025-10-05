@@ -36,21 +36,11 @@ return {
       },
       properties = {},
       wangsets = {},
-      tilecount = 2,
+      tilecount = 1,
       tiles = {
         {
           id = 1,
           image = "../tiles/brown.png",
-          width = 16,
-          height = 16
-        },
-        {
-          id = 14,
-          properties = {
-            ["collides"] = true,
-            ["height"] = 0.5
-          },
-          image = "../tiles/rock.png",
           width = 16,
           height = 16
         }
