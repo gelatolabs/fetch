@@ -8,14 +8,10 @@ local UISystem = require "ui_system"
 local MapSystem = require "map_system"
 local PlayerSystem = require "player_system"
 local ShopSystem = require "shop_system"
+local AudioSystem = require "audio_system"
 
 -- Game constants (managed by UISystem)
 -- Graphics resources (managed by UISystem)
-
--- Audio
-local quackSound
-local currentMusic = nil
-local musicTracks = {}
 
 -- Game state
 -- mainMenu, settings, playing, dialog, questLog, inventory, questTurnIn, shop
@@ -42,10 +38,11 @@ local world = {
     tileSize = 16
 }
 
--- Quests
+-- Quests (state managed by quest module)
 local quests = {}
-local activeQuests = {}
-local completedQuests = {}
+-- Point to quest module's state
+local activeQuests = questData.activeQuests
+local completedQuests = questData.completedQuests
 
 -- Icon registry
 local Icons = {
@@ -156,33 +153,9 @@ function love.load()
     -- Initialize Shop system
     ShopSystem.init(itemRegistry)
 
-    -- Load audio
-    quackSound = love.audio.newSource("audio/quack.ogg", "static")
-    musicTracks.intro = love.audio.newSource("audio/intro.ogg", "stream")
-    musicTracks.theme = love.audio.newSource("audio/theme.ogg", "stream")
-    musicTracks.themeFunky = love.audio.newSource("audio/theme-funky.ogg", "stream")
-    musicTracks.credits = love.audio.newSource("audio/credits.ogg", "stream")
-    musicTracks.boss = love.audio.newSource("audio/boss.ogg", "stream")
-    musicTracks.glitch = love.audio.newSource("audio/glitch.ogg", "stream")
-    musicTracks.lullaby = love.audio.newSource("audio/lullaby.ogg", "stream")
-    musicTracks.sailing = love.audio.newSource("audio/sailing.ogg", "stream")
-    musicTracks.spooky = love.audio.newSource("audio/spooky.ogg", "stream")
-    musicTracks.throneRoom = love.audio.newSource("audio/throne-room.ogg", "stream")
-
-    -- Set all music to loop except credits
-    musicTracks.intro:setLooping(true)
-    musicTracks.theme:setLooping(true)
-    musicTracks.themeFunky:setLooping(true)
-    musicTracks.credits:setLooping(false)
-    musicTracks.boss:setLooping(true)
-    musicTracks.glitch:setLooping(true)
-    musicTracks.lullaby:setLooping(true)
-    musicTracks.sailing:setLooping(true)
-    musicTracks.spooky:setLooping(true)
-    musicTracks.throneRoom:setLooping(true)
-
-    -- Start intro music
-    playMusic(musicTracks.intro)
+    -- Initialize Audio system
+    AudioSystem.init()
+    AudioSystem.playMusic("intro")
 
     -- Load Tiled map
     map = sti(MapSystem.getMapPath(currentMap))
@@ -193,6 +166,12 @@ function love.load()
 
     -- Load game data
     loadGameData()
+    
+    -- Initialize quest lock states
+    questData.initializeQuestLocks()
+    
+    -- Sync intro shown state
+    questData.introShown = introShown
     
     -- Validate player spawn position
     local newX, newY, success = MapSystem.findValidSpawnPosition(player.x, player.y, "Player", 15)
@@ -356,7 +335,7 @@ function love.mousepressed(x, y, button)
         UISystem.handleMainMenuClick(x, y, {
             onPlay = function()
                 gameState = "playing"
-                playMusic(musicTracks.theme)
+                AudioSystem.playMusic("theme")
                 -- Show intro dialog if not shown yet
                 if not introShown then
                     introShown = true
@@ -403,7 +382,7 @@ function love.mousepressed(x, y, button)
                 gameState = "mainMenu"
             end,
             onVolumeChange = function(newVolume)
-                love.audio.setVolume(newVolume)
+                AudioSystem.setVolume(newVolume)
             end
         })
         if newVolume then
@@ -431,7 +410,7 @@ function love.mousepressed(x, y, button)
     if gameState == "questOffer" then
         UISystem.handleQuestOfferClick(x, y, questOfferData, {
             onAccept = function(quest)
-                quest.active = true
+                questData.activateQuest(quest.id)
                 table.insert(activeQuests, quest.id)
                 showToast("Quest Accepted: " .. quest.name, {1, 1, 0})
                 questOfferData = nil
@@ -474,7 +453,7 @@ function love.mousepressed(x, y, button)
         UISystem.handleQuestTurnInClick(canvasX, canvasY, questTurnInData, PlayerSystem.getInventory(), {
             onCorrectItem = function(quest, npc)
                 PlayerSystem.removeItem(quest.requiredItem)
-                completeQuest(quest)
+                questData.completeQuest(quest.id)
                 -- Show reward dialog
                 gameState = DialogSystem.showDialog({
                     type = "generic",
@@ -530,17 +509,20 @@ function love.keypressed(key)
         if gameState == "playing" and nearbyDoor then
             enterDoor(nearbyDoor)
         elseif gameState == "playing" and nearbyNPC then
-            interactWithNPC(nearbyNPC)
+            questData.interactWithNPC(nearbyNPC)
+            gameState = questData.gameState
+            questTurnInData = questData.questTurnInData
         elseif gameState == "dialog" then
             local callbacks = {
                 onQuestAccept = function(quest)
-                    quest.active = true
+                    questData.activateQuest(quest.id)
                     table.insert(activeQuests, quest.id)
                     showToast("Quest Accepted: " .. quest.name, {1, 1, 0})
                 end,
                 onQuestComplete = function(quest)
                     PlayerSystem.removeItem(quest.requiredItem)
-                    completeQuest(quest)
+                    questData.completeQuest(quest.id)
+                    gameState = questData.gameState
                 end,
                 onItemReceive = function(itemId)
                     PlayerSystem.addItem(itemId)
@@ -550,7 +532,8 @@ function love.keypressed(key)
                 end,
                 onAbilityLearn = function(abilityId, quest)
                     PlayerSystem.grantAbility(abilityId)
-                    completeQuest(quest)
+                    questData.completeQuest(quest.id)
+                    gameState = questData.gameState
                 end
             }
             local newState, shouldClear = DialogSystem.handleInput(callbacks)
@@ -574,7 +557,7 @@ function love.keypressed(key)
         end
     elseif key == "q" then
         if gameState == "playing" then
-            quackSound:play()
+            AudioSystem.playQuack()
         end
     elseif key == "i" then
         if gameState == "playing" then
@@ -635,9 +618,9 @@ function enterDoor(door)
 
     -- Update music based on target map
     if door.targetMap == "shop" then
-        playMusic(musicTracks.themeFunky)
+        AudioSystem.playMusic("themeFunky")
     elseif currentMap == "shop" then
-        playMusic(musicTracks.theme)
+        AudioSystem.playMusic("theme")
     end
 
     -- For shop (indoor) transitions or no direction, use instant transition
@@ -734,152 +717,6 @@ function enterDoor(door)
     mapTransition.playerEndScreenY = endScreenY
 end
 
-function interactWithNPC(npc)
-    if npc.isIntroNPC then
-        -- Show manifesto if intro already shown, otherwise show intro text
-        local text = introShown and npc.manifestoText or npc.introText
-        gameState = DialogSystem.showDialog({
-            type = "generic",
-            npc = npc,
-            text = text
-        })
-    elseif npc.isShopkeeper then
-        -- Open shop UI
-        ShopSystem.open()
-        gameState = "shop"
-    elseif npc.isQuestGiver then
-        local quest = quests[npc.questId]
-        if not quest.active and not quest.completed then
-            -- Show initial dialog, then quest offer
-            local dialogText = npc.questOfferDialog or "I have a quest for you."
-            gameState = DialogSystem.showDialog({
-                type = "questOfferDialog",
-                npc = npc,
-                quest = quest,
-                text = dialogText
-            })
-        elseif quest.active and quest.requiredItem and PlayerSystem.hasItem(quest.requiredItem) then
-            -- Turn in quest - show inventory selection UI (not using DialogSystem for this special UI)
-            questTurnInData = {npc = npc, quest = quest}
-            gameState = "questTurnIn"
-        else
-            -- Quest already active (but no item yet) or completed
-            local text = quest.active and (quest.reminderText or "Come back when you have the item!") or "Thanks again!"
-            gameState = DialogSystem.showDialog({
-                type = "generic",
-                npc = npc,
-                text = text
-            })
-        end
-    elseif npc.givesItem then
-        -- Check if the required quest is active
-        local requiredQuest = npc.requiresQuest and quests[npc.requiresQuest]
-        local questActive = requiredQuest and requiredQuest.active
-
-        if not questActive then
-            -- Quest not active, show generic dialog
-            local text = npc.noQuestText or "Hello there!"
-            gameState = DialogSystem.showDialog({
-                type = "generic",
-                npc = npc,
-                text = text
-            })
-        elseif not PlayerSystem.hasItem(npc.givesItem) then
-            -- Quest active and don't have item, give it
-            local text = npc.itemGiveText or "Here, take this!"
-            gameState = DialogSystem.showDialog({
-                type = "itemGive",
-                npc = npc,
-                item = npc.givesItem,
-                text = text
-            })
-        else
-            -- Already have the item
-            local text = "I already gave you the item!"
-            gameState = DialogSystem.showDialog({
-                type = "generic",
-                npc = npc,
-                text = text
-            })
-        end
-    elseif npc.givesAbility then
-        -- Check if the required quest is active
-        local requiredQuest = npc.requiresQuest and quests[npc.requiresQuest]
-        local questActive = requiredQuest and requiredQuest.active
-
-        if not questActive then
-            -- Quest not active, show generic dialog
-            local text = npc.noQuestText or "Hello there!"
-            gameState = DialogSystem.showDialog({
-                type = "generic",
-                npc = npc,
-                text = text
-            })
-        elseif not PlayerSystem.hasAbility(npc.givesAbility) then
-            -- Quest active and don't have ability, give it
-            local text = npc.abilityGiveText or "You learned a new ability!"
-            gameState = DialogSystem.showDialog({
-                type = "abilityGive",
-                npc = npc,
-                ability = npc.givesAbility,
-                quest = requiredQuest,
-                text = text
-            })
-        else
-            -- Already have the ability
-            local text = "You already learned that ability!"
-            gameState = DialogSystem.showDialog({
-                type = "generic",
-                npc = npc,
-                text = text
-            })
-        end
-    end
-end
-
--- Helper function to complete a quest
-function completeQuest(quest)
-    quest.active = false
-    quest.completed = true
-    if quest.updateQuestGiverSpriteX and quest.updateQuestGiverSpriteY then
-        questData.npcs[quest.questGiver].spriteX = quest.updateQuestGiverSpriteX
-        questData.npcs[quest.questGiver].spriteY = quest.updateQuestGiverSpriteY
-        questData.npcs[quest.questGiver].sprite.quad = love.graphics.newQuad(
-                    questData.npcs[quest.questGiver].spriteX, 
-                    questData.npcs[quest.questGiver].spriteY, 
-                    16, -- sprite width
-                    16, -- sprite height
-                    questData.npcs[quest.questGiver].sprite.tileset:getDimensions()
-                )
-    end
-    table.remove(activeQuests, indexOf(activeQuests, quest.id))
-    table.insert(completedQuests, quest.id)
-
-    -- Grant ability if quest provides one
-    if quest.grantsAbility then
-        PlayerSystem.grantAbility(quest.grantsAbility)
-
-        local ability = PlayerSystem.getAbility(quest.grantsAbility)
-        if ability then
-            showToast("Learned: " .. ability.name .. "!", ability.color)
-        end
-    end
-
-    -- Award gold
-    if quest.goldReward and quest.goldReward > 0 then
-        PlayerSystem.addGold(quest.goldReward)
-        showToast("+" .. quest.goldReward .. " Gold", {1, 0.84, 0})
-    end
-
-    showToast("Quest Complete: " .. quest.name, {0, 1, 0})
-
-    -- Check if main quest was completed (win condition)
-    if quest.isMainQuest then
-        gameState = "winScreen"
-        playMusic(musicTracks.credits)
-    end
-end
-
 
 function indexOf(tbl, value)
     for i, v in ipairs(tbl) do
@@ -895,21 +732,6 @@ function showToast(message, color)
     UISystem.showToast(message, color)
 end
 
--- Music management
-function playMusic(music)
-    if currentMusic == music and music:isPlaying() then
-        return
-    end
-
-    if currentMusic then
-        currentMusic:stop()
-    end
-
-    currentMusic = music
-    if music then
-        music:play()
-    end
-end
 
 -- Helper function to draw a map with NPCs
 function drawMapAndNPCs(mapObj, mapName, camX, camY, chatOffset, offsetX, offsetY)
@@ -943,13 +765,17 @@ function drawMapAndNPCs(mapObj, mapName, camX, camY, chatOffset, offsetX, offset
 
             -- Draw quest indicator
             if npc.isQuestGiver then
-                local quest = quests[npc.questId]
-                if not quest.active and not quest.completed then
-                    love.graphics.setColor(1, 1, 0)
-                    love.graphics.circle("fill", chatOffset + npc.x - camX + offsetX, npc.y - 10 - camY + offsetY, 2)
-                elseif quest.active and PlayerSystem.hasItem(quest.requiredItem) then
-                    love.graphics.setColor(0, 1, 0)
-                    love.graphics.circle("fill", chatOffset + npc.x - camX + offsetX, npc.y - 10 - camY + offsetY, 2)
+                local quest, questConfig = questData.getAvailableQuestForNPC(npc.id)
+                if quest then
+                    if not quest.active and not quest.completed then
+                        -- Yellow indicator for available quest
+                        love.graphics.setColor(1, 1, 0)
+                        love.graphics.circle("fill", chatOffset + npc.x - camX + offsetX, npc.y - 10 - camY + offsetY, 2)
+                    elseif quest.active and quest.requiredItem and PlayerSystem.hasItem(quest.requiredItem) then
+                        -- Green indicator for quest ready to turn in
+                        love.graphics.setColor(0, 1, 0)
+                        love.graphics.circle("fill", chatOffset + npc.x - camX + offsetX, npc.y - 10 - camY + offsetY, 2)
+                    end
                 end
             end
         end
