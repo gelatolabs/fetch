@@ -3,7 +3,6 @@
  <editorsettings>
   <export target="shop.lua" format="lua"/>
  </editorsettings>
- <tileset firstgid="1" source="tiles.tsx"/>
  <tileset firstgid="20" source="fetch-tileset.tsx"/>
  <layer id="1" name="Base" width="30" height="20">
   <data encoding="csv">
