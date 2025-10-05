@@ -1075,7 +1075,7 @@ function love.draw()
 
         -- Draw interaction prompt (offset by chat pane)
         if nearbyDoor and gameState == "playing" then
-            local doorText = nearbyDoor.indoor and "[E] Exit" or "[E] Enter"
+            local doorText = "[E] " .. nearbyDoor.text
             UISystem.drawTextBox(chatOffset + UISystem.getGameWidth()/2 - 45, UISystem.getGameHeight() - 14, 90, 12, doorText, {1, 1, 1}, true)
         elseif nearbyNPC and gameState == "playing" then
             UISystem.drawTextBox(chatOffset + UISystem.getGameWidth()/2 - 45, UISystem.getGameHeight() - 14, 90, 12, "[E] Talk", {1, 1, 1}, true)
