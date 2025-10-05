@@ -16,32 +16,11 @@ local mapPaths = {
     shop = "tiled/shop.lua",
     mapnorth = "tiled/mapnorth.lua",
     mapsouth = "tiled/mapsouth.lua",
-    mapwest = "tiled/mapwest.lua"
+    mapwest = "tiled/mapwest.lua",
+    throneroom = "tiled/throneroom.lua"
 }
 
 local doors = {
-    {
-        map = "map",
-        direction = nil,
-        positions = {{x = 21, y = 9}},
-        targetMap = "shop",
-        targetX = -9,
-        targetY = 0,
-        text = "Enter"
-    },
-    {
-        map = "shop",
-        direction = nil,
-        positions = {
-            {x = -10, y = -1},
-            {x = -10, y = 0},
-            {x = -10, y = 1}
-        },
-        targetMap = "map",
-        targetX = 21,
-        targetY = 9,
-        text = "Leave"
-    },
     {
         map = "map",
         direction = "up",
@@ -95,6 +74,50 @@ local doors = {
         targetX = -15,
         targetY = 5,
         text = "Travel"
+    },
+    {
+        map = "map",
+        direction = nil,
+        positions = {{x = 21, y = 9}},
+        targetMap = "shop",
+        targetX = -9,
+        targetY = 0,
+        text = "Enter"
+    },
+    {
+        map = "shop",
+        direction = nil,
+        positions = {
+            {x = -10, y = -1},
+            {x = -10, y = 0},
+            {x = -10, y = 1}
+        },
+        targetMap = "map",
+        targetX = 21,
+        targetY = 9,
+        text = "Leave"
+    },
+    {
+        map = "mapnorth",
+        direction = nil,
+        positions = {{x = 16, y = 16}},
+        targetMap = "throneroom",
+        targetX = -6,
+        targetY = -1,
+        text = "Enter"
+    },
+    {
+        map = "throneroom",
+        direction = nil,
+        positions = {
+            {x = -7, y = -2},
+            {x = -7, y = -1},
+            {x = -7, y = 0}
+        },
+        targetMap = "mapnorth",
+        targetX = 15,
+        targetY = 16,
+        text = "Leave"
     }
 }
 

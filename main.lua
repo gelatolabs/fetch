@@ -615,9 +615,13 @@ function enterDoor(door)
     local targetY = door.targetY + (door.offsetY or 0)
 
     -- Update music based on target map
+    -- Track music for indoor rooms (shop, throne room)
     if door.targetMap == "shop" then
         AudioSystem.playMusic("themeFunky")
-    elseif currentMap == "shop" then
+    elseif door.targetMap == "throneroom" then
+        AudioSystem.playMusic("throneRoom")
+    elseif currentMap == "shop" or currentMap == "throneroom" then
+        -- Leaving an indoor room - return to normal theme
         AudioSystem.playMusic("theme")
     end
 
