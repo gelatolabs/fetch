@@ -90,7 +90,12 @@ local mapTransition = {
     direction = nil, -- "north", "south", "east", "west"
     progress = 0, -- 0 to 1
     duration = 0.8, -- seconds
-    targetDoor = nil
+    targetDoor = nil,
+    -- Player screen position transition
+    playerStartScreenX = 0,
+    playerStartScreenY = 0,
+    playerEndScreenX = 0,
+    playerEndScreenY = 0
 }
 
 -- Camera helper functions
@@ -646,6 +651,64 @@ function enterDoor(door)
         return
     end
 
+    -- Calculate player screen positions for transition
+    -- Start position: where the player currently is on screen (relative to camera)
+    local gameWidth = UISystem.getGameWidth()
+    local gameHeight = UISystem.getGameHeight()
+    local startScreenX = player.x - camera.x
+    local startScreenY = player.y - camera.y
+
+    -- End position: where the player will be on screen after transition
+    -- Calculate the final world position where player will be
+    local finalPlayerX = targetX * 16 + 8
+    local finalPlayerY = targetY * 16 + 8
+
+    -- Calculate what the camera position will be after transition
+    -- The camera centers on the player and gets clamped to map bounds
+    local toMapObj = sti(MapSystem.getMapPath(door.targetMap))
+    local finalCameraX = finalPlayerX - gameWidth / 2
+    local finalCameraY = finalPlayerY - gameHeight / 2
+
+    -- Calculate bounds for target map to clamp camera
+    local layer = toMapObj.layers[1]
+    if layer and layer.chunks then
+        local minX, minY = math.huge, math.huge
+        local maxX, maxY = -math.huge, -math.huge
+
+        for _, chunk in ipairs(layer.chunks) do
+            minX = math.min(minX, chunk.x)
+            minY = math.min(minY, chunk.y)
+            maxX = math.max(maxX, chunk.x + chunk.width)
+            maxY = math.max(maxY, chunk.y + chunk.height)
+        end
+
+        -- Convert to pixels
+        local targetMinX = minX * world.tileSize
+        local targetMinY = minY * world.tileSize
+        local targetMaxX = maxX * world.tileSize
+        local targetMaxY = maxY * world.tileSize
+
+        -- Apply camera clamping logic
+        local mapWidth = targetMaxX - targetMinX
+        local mapHeight = targetMaxY - targetMinY
+
+        if mapWidth > gameWidth then
+            finalCameraX = math.max(targetMinX, math.min(finalCameraX, targetMaxX - gameWidth))
+        else
+            finalCameraX = targetMinX + (mapWidth - gameWidth) / 2
+        end
+
+        if mapHeight > gameHeight then
+            finalCameraY = math.max(targetMinY, math.min(finalCameraY, targetMaxY - gameHeight))
+        else
+            finalCameraY = targetMinY + (mapHeight - gameHeight) / 2
+        end
+    end
+
+    -- Calculate end screen position based on final player and clamped camera positions
+    local endScreenX = finalPlayerX - finalCameraX
+    local endScreenY = finalPlayerY - finalCameraY
+
     -- Start sliding transition for outdoor maps
     mapTransition.active = true
     mapTransition.fromMap = currentMap
@@ -657,6 +720,10 @@ function enterDoor(door)
     mapTransition.targetDoor = door
     mapTransition.targetX = targetX
     mapTransition.targetY = targetY
+    mapTransition.playerStartScreenX = startScreenX
+    mapTransition.playerStartScreenY = startScreenY
+    mapTransition.playerEndScreenX = endScreenX
+    mapTransition.playerEndScreenY = endScreenY
 end
 
 function interactWithNPC(npc)
@@ -984,7 +1051,31 @@ function love.draw()
         end
 
         -- Draw player
-        PlayerSystem.draw(camX, camY, chatOffset)
+        if mapTransition.active then
+            -- During transition, interpolate player's screen position
+            local progress = mapTransition.progress
+            local eased = 1 - (1 - progress)^3 -- ease-out cubic
+            local interpolatedScreenX = mapTransition.playerStartScreenX + (mapTransition.playerEndScreenX - mapTransition.playerStartScreenX) * eased
+            local interpolatedScreenY = mapTransition.playerStartScreenY + (mapTransition.playerEndScreenY - mapTransition.playerStartScreenY) * eased
+
+            -- Draw player at the interpolated screen position
+            love.graphics.setColor(1, 1, 1)
+            local spriteSet = PlayerSystem.getSpriteSet()
+            local currentQuad = spriteSet[player.lastVertical][player.moving and (player.walkFrame + 1) or 1]
+            local scaleX = (player.facing == "left") and -1 or 1
+            local offsetX = (player.facing == "left") and player.size or 0
+            love.graphics.draw(
+                PlayerSystem.getTileset(),
+                currentQuad,
+                interpolatedScreenX - player.size/2 + offsetX + chatOffset,
+                interpolatedScreenY - player.size/2 - player.jumpHeight,
+                0,
+                scaleX,
+                1
+            )
+        else
+            PlayerSystem.draw(camX, camY, chatOffset)
+        end
 
         -- Draw interaction prompt (offset by chat pane)
         if nearbyDoor and gameState == "playing" then
