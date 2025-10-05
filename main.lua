@@ -11,9 +11,6 @@ local PlayerSystem = require "player_system"
 -- Game constants (managed by UISystem)
 -- Graphics resources (managed by UISystem)
 
--- Sprites
-local npcSprites = {}  -- Table to store loaded NPC sprites
-
 -- Audio
 local quackSound
 
@@ -71,63 +68,6 @@ local itemRegistry = {
     item_labubu = {id = "item_labubu", name = "Labubu", aliases = {"labubu"}}
 }
 
--- Ability System
-local abilityManager = AbilitySystem.PlayerAbilityManager.new()
-
--- Local references for convenience
-
--- Register abilities
-abilityManager:registerAbility({
-    id = "swim",
-    name = "Swim",
-    aliases = {"swim", "swimming"},
-    type = AbilitySystem.AbilityType.PASSIVE,
-    effects = {AbilitySystem.EffectType.WATER_TRAVERSAL},
-    description = "Allows you to swim across water tiles freely",
-    color = {0.3, 0.8, 1.0},
-    onAcquire = function(ability)
-        UISystem.showToast("You can now swim across water!", {0.3, 0.8, 1.0})
-    end
-})
-
-abilityManager:registerAbility({
-    id = "boat",
-    name = "Boat",
-    aliases = {"boat", "raft"},
-    type = AbilitySystem.AbilityType.CONSUMABLE,
-    effects = {AbilitySystem.EffectType.WATER_TRAVERSAL},
-    description = "A makeshift boat that breaks after crossing water 3 times",
-    maxUses = 3,
-    consumeOnUse = true,
-    color = {0.7, 0.7, 1.0},
-    onAcquire = function(ability)
-        UISystem.showToast("Boat has " .. ability.maxUses .. " crossings", {0.7, 0.7, 1.0})
-    end,
-    onUse = function(ability)
-        if ability.currentUses > 0 then
-            UISystem.showToast("Boat crossings remaining: " .. ability.currentUses, {0.7, 0.7, 1.0})
-        end
-    end,
-    onExpire = function()
-        UISystem.showToast("Your boat broke apart!", {1, 0.5, 0.2})
-    end
-})
-
-abilityManager:registerAbility({
-    id = "jump",
-    name = "Jump",
-    aliases = {"jump", "jumping", "leap"},
-    type = AbilitySystem.AbilityType.PASSIVE,
-    effects = {AbilitySystem.EffectType.JUMP},
-    description = "Allows you to jump over low obstacles (height ≤ 0.5)",
-    color = {1.0, 0.9, 0.3},
-    onAcquire = function(ability)
-        UISystem.showToast("You can now jump over low obstacles!", {1.0, 0.9, 0.3})
-    end
-})
-
-
-
 -- UI state
 local nearbyNPC = nil
 local nearbyDoor = nil
@@ -181,8 +121,8 @@ function love.load()
     -- Initialize UI system (sets up window, graphics, canvas, and fonts)
     UISystem.init()
 
-    -- Initialize Player system
-    PlayerSystem.init()
+    -- Initialize Player system (includes ability registration)
+    PlayerSystem.init(UISystem)
     player = PlayerSystem.getPlayer()
 
     -- Load audio
@@ -247,16 +187,6 @@ function loadGameData()
 end
 
 
-function areOppositeDirections(dir1, dir2)
-    if (dir1 == "up" and dir2 == "down") or (dir1 == "down" and dir2 == "up") then
-        return true
-    end
-    if (dir1 == "left" and dir2 == "right") or (dir1 == "right" and dir2 == "left") then
-        return true
-    end
-    return false
-end
-
 function love.update(dt)
     -- Update map
     map:update(dt)
@@ -277,241 +207,8 @@ function love.update(dt)
     end
 
     if gameState == "playing" and not CheatConsole.isOpen() then
-        -- Pokemon-style grid-based movement
-        if player.moving then
-            -- Check for input to queue movement
-            for i = #heldKeys, 1, -1 do
-                local key = heldKeys[i]
-                if love.keyboard.isDown(key) then
-                    local queueDir = nil
-                    if key == "w" or key == "up" then
-                        queueDir = "up"
-                    elseif key == "s" or key == "down" then
-                        queueDir = "down"
-                    elseif key == "a" or key == "left" then
-                        queueDir = "left"
-                    elseif key == "d" or key == "right" then
-                        queueDir = "right"
-                    end
-
-                    -- Queue if not opposite to current direction and not the same direction
-                    if queueDir and not areOppositeDirections(player.direction, queueDir) and queueDir ~= player.direction then
-                        player.queuedDirection = queueDir
-                        break
-                    end
-                end
-            end
-
-            -- Increment move timer
-            player.moveTimer = player.moveTimer + dt
-            
-            -- Calculate interpolation progress (0 to 1)
-            local progress = math.min(player.moveTimer / player.moveDuration, 1)
-            
-            -- Smooth easing (ease-out)
-            local eased = 1 - (1 - progress) * (1 - progress)
-            
-            -- Calculate start and end positions
-            local startX = player.gridX * 16 + 8
-            local startY = player.gridY * 16 + 8
-            local endX = player.targetGridX * 16 + 8
-            local endY = player.targetGridY * 16 + 8
-            
-            -- Interpolate player position
-            player.x = startX + (endX - startX) * eased
-            player.y = startY + (endY - startY) * eased
-            
-            -- Calculate jump arc if jumping
-            if player.jumping then
-                -- Parabolic arc: height peaks at midpoint
-                local jumpProgress = progress
-                player.jumpHeight = math.sin(jumpProgress * math.pi) * 12  -- Peak height of 12 pixels
-            else
-                player.jumpHeight = 0
-            end
-            
-            -- Update walk animation frame
-            if player.moveTimer >= player.moveDuration / 2 and player.walkFrame == 0 then
-                player.walkFrame = 1
-            end
-            
-            -- Check if movement is complete
-            if progress >= 1 then
-                player.gridX = player.targetGridX
-                player.gridY = player.targetGridY
-                player.x = endX
-                player.y = endY
-                player.moving = false
-                player.jumping = false
-                player.jumpHeight = 0
-                player.moveTimer = 0
-                player.walkFrame = 0
-
-                -- Check if player transitioned from water to land (boat use)
-                -- Only check this if not jumping (jumping over water shouldn't consume boat)
-                local isOnWater = MapSystem.isWaterTile(endX, endY)
-                if not player.jumping then
-                    if player.wasOnWater and not isOnWater then
-                        -- Transitioning from water to land - consume boat use
-                        local boatAbility = abilityManager:getAbility("boat")
-                        if boatAbility and not abilityManager:hasAbility("swim") then
-                            -- Use boat ability (consumes a use)
-                            boatAbility:use()
-
-                            -- Remove ability if expired
-                            if boatAbility.currentUses <= 0 then
-                                abilityManager:removeAbility("boat")
-                            end
-                        end
-                    end
-
-                    -- Update water state for next frame (only when not jumping)
-                    player.wasOnWater = isOnWater
-                end
-
-                -- Check if there's a queued movement to execute
-                if player.queuedDirection then
-                    local queuedDir = player.queuedDirection
-                    player.queuedDirection = nil
-
-                    -- Try to execute queued movement
-                    local newGridX, newGridY = player.gridX, player.gridY
-
-                    if queuedDir == "up" then
-                        newGridY = player.gridY - 1
-                        player.lastVertical = "up"
-                    elseif queuedDir == "down" then
-                        newGridY = player.gridY + 1
-                        player.lastVertical = "down"
-                    elseif queuedDir == "left" then
-                        player.facing = "left"
-                        newGridX = player.gridX - 1
-                    elseif queuedDir == "right" then
-                        player.facing = "right"
-                        newGridX = player.gridX + 1
-                    end
-
-                    -- Check collision for queued movement
-                    local targetPixelX = newGridX * 16 + 8
-                    local targetPixelY = newGridY * 16 + 8
-
-                    local canCrossWater = abilityManager:hasEffect(AbilitySystem.EffectType.WATER_TRAVERSAL)
-                    local canJump = abilityManager:hasEffect(AbilitySystem.EffectType.JUMP)
-                    local tileBlocked = MapSystem.isColliding(targetPixelX, targetPixelY, canCrossWater)
-                    local npcBlocked = MapSystem.isNPCAt(targetPixelX, targetPixelY)
-
-                    -- Check if we should jump over an obstacle
-                    if tileBlocked and canJump and MapSystem.isJumpableObstacle(targetPixelX, targetPixelY) then
-                        -- Try to jump OVER the obstacle (2 tiles total)
-                        local jumpLandingX = newGridX + (newGridX - player.gridX)
-                        local jumpLandingY = newGridY + (newGridY - player.gridY)
-                        local landingPixelX = jumpLandingX * 16 + 8
-                        local landingPixelY = jumpLandingY * 16 + 8
-
-                        -- Check if landing spot is valid
-                        local landingBlocked = MapSystem.isColliding(landingPixelX, landingPixelY, canCrossWater)
-                        local landingNpcBlocked = MapSystem.isNPCAt(landingPixelX, landingPixelY)
-
-                        if not landingBlocked and not landingNpcBlocked then
-                            -- Perform jump over the obstacle
-                            player.direction = queuedDir
-                            player.targetGridX = jumpLandingX
-                            player.targetGridY = jumpLandingY
-                            player.moving = true
-                            player.jumping = true
-                            player.moveTimer = 0
-                            player.moveDuration = 0.25
-                        end
-                    elseif not tileBlocked and not npcBlocked then
-                        -- Normal movement
-                        player.direction = queuedDir
-                        player.targetGridX = newGridX
-                        player.targetGridY = newGridY
-                        player.moving = true
-                        player.jumping = false
-                        player.moveTimer = 0
-                        player.moveDuration = 0.15
-                    end
-                end
-            end
-        else
-            -- Check for input to start new movement
-            -- Prioritize most recently pressed key (last in heldKeys)
-            local moveDir = nil
-            local newGridX, newGridY = player.gridX, player.gridY
-
-            -- Check held keys in reverse order (most recent first)
-            for i = #heldKeys, 1, -1 do
-                local key = heldKeys[i]
-                if love.keyboard.isDown(key) then
-                    if key == "w" or key == "up" then
-                        moveDir = "up"
-                        player.lastVertical = "up"  -- Add this line
-                        newGridY = player.gridY - 1
-                        break
-                    elseif key == "s" or key == "down" then
-                        moveDir = "down"
-                        player.lastVertical = "down"  -- Add this line
-                        newGridY = player.gridY + 1
-                        break
-                    elseif key == "a" or key == "left" then
-                        moveDir = "left"
-                        player.facing = "left"
-                        newGridX = player.gridX - 1
-                        break
-                    elseif key == "d" or key == "right" then
-                        moveDir = "right"
-                        player.facing = "right"
-                        newGridX = player.gridX + 1
-                        break
-                    end
-                end
-            end
-            
-            if moveDir then
-                player.direction = moveDir
-                
-                -- Check collision at target grid position (with abilities)
-                local targetPixelX = newGridX * 16 + 8
-                local targetPixelY = newGridY * 16 + 8
-                
-                local canCrossWater = abilityManager:hasEffect(AbilitySystem.EffectType.WATER_TRAVERSAL)
-                local canJump = abilityManager:hasEffect(AbilitySystem.EffectType.JUMP)
-                local tileBlocked = MapSystem.isColliding(targetPixelX, targetPixelY, canCrossWater)
-                local npcBlocked = MapSystem.isNPCAt(targetPixelX, targetPixelY)
-                
-                -- Check if we should jump over an obstacle
-                if tileBlocked and canJump and MapSystem.isJumpableObstacle(targetPixelX, targetPixelY) then
-                    -- Try to jump OVER the obstacle (2 tiles total)
-                    local jumpLandingX = newGridX + (newGridX - player.gridX)
-                    local jumpLandingY = newGridY + (newGridY - player.gridY)
-                    local landingPixelX = jumpLandingX * 16 + 8
-                    local landingPixelY = jumpLandingY * 16 + 8
-                    
-                    -- Check if landing spot is valid (not blocked and not an NPC there)
-                    local landingBlocked = MapSystem.isColliding(landingPixelX, landingPixelY, canCrossWater)
-                    local landingNpcBlocked = MapSystem.isNPCAt(landingPixelX, landingPixelY)
-                    
-                    if not landingBlocked and not landingNpcBlocked then
-                        -- Perform jump over the obstacle
-                        player.targetGridX = jumpLandingX
-                        player.targetGridY = jumpLandingY
-                        player.moving = true
-                        player.jumping = true
-                        player.moveTimer = 0
-                        player.moveDuration = 0.25  -- Jumps take a bit longer
-                    end
-                elseif not tileBlocked and not npcBlocked then
-                    -- Normal movement
-                    player.targetGridX = newGridX
-                    player.targetGridY = newGridY
-                    player.moving = true
-                    player.jumping = false
-                    player.moveTimer = 0
-                    player.moveDuration = 0.15  -- Normal walk speed
-                end
-            end
-        end
+        -- Update player movement
+        PlayerSystem.update(dt, heldKeys)
         
         -- Update camera to follow player
         updateCamera()
@@ -714,7 +411,7 @@ function love.keypressed(key)
 
     -- Handle cheat console keys
     if CheatConsole.keyPressed(key, {
-        abilityManager = abilityManager,
+        abilityManager = PlayerSystem.getAbilityManager(),
         activeQuests = activeQuests,
         completedQuests = completedQuests,
         quests = quests,
@@ -755,7 +452,7 @@ function love.keypressed(key)
                     showToast("Received: " .. itemName, {0.7, 0.5, 0.9})
                 end,
                 onAbilityLearn = function(abilityId, quest)
-                    abilityManager:grantAbility(abilityId)
+                    PlayerSystem.grantAbility(abilityId)
                     completeQuest(quest)
                 end
             }
@@ -911,7 +608,7 @@ function interactWithNPC(npc)
                 npc = npc,
                 text = text
             })
-        elseif not abilityManager:hasAbility(npc.givesAbility) then
+        elseif not PlayerSystem.hasAbility(npc.givesAbility) then
             -- Quest active and don't have ability, give it
             local text = npc.abilityGiveText or "You learned a new ability!"
             gameState = DialogSystem.showDialog({
@@ -953,9 +650,9 @@ function completeQuest(quest)
 
     -- Grant ability if quest provides one
     if quest.grantsAbility then
-        abilityManager:grantAbility(quest.grantsAbility)
+        PlayerSystem.grantAbility(quest.grantsAbility)
 
-        local ability = abilityManager:getAbility(quest.grantsAbility)
+        local ability = PlayerSystem.getAbility(quest.grantsAbility)
         if ability then
             showToast("Learned: " .. ability.name .. "!", ability.color)
         end
@@ -1080,11 +777,11 @@ function love.draw()
         end
 
         -- Draw player
-        PlayerSystem.draw(camX, camY, abilityManager, MapSystem, chatOffset)
+        PlayerSystem.draw(camX, camY, chatOffset)
 
         -- Draw interaction prompt (offset by chat pane)
         if nearbyDoor and gameState == "playing" then
-            local doorText = nearbyDoor.indoor and "[E] Exit" or "[E] Enter"
+            local doorText = "[E] " .. nearbyDoor.text
             UISystem.drawTextBox(chatOffset + UISystem.getGameWidth()/2 - 45, UISystem.getGameHeight() - 14, 90, 12, doorText, {1, 1, 1}, true)
         elseif nearbyNPC and gameState == "playing" then
             UISystem.drawTextBox(chatOffset + UISystem.getGameWidth()/2 - 45, UISystem.getGameHeight() - 14, 90, 12, "[E] Talk", {1, 1, 1}, true)
@@ -1113,7 +810,7 @@ function love.draw()
         UISystem.drawGoldDisplay(PlayerSystem.getGold())
         
         -- Draw cheat indicators
-        UISystem.drawIndicators(CheatConsole.isNoclipActive(), CheatConsole.isGridActive(), abilityManager)
+        UISystem.drawIndicators(CheatConsole.isNoclipActive(), CheatConsole.isGridActive(), PlayerSystem.getAbilityManager())
         love.graphics.pop()
 
         -- Reset scissor
@@ -1156,7 +853,7 @@ function love.draw()
         end
 
         -- Draw player
-        PlayerSystem.draw(camX, camY, abilityManager, MapSystem, chatOffset)
+        PlayerSystem.draw(camX, camY, chatOffset)
 
         -- Draw pause menu overlay
         UISystem.drawPauseMenu()
@@ -1196,7 +893,7 @@ function love.draw()
         end
 
         -- Draw player
-        PlayerSystem.draw(camX, camY, abilityManager, MapSystem, chatOffset)
+        PlayerSystem.draw(camX, camY, chatOffset)
 
         -- Update game state references for UISystem
         UISystem.setGameStateRefs({
@@ -1246,7 +943,7 @@ function love.draw()
         end
 
         -- Draw player
-        PlayerSystem.draw(camX, camY, abilityManager, MapSystem, chatOffset)
+        PlayerSystem.draw(camX, camY, chatOffset)
 
         -- Draw quest offer UI
         UISystem.drawQuestOffer(questOfferData)

@@ -202,6 +202,9 @@ function Map:setTiles(index, tileset, gid)
 	local w       = utils.get_tiles(imageW, tileW, margin, spacing)
 	local h       = utils.get_tiles(imageH, tileH, margin, spacing)
 
+	-- Use tileset.firstgid instead of the passed gid parameter
+	gid = tileset.firstgid
+
 	for y = 1, h do
 		for x = 1, w do
 			local id    = gid - tileset.firstgid
