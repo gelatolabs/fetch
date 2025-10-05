@@ -30,6 +30,9 @@ local player = {
 -- Player gold
 local playerGold = 0
 
+-- Player inventory
+local inventory = {}
+
 -- Player ability manager
 local abilityManager = nil
 
@@ -160,6 +163,46 @@ end
 -- Subtract gold from player
 function PlayerSystem.subtractGold(amount)
     playerGold = playerGold - amount
+end
+
+-- Get player inventory
+function PlayerSystem.getInventory()
+    return inventory
+end
+
+-- Check if player has an item
+function PlayerSystem.hasItem(itemId)
+    for _, item in ipairs(inventory) do
+        if item == itemId then
+            return true
+        end
+    end
+    return false
+end
+
+-- Add item to player inventory
+function PlayerSystem.addItem(itemId)
+    table.insert(inventory, itemId)
+end
+
+-- Remove item from player inventory
+function PlayerSystem.removeItem(itemId)
+    for i, item in ipairs(inventory) do
+        if item == itemId then
+            table.remove(inventory, i)
+            return true
+        end
+    end
+    return false
+end
+
+-- Clear all items from inventory
+function PlayerSystem.clearInventory()
+    local count = #inventory
+    for i = #inventory, 1, -1 do
+        table.remove(inventory, i)
+    end
+    return count
 end
 
 -- Set player position

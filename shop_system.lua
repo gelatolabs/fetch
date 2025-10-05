@@ -61,14 +61,14 @@ function ShopSystem.canAfford(itemPrice)
 end
 
 -- Purchase an item (returns success, message, color)
-function ShopSystem.purchaseItem(shopItem, hasItemFunc, addItemFunc, itemRegistry)
+function ShopSystem.purchaseItem(shopItem, itemRegistry)
     
     if not shopItem then
         return false, "Invalid item!", {1, 0, 0}
     end
     
     -- Check if player already owns the item
-    if hasItemFunc(shopItem.itemId) then
+    if PlayerSystem.hasItem(shopItem.itemId) then
         return false, "You already own this item!", {1, 0.5, 0}
     end
     
@@ -79,7 +79,7 @@ function ShopSystem.purchaseItem(shopItem, hasItemFunc, addItemFunc, itemRegistr
     
     -- Process purchase
     PlayerSystem.subtractGold(shopItem.price)
-    addItemFunc(shopItem.itemId)
+    PlayerSystem.addItem(shopItem.itemId)
     
     -- Get item name for message
     local itemData = itemRegistry[shopItem.itemId]
@@ -89,7 +89,7 @@ function ShopSystem.purchaseItem(shopItem, hasItemFunc, addItemFunc, itemRegistr
 end
 
 -- Draw the shop UI
-function ShopSystem.draw(hasItemFunc, itemRegistry)
+function ShopSystem.draw(itemRegistry)
     
     local CHAT_PANE_WIDTH = UISystem.getChatPaneWidth()
     local GAME_WIDTH = UISystem.getGameWidth()
@@ -125,7 +125,7 @@ function ShopSystem.draw(hasItemFunc, itemRegistry)
 
         -- Check if selected
         local isSelected = selectedShopItem == i
-        local alreadyOwns = hasItemFunc(shopItem.itemId)
+        local alreadyOwns = PlayerSystem.hasItem(shopItem.itemId)
 
         -- Slot background
         if isSelected then
@@ -160,7 +160,7 @@ function ShopSystem.draw(hasItemFunc, itemRegistry)
         if shopItem then
             local itemData = itemRegistry[shopItem.itemId]
             local itemName = itemData and itemData.name or shopItem.itemId
-            local alreadyOwns = hasItemFunc(shopItem.itemId)
+            local alreadyOwns = PlayerSystem.hasItem(shopItem.itemId)
             local canAfford = PlayerSystem.getGold() >= shopItem.price
 
             local detailX = boxX + 150
@@ -252,7 +252,7 @@ function ShopSystem.draw(hasItemFunc, itemRegistry)
 end
 
 -- Handle shop clicks (returns true if click was handled)
-function ShopSystem.handleClick(x, y, hasItemFunc, purchaseCallback)
+function ShopSystem.handleClick(x, y, purchaseCallback)
     
     -- Convert screen coordinates to canvas coordinates
     local screenWidth, screenHeight = love.graphics.getDimensions()
@@ -291,7 +291,7 @@ function ShopSystem.handleClick(x, y, hasItemFunc, purchaseCallback)
     if selectedShopItem then
         local shopItem = shopInventory[selectedShopItem]
         if shopItem then
-            local alreadyOwns = hasItemFunc(shopItem.itemId)
+            local alreadyOwns = PlayerSystem.hasItem(shopItem.itemId)
             local canAfford = PlayerSystem.getGold() >= shopItem.price
 
             if not alreadyOwns then
