@@ -28,13 +28,6 @@ local TOAST_DURATION = 3.0 -- seconds
 
 -- Game state references (set by main.lua)
 local gameStateRefs = {
-    map = nil,
-    camera = nil,
-    npcs = nil,
-    currentMap = nil,
-    player = nil,
-    playerTileset = nil,
-    getPlayerSpriteSet = nil,
     inventory = nil,
     itemRegistry = nil,
     questTurnInData = nil
