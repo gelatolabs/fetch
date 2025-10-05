@@ -241,18 +241,12 @@ GPU: GooseForce 128]]
             UISystem.toggleChatPane()
         end
         
-        -- Progress dialog if available
-        if gameState.progressDialog then
-            gameState.progressDialog()
-            if wasHidden then
-                UISystem.showToast("Chat opened & dialog progressed", {0.5, 1, 0.5})
-            else
-                UISystem.showToast("Dialog progressed", {0.5, 1, 0.5})
-            end
-        elseif wasHidden then
-            UISystem.showToast("Chat pane opened", {0.5, 1, 0.5})
+        -- Progress dialog
+        UISystem.progressJarfScript()
+        if wasHidden then
+            UISystem.showToast("Chat opened & dialog progressed", {0.5, 1, 0.5})
         else
-            UISystem.showToast("progressDialog not available", {1, 0.3, 0.3})
+            UISystem.showToast("Dialog progressed", {0.5, 1, 0.5})
         end
 
     elseif command == "nojarf" then

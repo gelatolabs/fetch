@@ -294,8 +294,10 @@ quests.npcs = {
         spriteX = 16,
         spriteY = 48,
         dialogueGroup = "geese",
+        givesItem = "item_goose_feathers",
         requiresQuest = "quest_defeat_geese",
-        noQuestText = "Honk! Honk!"
+        noQuestText = "Honk! Honk!",
+        gaveItemText = "Honk! Honk!"
     },
     npc_white_goose = {
         id = "npc_white_goose",
@@ -307,8 +309,10 @@ quests.npcs = {
         spriteX = 32,
         spriteY = 48,
         dialogueGroup = "geese",
+        givesItem = "item_goose_feathers",
         requiresQuest = "quest_defeat_geese",
-        noQuestText = "Honk! Honk!"
+        noQuestText = "Honk! Honk!",
+        gaveItemText = "Honk! Honk!"
     },
     npc_canada_goose = {
         id = "npc_canada_goose",
@@ -320,8 +324,10 @@ quests.npcs = {
         spriteX = 48,
         spriteY = 48,
         dialogueGroup = "geese",
+        givesItem = "item_goose_feathers",
         requiresQuest = "quest_defeat_geese",
-        noQuestText = "Honk! Honk!"
+        noQuestText = "Honk! Honk!",
+        gaveItemText = "Honk! Honk!"
     },
 }
 
@@ -334,10 +340,8 @@ quests.dialogueSequences = {
             {speaker = "npc_canada_goose", text = "Triple... nipple... aw c'mon guys, this is too hard to rhyme."}
         },
         onComplete = function(npc)
-            -- Complete the geese quest
-            quests.completeQuest("quest_defeat_geese")
-            -- Open JARF and progress dialogue 2 times with delays
-            UISystem.progressDialog(3)
+            UISystem.showToast("J.A.R.F. gave you item_goose_feathers", {1, 0.5, 0.5})
+            UISystem.progressJarfScript(8, 5.0)
         end
     }
 }
@@ -589,8 +593,36 @@ function quests.interactWithNPC(npc)
                 npc = npc,
                 text = text
             })
+        elseif npc.givesItem and PlayerSystem.hasItem(npc.givesItem) then
+            -- Already have the item, show generic dialog
+            local text = npc.gaveItemText or "I already gave you the item!"
+            quests.gameState = DialogSystem.showDialog({
+                type = "generic",
+                npc = npc,
+                text = text
+            })
+        elseif npc.givesItem then
+            -- Quest is active and NPC gives an item, show dialogue sequence with item reward
+            local dialogueSeq = quests.dialogueSequences[npc.dialogueGroup]
+            local dialoguePages = {}
+            for _, dialogue in ipairs(dialogueSeq.sequence) do
+                table.insert(dialoguePages, dialogue.text)
+            end
+            
+            quests.gameState = DialogSystem.showDialog({
+                type = "itemGive",
+                npc = npc,
+                item = npc.givesItem,
+                text = table.concat(dialoguePages, "\n\n"),
+                speakers = dialogueSeq.sequence,  -- Pass speaker info separately
+                onComplete = function()
+                    if dialogueSeq.onComplete then
+                        dialogueSeq.onComplete(npc)
+                    end
+                end
+            })
         else
-            -- Quest is active, show dialogue sequence
+            -- Quest is active, show dialogue sequence (no item to give)
             local dialogueSeq = quests.dialogueSequences[npc.dialogueGroup]
             local dialoguePages = {}
             for _, dialogue in ipairs(dialogueSeq.sequence) do
@@ -633,7 +665,7 @@ function quests.interactWithNPC(npc)
             })
         else
             -- Already have the item
-            local text = "I already gave you the item!"
+            local text = npc.gaveItemText or "I already gave you the item!"
             quests.gameState = DialogSystem.showDialog({
                 type = "generic",
                 npc = npc,

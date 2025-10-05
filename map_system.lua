@@ -16,35 +16,15 @@ local mapPaths = {
     shop = "tiled/shop.lua",
     mapnorth = "tiled/mapnorth.lua",
     mapsouth = "tiled/mapsouth.lua",
-    mapwest = "tiled/mapwest.lua"
+    mapwest = "tiled/mapwest.lua",
+    throneroom = "tiled/throneroom.lua"
 }
 
 local doors = {
     {
         map = "map",
-        x = 21,
-        y = 9,
-        direction = nil, -- single tile door
-        targetMap = "shop",
-        targetX = -9,
-        targetY = 0,
-        text = "Enter"
-    },
-    {
-        map = "shop",
-        x = -10,
-        y = 0,
-        direction = "vertical", -- 3-tile vertical door
-        targetMap = "map",
-        targetX = 21,
-        targetY = 9,
-        text = "Leave"
-    },
-    {
-        map = "map",
-        x = 3,
-        y = -16,
-        direction = "horizontal", -- 3-tile horizontal door
+        direction = "up",
+        positions = {{x = 3, y = -16}},
         targetMap = "mapnorth",
         targetX = 3,
         targetY = 30,
@@ -52,9 +32,8 @@ local doors = {
     },
     {
         map = "mapnorth",
-        x = 3,
-        y = 31,
-        direction = "horizontal", -- 3-tile horizontal door
+        direction = "down",
+        positions = {{x = 3, y = 31}},
         targetMap = "map",
         targetX = 3,
         targetY = -15,
@@ -62,9 +41,8 @@ local doors = {
     },
     {
         map = "map",
-        x = 16,
-        y = 31,
-        direction = "horizontal", -- 3-tile horizontal door
+        direction = "down",
+        positions = {{x = 16, y = 31}},
         targetMap = "mapsouth",
         targetX = 16,
         targetY = -15,
@@ -72,9 +50,8 @@ local doors = {
     },
     {
         map = "mapsouth",
-        x = 16,
-        y = -16,
-        direction = "horizontal", -- 3-tile horizontal door
+        direction = "up",
+        positions = {{x = 16, y = -16}},
         targetMap = "map",
         targetX = 16,
         targetY = 30,
@@ -82,9 +59,8 @@ local doors = {
     },
     {
         map = "map",
-        x = -16,
-        y = 5,
-        direction = "vertical", -- 3-tile vertical door
+        direction = "left",
+        positions = {{x = -16, y = 5}},
         targetMap = "mapwest",
         targetX = 30,
         targetY = 5,
@@ -92,13 +68,56 @@ local doors = {
     },
     {
         map = "mapwest",
-        x = 31,
-        y = 5,
-        direction = "vertical", -- 3-tile vertical door
+        direction = "right",
+        positions = {{x = 31, y = 5}},
         targetMap = "map",
         targetX = -15,
         targetY = 5,
         text = "Travel"
+    },
+    {
+        map = "map",
+        direction = nil,
+        positions = {{x = 21, y = 9}},
+        targetMap = "shop",
+        targetX = -9,
+        targetY = 0,
+        text = "Enter"
+    },
+    {
+        map = "shop",
+        direction = nil,
+        positions = {
+            {x = -10, y = -1},
+            {x = -10, y = 0},
+            {x = -10, y = 1}
+        },
+        targetMap = "map",
+        targetX = 21,
+        targetY = 9,
+        text = "Leave"
+    },
+    {
+        map = "mapnorth",
+        direction = nil,
+        positions = {{x = 16, y = 16}},
+        targetMap = "throneroom",
+        targetX = -6,
+        targetY = -1,
+        text = "Enter"
+    },
+    {
+        map = "throneroom",
+        direction = nil,
+        positions = {
+            {x = -7, y = -2},
+            {x = -7, y = -1},
+            {x = -7, y = 0}
+        },
+        targetMap = "mapnorth",
+        targetX = 15,
+        targetY = 16,
+        text = "Leave"
     }
 }
 
@@ -135,54 +154,60 @@ end
 -- Find a door at the given position on the current map
 function MapSystem.findDoorAt(gridX, gridY)
     for _, door in ipairs(doors) do
-        if door.map == currentMap then
-            -- Check center position
-            if door.x == gridX and door.y == gridY then
-                -- Return door with no offset
-                local doorCopy = {}
-                for k, v in pairs(door) do doorCopy[k] = v end
-                doorCopy.offsetX = 0
-                doorCopy.offsetY = 0
-                return doorCopy
+        if door.map == currentMap and door.positions then
+            -- Check all defined positions
+            for _, pos in ipairs(door.positions) do
+                if pos.x == gridX and pos.y == gridY then
+                    -- Return door with no offset
+                    local doorCopy = {}
+                    for k, v in pairs(door) do doorCopy[k] = v end
+                    doorCopy.offsetX = 0
+                    doorCopy.offsetY = 0
+                    return doorCopy
+                end
             end
 
-            -- Check adjacent positions based on direction
-            if door.direction == "horizontal" then
-                -- Check left and right
-                if door.y == gridY then
-                    if door.x - 1 == gridX then
-                        -- Entered from left
-                        local doorCopy = {}
-                        for k, v in pairs(door) do doorCopy[k] = v end
-                        doorCopy.offsetX = -1
-                        doorCopy.offsetY = 0
-                        return doorCopy
-                    elseif door.x + 1 == gridX then
-                        -- Entered from right
-                        local doorCopy = {}
-                        for k, v in pairs(door) do doorCopy[k] = v end
-                        doorCopy.offsetX = 1
-                        doorCopy.offsetY = 0
-                        return doorCopy
+            -- For directional doors, also check the 2 adjacent tiles
+            if door.direction and #door.positions == 1 then
+                local centerPos = door.positions[1]
+
+                if door.direction == "up" or door.direction == "down" then
+                    -- Horizontal 3-tile door (side by side)
+                    if centerPos.y == gridY then
+                        if centerPos.x - 1 == gridX then
+                            -- Entered from left tile
+                            local doorCopy = {}
+                            for k, v in pairs(door) do doorCopy[k] = v end
+                            doorCopy.offsetX = -1
+                            doorCopy.offsetY = 0
+                            return doorCopy
+                        elseif centerPos.x + 1 == gridX then
+                            -- Entered from right tile
+                            local doorCopy = {}
+                            for k, v in pairs(door) do doorCopy[k] = v end
+                            doorCopy.offsetX = 1
+                            doorCopy.offsetY = 0
+                            return doorCopy
+                        end
                     end
-                end
-            elseif door.direction == "vertical" then
-                -- Check above and below
-                if door.x == gridX then
-                    if door.y - 1 == gridY then
-                        -- Entered from above
-                        local doorCopy = {}
-                        for k, v in pairs(door) do doorCopy[k] = v end
-                        doorCopy.offsetX = 0
-                        doorCopy.offsetY = -1
-                        return doorCopy
-                    elseif door.y + 1 == gridY then
-                        -- Entered from below
-                        local doorCopy = {}
-                        for k, v in pairs(door) do doorCopy[k] = v end
-                        doorCopy.offsetX = 0
-                        doorCopy.offsetY = 1
-                        return doorCopy
+                elseif door.direction == "left" or door.direction == "right" then
+                    -- Vertical 3-tile door (stacked on top of each other)
+                    if centerPos.x == gridX then
+                        if centerPos.y - 1 == gridY then
+                            -- Entered from top tile
+                            local doorCopy = {}
+                            for k, v in pairs(door) do doorCopy[k] = v end
+                            doorCopy.offsetX = 0
+                            doorCopy.offsetY = -1
+                            return doorCopy
+                        elseif centerPos.y + 1 == gridY then
+                            -- Entered from bottom tile
+                            local doorCopy = {}
+                            for k, v in pairs(door) do doorCopy[k] = v end
+                            doorCopy.offsetX = 0
+                            doorCopy.offsetY = 1
+                            return doorCopy
+                        end
                     end
                 end
             end
