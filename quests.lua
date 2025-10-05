@@ -1,8 +1,40 @@
 local quests = {}
 
+-- Import required modules
+local PlayerSystem = require "player_system"
+local UISystem = require "ui_system"
+local DialogSystem = require "dialog_system"
+local ShopSystem = require "shop_system"
+local AudioSystem = require "audio_system"
+
+-- State that needs to be managed by main.lua
+quests.gameState = nil
+quests.questTurnInData = nil
+quests.introShown = false
+quests.activeQuests = {}
+quests.completedQuests = {}
+quests.lockedQuests = {}  -- Table of locked quest IDs
+
+-- Helper function
+local function indexOf(tbl, value)
+    for i, v in ipairs(tbl) do
+        if v == value then
+            return i
+        end
+    end
+    return nil
+end
+
 -- NPCs positioned on tile grid (grid coordinates * 16 + 8 for center)
 -- Note: If any NPC spawns on a collision tile (water/wall), the game will
 -- automatically find the nearest valid spawn location within 20 tiles.
+-- 
+-- Enhanced Quest System:
+-- - NPCs can now have multiple quests via the 'quests' array
+-- - Each quest in the array will be checked in order
+-- - The first quest that meets its prerequisites will be offered
+-- - Quests are locked by default unless unlocked by another quest
+-- - Use 'unlocksQuests' on quest data to specify which quests become available after completion
 quests.npcs = {
     -- Intro NPC - spawns next to player at start
     npc_intro = {
@@ -212,7 +244,7 @@ quests.npcs = {
     },
     
     --- REAL SCRIPTED QUESTS HERE!
-    -- Quest 1: Fetch  the Wizard's Hat.
+    -- Quest 1: Fetch the Wizard's Hat, then defeat geese
     npc_wizard = {
         id = "npc_wizard",
         map = "map",
@@ -222,9 +254,18 @@ quests.npcs = {
         name = "Wizard",
         spriteX = 32,
         spriteY = 16,
-        questId = "quest_wizard_hat",
         isQuestGiver = true,
-        questOfferDialog = "Oh hello! My hat was stolen by a criminal, a few moments ago.\n\nI just received word that the jailer has recovered it, but alas I am too tired. Would fetch it for me?\n\nThese old feathers need protection from the sun if I am to do anything more!"
+        -- Multiple quests - checked in order, first available quest is offered
+        quests = {
+            {
+                questId = "quest_wizard_hat",
+                questOfferDialog = "Oh hello! My hat was stolen by a criminal, a few moments ago.\n\nI just received word that the jailer has recovered it, but alas I am too tired. Would you fetch it for me?\n\nThese old feathers need protection from the sun if I am to do anything more!"
+            },
+            {
+                questId = "quest_defeat_geese",
+                questOfferDialog = "Ah, much better with my hat back!\n\nNow I can focus on my studies again.\n\nBut there's another problem - those pesky geese keep interrupting my meditation.\n\nCould you defeat 3 of them for me? They're quite aggressive!"
+            }
+        }
     },
     npc_jailer = {
         id = "npc_jailer",
@@ -251,10 +292,24 @@ quests.questData = {
         reward = "Thanks for returning my hat!",
         goldReward = 0,
         reminderText = "These old feathers need protection from the sun if I am to do anything more!",
+        unlocksQuests = {"quest_defeat_geese", "quest_delivery"},  -- Unlocks these quests when completed
         active = false,
         completed = false,
         updateQuestGiverSpriteX = 48,
         updateQuestGiverSpriteY = 16,
+    },
+    quest_defeat_geese = {
+        id = "quest_defeat_geese",
+        name = "Defeat the Geese",
+        description = "The wizard wants you to collect goose feathers from the aggressive geese that keep interrupting his meditation.",
+        questGiver = "npc_wizard",
+        locked = true,  -- Locked until unlocked by another quest
+        requiredItem = "item_goose_feathers",
+        reward = "Excellent work! Those geese won't bother me anymore.",
+        goldReward = 50,
+        reminderText = "Those geese are still causing trouble! Please collect their feathers.",
+        active = false,
+        completed = false
     },
     -- Toy quests while we were working on the game.
     quest_lost_cat = {
@@ -288,6 +343,7 @@ quests.questData = {
         name = "Package Delivery",
         description = "The merchant has a package that needs picking up from the courier!",
         questGiver = "npc_merchant",
+        locked = true,  -- Locked until unlocked by another quest
         requiredItem = "item_package",
         reward = "Great! Here's your payment!",
         updateQuestGiverSpriteX = 112,
@@ -350,5 +406,233 @@ quests.questData = {
         completed = false
     }
 }
+
+-- Quest Management Functions
+-- These handle all quest locking/unlocking logic
+
+-- Initialize quest lock states
+function quests.initializeQuestLocks()
+    for questId, quest in pairs(quests.questData) do
+        if quest.locked then
+            quests.lockedQuests[questId] = true
+        end
+    end
+end
+
+-- Check if a quest is available (not locked)
+function quests.isQuestAvailable(questId)
+    return not quests.lockedQuests[questId]
+end
+
+-- Get the currently available quest for an NPC
+-- Returns: questData, questConfig (from NPC's quests array)
+function quests.getAvailableQuestForNPC(npcId)
+    local npc = quests.npcs[npcId]
+    if not npc then return nil, nil end
+    
+    if not npc.quests then
+        -- Legacy single quest support
+        if npc.questId then
+            local quest = quests.questData[npc.questId]
+            if quest and quests.isQuestAvailable(npc.questId) then
+                return quest, {questId = npc.questId, questOfferDialog = npc.questOfferDialog}
+            end
+        end
+        return nil, nil
+    end
+    
+    -- Check each quest in order, return first available one
+    for _, questConfig in ipairs(npc.quests) do
+        local quest = quests.questData[questConfig.questId]
+        if quest and quests.isQuestAvailable(questConfig.questId) and not quest.completed then
+            return quest, questConfig
+        end
+    end
+    
+    return nil, nil
+end
+
+-- Activate a quest
+function quests.activateQuest(questId)
+    local quest = quests.questData[questId]
+    if quest then
+        quest.active = true
+    end
+end
+
+-- Handle NPC interaction (main interaction logic)
+function quests.interactWithNPC(npc)
+    
+    if npc.isIntroNPC then
+        -- Show manifesto if intro already shown, otherwise show intro text
+        local text = quests.introShown and npc.manifestoText or npc.introText
+        quests.gameState = DialogSystem.showDialog({
+            type = "generic",
+            npc = npc,
+            text = text
+        })
+    elseif npc.isShopkeeper then
+        -- Open shop UI
+        ShopSystem.open()
+        quests.gameState = "shop"
+    elseif npc.isQuestGiver then
+        -- Get the currently available quest for this NPC
+        local quest, questConfig = quests.getAvailableQuestForNPC(npc.id)
+        
+        if quest and not quest.active and not quest.completed then
+            -- Show initial dialog, then quest offer
+            local dialogText = questConfig.questOfferDialog or "I have a quest for you."
+            quests.gameState = DialogSystem.showDialog({
+                type = "questOfferDialog",
+                npc = npc,
+                quest = quest,
+                text = dialogText
+            })
+        elseif quest and quest.active then
+            if quest.requiredItem and PlayerSystem.hasItem(quest.requiredItem) then
+                -- Turn in item quest - show inventory selection UI
+                quests.questTurnInData = {npc = npc, quest = quest}
+                quests.gameState = "questTurnIn"
+            else
+                -- Quest active but no item yet
+                local text = quest.reminderText or "Come back when you have the item!"
+                quests.gameState = DialogSystem.showDialog({
+                    type = "generic",
+                    npc = npc,
+                    text = text
+                })
+            end
+        else
+            -- No available quests or all quests completed
+            local text = "Thanks again!"
+            quests.gameState = DialogSystem.showDialog({
+                type = "generic",
+                npc = npc,
+                text = text
+            })
+        end
+    elseif npc.givesItem then
+        -- Check if the required quest is active
+        local requiredQuest = npc.requiresQuest and quests.questData[npc.requiresQuest]
+        local questActive = requiredQuest and requiredQuest.active
+
+        if not questActive then
+            -- Quest not active, show generic dialog
+            local text = npc.noQuestText or "Hello there!"
+            quests.gameState = DialogSystem.showDialog({
+                type = "generic",
+                npc = npc,
+                text = text
+            })
+        elseif not PlayerSystem.hasItem(npc.givesItem) then
+            -- Quest active and don't have item, give it
+            local text = npc.itemGiveText or "Here, take this!"
+            quests.gameState = DialogSystem.showDialog({
+                type = "itemGive",
+                npc = npc,
+                item = npc.givesItem,
+                text = text
+            })
+        else
+            -- Already have the item
+            local text = "I already gave you the item!"
+            quests.gameState = DialogSystem.showDialog({
+                type = "generic",
+                npc = npc,
+                text = text
+            })
+        end
+    elseif npc.givesAbility then
+        -- Check if the required quest is active
+        local requiredQuest = npc.requiresQuest and quests.questData[npc.requiresQuest]
+        local questActive = requiredQuest and requiredQuest.active
+
+        if not questActive then
+            -- Quest not active, show generic dialog
+            local text = npc.noQuestText or "Hello there!"
+            quests.gameState = DialogSystem.showDialog({
+                type = "generic",
+                npc = npc,
+                text = text
+            })
+        elseif not PlayerSystem.hasAbility(npc.givesAbility) then
+            -- Quest active and don't have ability, give it
+            local text = npc.abilityGiveText or "You learned a new ability!"
+            quests.gameState = DialogSystem.showDialog({
+                type = "abilityGive",
+                npc = npc,
+                ability = npc.givesAbility,
+                quest = requiredQuest,
+                text = text
+            })
+        else
+            -- Already have the ability
+            local text = "You already learned that ability!"
+            quests.gameState = DialogSystem.showDialog({
+                type = "generic",
+                npc = npc,
+                text = text
+            })
+        end
+    end
+end
+
+-- Complete a quest
+function quests.completeQuest(questId)
+    local quest = quests.questData[questId]
+    if not quest then return end
+    
+    -- Mark quest as completed
+    quest.active = false
+    quest.completed = true
+    
+    -- Unlock any quests that this quest unlocks
+    if quest.unlocksQuests then
+        for _, unlockedQuestId in ipairs(quest.unlocksQuests) do
+            quests.lockedQuests[unlockedQuestId] = nil
+        end
+    end
+    
+    -- Update quest giver sprite if specified
+    if quest.updateQuestGiverSpriteX and quest.updateQuestGiverSpriteY then
+        quests.npcs[quest.questGiver].spriteX = quest.updateQuestGiverSpriteX
+        quests.npcs[quest.questGiver].spriteY = quest.updateQuestGiverSpriteY
+        quests.npcs[quest.questGiver].sprite.quad = love.graphics.newQuad(
+                    quests.npcs[quest.questGiver].spriteX, 
+                    quests.npcs[quest.questGiver].spriteY, 
+                    16, -- sprite width
+                    16, -- sprite height
+                    quests.npcs[quest.questGiver].sprite.tileset:getDimensions()
+                )
+    end
+    
+    -- Update quest lists
+    table.remove(quests.activeQuests, indexOf(quests.activeQuests, quest.id))
+    table.insert(quests.completedQuests, quest.id)
+
+    -- Grant ability if quest provides one
+    if quest.grantsAbility then
+        PlayerSystem.grantAbility(quest.grantsAbility)
+
+        local ability = PlayerSystem.getAbility(quest.grantsAbility)
+        if ability then
+            UISystem.showToast("Learned: " .. ability.name .. "!", ability.color)
+        end
+    end
+
+    -- Award gold
+    if quest.goldReward and quest.goldReward > 0 then
+        PlayerSystem.addGold(quest.goldReward)
+        UISystem.showToast("+" .. quest.goldReward .. " Gold", {1, 0.84, 0})
+    end
+    
+    UISystem.showToast("Quest Complete: " .. quest.name, {0, 1, 0})
+
+    -- Check if main quest was completed (win condition)
+    if quest.isMainQuest then
+        quests.gameState = "winScreen"
+        AudioSystem.playMusic("credits")
+    end
+end
 
 return quests
