@@ -52,7 +52,8 @@ local Icons = {
     cat = {x = 0, y = 192},
     book = {x = 16, y = 192},
     placeholder = {x = 32, y = 192},
-    floaties = {x = 48, y = 192}
+    floaties = {x = 48, y = 192},
+    labubu = {x = 64, y = 192}
 }
 
 -- Item registry (single source of truth for all items)
@@ -64,7 +65,7 @@ local itemRegistry = {
     item_wood = {id = "item_wood", name = "Wooden Planks", aliases = {"wood", "planks"}, icon = Icons.placeholder},
     item_shoes = {id = "item_shoes", name = "Jumping Shoes", aliases = {"shoes", "boots", "jumping shoes"}, icon = Icons.placeholder},
     item_rubber_duck = {id = "item_rubber_duck", name = "Rubber Duck", aliases = {"duck", "rubber duck"}, icon = Icons.placeholder, shopInfo = {price = 10, description = "A cheerful rubber duck. Perfect for bath time or just keeping you company!"}},
-    item_labubu = {id = "item_labubu", name = "Labubu", aliases = {"labubu"}, icon = Icons.placeholder, shopInfo = {price = 10000, description = "An extremely rare and adorable Labubu collectible. Highly sought after by collectors!"}}
+    item_labubu = {id = "item_labubu", name = "Labubu", aliases = {"labubu"}, icon = Icons.labubu, shopInfo = {price = 10000, description = "An extremely rare and adorable Labubu collectible. Highly sought after by collectors!"}}
 }
 
 -- UI state

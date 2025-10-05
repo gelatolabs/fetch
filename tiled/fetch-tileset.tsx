@@ -142,4 +142,5 @@
  <tile id="240" type="item::cat"/>
  <tile id="241" type="item::book"/>
  <tile id="242" type="item::no_icon"/>
+ <tile id="244" type="labubu"/>
 </tileset>

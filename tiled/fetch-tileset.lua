@@ -383,6 +383,10 @@ return {
     {
       id = 242,
       type = "item::no_icon"
+    },
+    {
+      id = 244,
+      type = "labubu"
     }
   }
 }
