@@ -53,14 +53,15 @@ local Icons = {
     book = {x = 16, y = 192},
     placeholder = {x = 32, y = 192},
     floaties = {x = 48, y = 192},
-    labubu = {x = 64, y = 192}
+    labubu = {x = 64, y = 192},
+    package = {x = 80, y = 192}
 }
 
 -- Item registry (single source of truth for all items)
 local itemRegistry = {
     item_cat = {id = "item_cat", name = "Fluffy Cat", aliases = {"cat"}, icon = Icons.cat},
     item_book = {id = "item_book", name = "Ancient Tome", aliases = {"book"}, icon = Icons.book},
-    item_package = {id = "item_package", name = "Sealed Package", aliases = {"package"}, icon = Icons.placeholder},
+    item_package = {id = "item_package", name = "Sealed Package", aliases = {"package"}, icon = Icons.package},
     item_floaties = {id = "item_floaties", name = "Swimming Floaties", aliases = {"floaties", "floaty"}, icon = Icons.floaties},
     item_wood = {id = "item_wood", name = "Wooden Planks", aliases = {"wood", "planks"}, icon = Icons.placeholder},
     item_shoes = {id = "item_shoes", name = "Jumping Shoes", aliases = {"shoes", "boots", "jumping shoes"}, icon = Icons.placeholder},

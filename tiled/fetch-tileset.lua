@@ -342,11 +342,11 @@ return {
     },
     {
       id = 181,
-      type = "mushroom"
+      type = "decor::mushroom"
     },
     {
       id = 182,
-      type = "grass"
+      type = "decor::grass"
     },
     {
       id = 183,
@@ -373,6 +373,10 @@ return {
       type = "throne"
     },
     {
+      id = 201,
+      type = "decor::books"
+    },
+    {
       id = 240,
       type = "item::cat"
     },
@@ -385,8 +389,16 @@ return {
       type = "item::no_icon"
     },
     {
+      id = 243,
+      type = "item::floaties"
+    },
+    {
       id = 244,
-      type = "labubu"
+      type = "item::labubu"
+    },
+    {
+      id = 245,
+      type = "item::package"
     }
   }
 }

@@ -127,8 +127,8 @@
    <property name="height" type="float" value="1"/>
   </properties>
  </tile>
- <tile id="181" type="mushroom"/>
- <tile id="182" type="grass"/>
+ <tile id="181" type="decor::mushroom"/>
+ <tile id="182" type="decor::grass"/>
  <tile id="183" type="bush">
   <properties>
    <property name="collides" type="bool" value="true"/>
@@ -139,8 +139,11 @@
  <tile id="194" type="gravel::ew"/>
  <tile id="195" type="gravel::br_corner"/>
  <tile id="200" type="throne"/>
+ <tile id="201" type="decor::books"/>
  <tile id="240" type="item::cat"/>
  <tile id="241" type="item::book"/>
  <tile id="242" type="item::no_icon"/>
- <tile id="244" type="labubu"/>
+ <tile id="243" type="item::floaties"/>
+ <tile id="244" type="item::labubu"/>
+ <tile id="245" type="item::package"/>
 </tileset>
