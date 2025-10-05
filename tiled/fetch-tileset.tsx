@@ -10,13 +10,18 @@
    <property name="is_water" type="bool" value="true"/>
   </properties>
  </tile>
- <tile id="108">
+ <tile id="100" type="ground::grass"/>
+ <tile id="102" type="ground::dirt"/>
+ <tile id="104" type="ground::sand"/>
+ <tile id="106" type="ground::path"/>
+ <tile id="108" type="water">
   <properties>
    <property name="collides" type="bool" value="true"/>
    <property name="height" type="float" value="-0.1"/>
    <property name="is_water" type="bool" value="true"/>
   </properties>
  </tile>
+ <tile id="110" type="ground::clay"/>
  <tile id="140" type="wall">
   <properties>
    <property name="collides" type="bool" value="true"/>

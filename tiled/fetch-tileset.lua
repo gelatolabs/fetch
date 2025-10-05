@@ -36,12 +36,33 @@ return {
       }
     },
     {
+      id = 100,
+      type = "ground::grass"
+    },
+    {
+      id = 102,
+      type = "ground::dirt"
+    },
+    {
+      id = 104,
+      type = "ground::sand"
+    },
+    {
+      id = 106,
+      type = "ground::path"
+    },
+    {
       id = 108,
+      type = "water",
       properties = {
         ["collides"] = true,
         ["height"] = -0.1,
         ["is_water"] = true
       }
+    },
+    {
+      id = 110,
+      type = "ground::clay"
     },
     {
       id = 140,
