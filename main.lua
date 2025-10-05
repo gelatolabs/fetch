@@ -85,10 +85,8 @@ abilityManager:registerAbility({
     effects = {AbilitySystem.EffectType.WATER_TRAVERSAL},
     description = "Allows you to swim across water tiles freely",
     color = {0.3, 0.8, 1.0},
-    onAcquire = function(context, ability)
-        if context and context.showToast then
-            context.showToast("You can now swim across water!", {0.3, 0.8, 1.0})
-        end
+    onAcquire = function(ability)
+        UISystem.showToast("You can now swim across water!", {0.3, 0.8, 1.0})
     end
 })
 
@@ -102,22 +100,16 @@ abilityManager:registerAbility({
     maxUses = 3,
     consumeOnUse = true,
     color = {0.7, 0.7, 1.0},
-    onAcquire = function(context, ability)
-        if context and context.showToast then
-            context.showToast("Boat has " .. ability.maxUses .. " crossings", {0.7, 0.7, 1.0})
+    onAcquire = function(ability)
+        UISystem.showToast("Boat has " .. ability.maxUses .. " crossings", {0.7, 0.7, 1.0})
+    end,
+    onUse = function(ability)
+        if ability.currentUses > 0 then
+            UISystem.showToast("Boat crossings remaining: " .. ability.currentUses, {0.7, 0.7, 1.0})
         end
     end,
-    onUse = function(context, ability)
-        if context and context.showToast then
-            if ability.currentUses > 0 then
-                context.showToast("Boat crossings remaining: " .. ability.currentUses, {0.7, 0.7, 1.0})
-            end
-        end
-    end,
-    onExpire = function(context)
-        if context and context.showToast then
-            context.showToast("Your boat broke apart!", {1, 0.5, 0.2})
-        end
+    onExpire = function()
+        UISystem.showToast("Your boat broke apart!", {1, 0.5, 0.2})
     end
 })
 
@@ -129,10 +121,8 @@ abilityManager:registerAbility({
     effects = {AbilitySystem.EffectType.JUMP},
     description = "Allows you to jump over low obstacles (height ≤ 0.5)",
     color = {1.0, 0.9, 0.3},
-    onAcquire = function(context, ability)
-        if context and context.showToast then
-            context.showToast("You can now jump over low obstacles!", {1.0, 0.9, 0.3})
-        end
+    onAcquire = function(ability)
+        UISystem.showToast("You can now jump over low obstacles!", {1.0, 0.9, 0.3})
     end
 })
 
@@ -352,8 +342,7 @@ function love.update(dt)
                         local boatAbility = abilityManager:getAbility("boat")
                         if boatAbility and not abilityManager:hasAbility("swim") then
                             -- Use boat ability (consumes a use)
-                            local context = {showToast = showToast}
-                            boatAbility:use(context)
+                            boatAbility:use()
 
                             -- Remove ability if expired
                             if boatAbility.currentUses <= 0 then
@@ -740,8 +729,7 @@ function love.keypressed(key)
                     showToast("Received: " .. itemName, {0.7, 0.5, 0.9})
                 end,
                 onAbilityLearn = function(abilityId, quest)
-                    local context = {showToast = showToast}
-                    abilityManager:grantAbility(abilityId, context)
+                    abilityManager:grantAbility(abilityId)
                     completeQuest(quest)
                 end
             }
@@ -928,8 +916,7 @@ function completeQuest(quest)
 
     -- Grant ability if quest provides one
     if quest.grantsAbility then
-        local context = {showToast = showToast}
-        abilityManager:grantAbility(quest.grantsAbility, context)
+        abilityManager:grantAbility(quest.grantsAbility)
 
         local ability = abilityManager:getAbility(quest.grantsAbility)
         if ability then

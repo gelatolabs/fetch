@@ -58,8 +58,7 @@ function CheatConsole.processCode(code, gameState)
         else
             local abilityData = gameState.abilityManager:getRegisteredAbility(param)
             if abilityData then
-                local context = {showToast = UISystem.showToast}
-                gameState.abilityManager:grantAbility(abilityData.id, context)
+                gameState.abilityManager:grantAbility(abilityData.id)
                 UISystem.showToast("Unlocked: " .. abilityData.name, {1, 0.5, 0})
             else
                 UISystem.showToast("Unknown ability: " .. param, {1, 0.3, 0.3})
@@ -91,9 +90,8 @@ function CheatConsole.processCode(code, gameState)
         else
             -- Turn on god mode
             CheatConsole.state.noclip = true
-            local context = {showToast = UISystem.showToast}
             for _, abilityId in ipairs(gameState.abilityManager:getAllRegisteredAbilityIds()) do
-                gameState.abilityManager:grantAbility(abilityId, context)
+                gameState.abilityManager:grantAbility(abilityId)
             end
             UISystem.showToast("God Mode Activated!", {1, 0.5, 0})
         end
@@ -169,9 +167,8 @@ function CheatConsole.processCode(code, gameState)
         end
         
     elseif command == "abilities" or command == "unlockall" then
-        local context = {showToast = UISystem.showToast}
         for _, abilityId in ipairs(gameState.abilityManager:getAllRegisteredAbilityIds()) do
-            gameState.abilityManager:grantAbility(abilityId, context)
+            gameState.abilityManager:grantAbility(abilityId)
         end
         UISystem.showToast("Unlocked all abilities", {1, 0.5, 0})
         
