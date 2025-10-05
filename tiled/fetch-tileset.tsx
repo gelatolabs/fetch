@@ -146,4 +146,5 @@
  <tile id="243" type="item::floaties"/>
  <tile id="244" type="item::labubu"/>
  <tile id="245" type="item::package"/>
+ <tile id="246" type="item::duck"/>
 </tileset>

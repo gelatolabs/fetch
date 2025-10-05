@@ -399,6 +399,10 @@ return {
     {
       id = 245,
       type = "item::package"
+    },
+    {
+      id = 246,
+      type = "item::duck"
     }
   }
 }
