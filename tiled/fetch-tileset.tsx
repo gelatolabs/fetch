@@ -147,4 +147,7 @@
  <tile id="244" type="item::labubu"/>
  <tile id="245" type="item::package"/>
  <tile id="246" type="item::duck"/>
+ <tile id="247" type="item::shoe"/>
+ <tile id="248" type="item::planks"/>
+ <tile id="250" type="item::wizard_hat"/>
 </tileset>

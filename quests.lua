@@ -209,10 +209,54 @@ quests.npcs = {
         requiresQuest = "quest_learn_jump",
         itemGiveText = "These are special jumping shoes! Take them to the athlete and they'll teach you!",
         noQuestText = "I train athletes to be the best they can be!"
-    }
+    },
+    
+    --- REAL SCRIPTED QUESTS HERE!
+    -- Quest 1: Fetch  the Wizard's Hat.
+    npc_wizard = {
+        id = "npc_wizard",
+        map = "map",
+        x = -8 * 16 + 8,  -- Grid position (-8, -10) - close to player start
+        y = -10 * 16 + 8,
+        size = 16,
+        name = "Wizard",
+        spriteX = 32,
+        spriteY = 16,
+        questId = "quest_wizard_hat",
+        isQuestGiver = true,
+        questOfferDialog = "Oh hello! My hat was stolen by a criminal, a few moments ago.\n\nI just received word that the jailer has recovered it, but alas I am too tired. Would fetch it for me?\n\nThese old feathers need protection from the sun if I am to do anything more!"
+    },
+    npc_jailer = {
+        id = "npc_jailer",
+        map = "map",
+        x = -8 * 16 + 8,  -- Grid position (-8, -8) - close to player start
+        y = -8 * 16 + 8,
+        size = 16,
+        name = "Jailer",
+        givesItem = "item_wizard_hat",
+        requiresQuest = "quest_wizard_hat",
+        itemGiveText = "Here is your hat, wizard. I hope it protects you from the sun.",
+        noQuestText = "This burocracy! I'm too busy with paperwork to help you right now."
+    },
 }
 
 quests.questData = {
+    -- REAL SCRIPTED QUESTS HERE!
+    quest_wizard_hat = {
+        id = "quest_wizard_hat",
+        name = "Wizard's Hat",
+        description = "The wizard needs his hat back. It's his only protection from the sun.",
+        questGiver = "npc_wizard",
+        requiredItem = "item_wizard_hat",
+        reward = "Thanks for returning my hat!",
+        goldReward = 0,
+        reminderText = "These old feathers need protection from the sun if I am to do anything more!",
+        active = false,
+        completed = false,
+        updateQuestGiverSpriteX = 48,
+        updateQuestGiverSpriteY = 16,
+    },
+    -- Toy quests while we were working on the game.
     quest_lost_cat = {
         id = "quest_lost_cat",
         name = "Lost Cat",
