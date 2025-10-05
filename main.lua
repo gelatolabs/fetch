@@ -706,6 +706,45 @@ function showToast(message, color)
     UISystem.showToast(message, color)
 end
 
+-- Helper function to draw NPCs on the current map
+local function drawNPCs(camX, camY, chatOffset)
+    for _, npc in pairs(questData.npcs) do
+        if npc.map == currentMap then
+            love.graphics.setColor(1, 1, 1)
+            if npc.sprite.quad then
+                -- Draw from tileset using quad
+                love.graphics.draw(
+                    npc.sprite.tileset, 
+                    npc.sprite.quad,
+                    chatOffset + npc.x - npc.size/2 - camX, 
+                    npc.y - npc.size/2 - camY
+                )
+            else
+                -- Draw fallback sprite
+                love.graphics.draw(
+                    npc.sprite.image,
+                    chatOffset + npc.x - npc.size/2 - camX, 
+                    npc.y - npc.size/2 - camY
+                )
+            end
+            
+            -- Draw quest indicator (only in playing/dialog state)
+            if gameState == "playing" or gameState == "dialog" then
+                if npc.isQuestGiver then
+                    local quest = quests[npc.questId]
+                    if not quest.active and not quest.completed then
+                        love.graphics.setColor(1, 1, 0)
+                        love.graphics.circle("fill", chatOffset + npc.x - camX, npc.y - 10 - camY, 2)
+                    elseif quest.active and hasItem(quest.requiredItem) then
+                        love.graphics.setColor(0, 1, 0)
+                        love.graphics.circle("fill", chatOffset + npc.x - camX, npc.y - 10 - camY, 2)
+                    end
+                end
+            end
+        end
+    end
+end
+
 
 function love.mousereleased(x, y, button)
     if button == 1 then
@@ -742,39 +781,7 @@ function love.draw()
         map:draw(chatOffset - camX, -camY)
 
         -- Draw NPCs (only on current map, offset by chat pane)
-        for _, npc in pairs(questData.npcs) do
-            if npc.map == currentMap then
-                love.graphics.setColor(1, 1, 1)
-                if npc.sprite.quad then
-                    -- Draw from tileset using quad
-                    love.graphics.draw(
-                        npc.sprite.tileset, 
-                        npc.sprite.quad,
-                        chatOffset + npc.x - npc.size/2 - camX, 
-                        npc.y - npc.size/2 - camY
-                    )
-                else
-                    -- Draw fallback sprite
-                    love.graphics.draw(
-                        npc.sprite.image,
-                        chatOffset + npc.x - npc.size/2 - camX, 
-                        npc.y - npc.size/2 - camY
-                    )
-                end
-                
-                -- Draw quest indicator
-                if npc.isQuestGiver then
-                    local quest = quests[npc.questId]
-                    if not quest.active and not quest.completed then
-                        love.graphics.setColor(1, 1, 0)
-                        love.graphics.circle("fill", chatOffset + npc.x - camX, npc.y - 10 - camY, 2)
-                    elseif quest.active and hasItem(quest.requiredItem) then
-                        love.graphics.setColor(0, 1, 0)
-                        love.graphics.circle("fill", chatOffset + npc.x - camX, npc.y - 10 - camY, 2)
-                    end
-                end
-            end
-        end
+        drawNPCs(camX, camY, chatOffset)
 
         -- Draw player
         PlayerSystem.draw(camX, camY, chatOffset)
@@ -830,27 +837,7 @@ function love.draw()
         map:draw(chatOffset - camX, -camY)
 
         -- Draw NPCs (only on current map, offset by chat pane)
-        for _, npc in pairs(questData.npcs) do
-            if npc.map == currentMap then
-                love.graphics.setColor(1, 1, 1)
-                if npc.sprite.quad then
-                    -- Draw from tileset using quad
-                    love.graphics.draw(
-                        npc.sprite.tileset, 
-                        npc.sprite.quad,
-                        npc.x - chatOffset + npc.size/2 - camX, 
-                        npc.y - npc.size/2 - camY
-                    )
-                else
-                    -- Draw fallback sprite
-                    love.graphics.draw(
-                        npc.sprite.image,
-                        npc.x - npc.size/2 - camX, 
-                        npc.y - npc.size/2 - camY
-                    )
-                end
-            end
-        end
+        drawNPCs(camX, camY, chatOffset)
 
         -- Draw player
         PlayerSystem.draw(camX, camY, chatOffset)
@@ -881,16 +868,7 @@ function love.draw()
         map:draw(chatOffset - camX, -camY)
 
         -- Draw NPCs (only on current map, offset by chat pane)
-        for _, npc in pairs(questData.npcs) do
-            if npc.map == currentMap then
-                love.graphics.setColor(1, 1, 1)
-                if npc.sprite.quad then
-                    love.graphics.draw(npc.sprite.tileset, npc.sprite.quad, chatOffset + npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
-                else
-                    love.graphics.draw(npc.sprite.image, chatOffset + npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
-                end
-            end
-        end
+        drawNPCs(camX, camY, chatOffset)
 
         -- Draw player
         PlayerSystem.draw(camX, camY, chatOffset)
@@ -920,27 +898,7 @@ function love.draw()
         map:draw(chatOffset - camX, -camY)
 
         -- Draw NPCs (only on current map, offset by chat pane)
-        for _, npc in pairs(questData.npcs) do
-            if npc.map == currentMap then
-                love.graphics.setColor(1, 1, 1)
-                if npc.sprite.quad then
-                    -- Draw from tileset using quad
-                    love.graphics.draw(
-                        npc.sprite.tileset, 
-                        npc.sprite.quad,
-                        chatOffset + npc.x - npc.size/2 - camX, 
-                        npc.y - npc.size/2 - camY
-                    )
-                else
-                    -- Draw fallback sprite
-                    love.graphics.draw(
-                        npc.sprite.image,
-                        chatOffset + npc.x - npc.size/2 - camX, 
-                        npc.y - npc.size/2 - camY
-                    )
-                end
-            end
-        end
+        drawNPCs(camX, camY, chatOffset)
 
         -- Draw player
         PlayerSystem.draw(camX, camY, chatOffset)
