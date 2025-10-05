@@ -16,7 +16,167 @@ return {
     {
       name = "tiles",
       firstgid = 1,
-      filename = "tiles.tsx"
+      class = "",
+      tilewidth = 16,
+      tileheight = 16,
+      spacing = 0,
+      margin = 0,
+      columns = 0,
+      objectalignment = "unspecified",
+      tilerendersize = "tile",
+      fillmode = "stretch",
+      tileoffset = {
+        x = 0,
+        y = 0
+      },
+      grid = {
+        orientation = "orthogonal",
+        width = 1,
+        height = 1
+      },
+      properties = {},
+      wangsets = {},
+      tilecount = 19,
+      tiles = {
+        {
+          id = 0,
+          image = "../tiles/green.png",
+          width = 16,
+          height = 16
+        },
+        {
+          id = 1,
+          image = "../tiles/brown.png",
+          width = 16,
+          height = 16
+        },
+        {
+          id = 2,
+          properties = {
+            ["collides"] = true,
+            ["height"] = 1
+          },
+          image = "../tiles/wall.png",
+          width = 16,
+          height = 16
+        },
+        {
+          id = 3,
+          image = "../tiles/brown.png",
+          width = 16,
+          height = 16
+        },
+        {
+          id = 4,
+          properties = {
+            ["collides"] = true,
+            ["height"] = 0.5
+          },
+          image = "../tiles/bush.png",
+          width = 16,
+          height = 16
+        },
+        {
+          id = 5,
+          image = "../tiles/dirt.png",
+          width = 16,
+          height = 16
+        },
+        {
+          id = 6,
+          image = "../tiles/flower_blue.png",
+          width = 16,
+          height = 16
+        },
+        {
+          id = 7,
+          image = "../tiles/flower_yellow.png",
+          width = 16,
+          height = 16
+        },
+        {
+          id = 8,
+          image = "../tiles/flower.png",
+          width = 16,
+          height = 16
+        },
+        {
+          id = 9,
+          image = "../tiles/grass_clump.png",
+          width = 16,
+          height = 16
+        },
+        {
+          id = 10,
+          image = "../tiles/green.png",
+          width = 16,
+          height = 16
+        },
+        {
+          id = 11,
+          image = "../tiles/mushroom.png",
+          width = 16,
+          height = 16
+        },
+        {
+          id = 12,
+          image = "../tiles/path.png",
+          width = 16,
+          height = 16
+        },
+        {
+          id = 13,
+          properties = {
+            ["height"] = 0.1
+          },
+          image = "../tiles/rock_small.png",
+          width = 16,
+          height = 16
+        },
+        {
+          id = 14,
+          properties = {
+            ["collides"] = true,
+            ["height"] = 0.5
+          },
+          image = "../tiles/rock.png",
+          width = 16,
+          height = 16
+        },
+        {
+          id = 15,
+          image = "../tiles/sand.png",
+          width = 16,
+          height = 16
+        },
+        {
+          id = 16,
+          properties = {
+            ["collides"] = true,
+            ["height"] = 1
+          },
+          image = "../tiles/tree.png",
+          width = 16,
+          height = 16
+        },
+        {
+          id = 17,
+          image = "../tiles/wall.png",
+          width = 16,
+          height = 16
+        },
+        {
+          id = 18,
+          properties = {
+            ["collides"] = true,
+            ["height"] = -0.1,
+            ["is_water"] = true
+          },
+          image = "../tiles/water.png",
+          width = 16,
+          height = 16
+        }
+      }
     }
   },
   layers = {
