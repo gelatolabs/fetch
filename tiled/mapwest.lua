@@ -36,31 +36,11 @@ return {
       },
       properties = {},
       wangsets = {},
-      tilecount = 3,
+      tilecount = 1,
       tiles = {
         {
           id = 1,
           image = "../tiles/brown.png",
-          width = 16,
-          height = 16
-        },
-        {
-          id = 4,
-          properties = {
-            ["collides"] = true,
-            ["height"] = 0.5
-          },
-          image = "../tiles/bush.png",
-          width = 16,
-          height = 16
-        },
-        {
-          id = 14,
-          properties = {
-            ["collides"] = true,
-            ["height"] = 0.5
-          },
-          image = "../tiles/rock.png",
           width = 16,
           height = 16
         }
@@ -182,6 +162,13 @@ return {
           properties = {
             ["collides"] = true,
             ["height"] = 1
+          }
+        },
+        {
+          id = 183,
+          properties = {
+            ["collides"] = true,
+            ["height"] = 0.5
           }
         }
       }
