@@ -11,9 +11,6 @@ local PlayerSystem = require "player_system"
 -- Game constants (managed by UISystem)
 -- Graphics resources (managed by UISystem)
 
--- Sprites
-local npcSprites = {}  -- Table to store loaded NPC sprites
-
 -- Audio
 local quackSound
 
