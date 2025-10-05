@@ -17,7 +17,7 @@ local playerQuads = {
     boat = {},
     swimming = {}
 }
-local npcSprite
+local npcSprites = {}  -- Table to store loaded NPC sprites
 
 -- Audio
 local quackSound
@@ -232,8 +232,6 @@ function love.load()
     }
     playerQuads.swimming.left = playerQuads.swimming.down
     playerQuads.swimming.right = playerQuads.swimming.down
-    
-    npcSprite = love.graphics.newImage("sprites/npc.png")
 
     -- Load audio
     quackSound = love.audio.newSource("audio/quack.wav", "static")
@@ -269,6 +267,13 @@ function loadGameData()
         local newX, newY, success = MapSystem.findValidSpawnPosition(npcData.x, npcData.y, "NPC '" .. npcData.name .. "'", 20)
         npcData.x = newX
         npcData.y = newY
+        
+        -- Load NPC sprite (default to "sprites/npc.png" if not specified)
+        local spritePath = npcData.spritePath or "sprites/npc.png"
+        if not npcSprites[spritePath] then
+            npcSprites[spritePath] = love.graphics.newImage(spritePath)
+        end
+        npcData.spriteImage = npcSprites[spritePath]
         
         table.insert(npcs, npcData)
     end
@@ -1168,7 +1173,7 @@ function love.draw()
         for _, npc in ipairs(npcs) do
             if npc.map == currentMap then
                 love.graphics.setColor(1, 1, 1)
-                love.graphics.draw(npcSprite, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+                love.graphics.draw(npc.spriteImage, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
 
                 -- Draw quest indicator
                 if npc.isQuestGiver then
@@ -1238,7 +1243,7 @@ function love.draw()
         for _, npc in ipairs(npcs) do
             if npc.map == currentMap then
                 love.graphics.setColor(1, 1, 1)
-                love.graphics.draw(npcSprite, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+                love.graphics.draw(npc.spriteImage, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
             end
         end
 
@@ -1268,7 +1273,7 @@ function love.draw()
     elseif gameState == "shop" then
         UISystem.drawShop(shopInventory, selectedShopItem, playerGold, inventory, itemRegistry, hasItem)
     elseif gameState == "questTurnIn" then
-        UISystem.drawQuestTurnIn(questTurnInData, inventory, itemRegistry, map, camera, npcs, currentMap, npcSprite, player, playerTileset, getPlayerSpriteSet)
+        UISystem.drawQuestTurnIn(questTurnInData, inventory, itemRegistry, map, camera, npcs, currentMap, player, playerTileset, getPlayerSpriteSet)
     elseif gameState == "questOffer" then
         -- Draw game world in background
         local camX = camera.x
@@ -1282,7 +1287,7 @@ function love.draw()
         for _, npc in ipairs(npcs) do
             if npc.map == currentMap then
                 love.graphics.setColor(1, 1, 1)
-                love.graphics.draw(npcSprite, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+                love.graphics.draw(npc.spriteImage, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
             end
         end
 

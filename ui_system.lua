@@ -615,7 +615,7 @@ function UISystem.drawQuestLog(activeQuests, completedQuests, quests)
 end
 
 -- Draw quest turn-in UI
-function UISystem.drawQuestTurnIn(questTurnInData, inventory, itemRegistry, map, camera, npcs, currentMap, npcSprite, player, playerTileset, getPlayerSpriteSet)
+function UISystem.drawQuestTurnIn(questTurnInData, inventory, itemRegistry, map, camera, npcs, currentMap, player, playerTileset, getPlayerSpriteSet)
     if not questTurnInData then
         return
     end
@@ -632,7 +632,7 @@ function UISystem.drawQuestTurnIn(questTurnInData, inventory, itemRegistry, map,
     for _, npc in ipairs(npcs) do
         if npc.map == currentMap then
             love.graphics.setColor(1, 1, 1)
-            love.graphics.draw(npcSprite, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+            love.graphics.draw(npc.spriteImage, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
         end
     end
 
