@@ -358,9 +358,10 @@ function UISystem.updateToasts(dt)
 end
 
 -- Progress the JARF dialog script
-function UISystem.progressJarfScript(steps, closeAfter)
+function UISystem.progressJarfScript(steps, closeAfter, onCloseCallback)
     steps = steps or 1
     closeAfter = closeAfter or nil
+    onCloseCallback = onCloseCallback or nil
     
     if steps == 1 then
         -- Immediate progression for single step
@@ -393,7 +394,8 @@ function UISystem.progressJarfScript(steps, closeAfter)
         if closeAfter then
             table.insert(delayedDialogQueue, {
                 delay = closeAfter,
-                closePane = true
+                closePane = true,
+                callback = onCloseCallback
             })
         end
     else
@@ -408,7 +410,8 @@ function UISystem.progressJarfScript(steps, closeAfter)
         if closeAfter then
             table.insert(delayedDialogQueue, {
                 delay = (steps - 1) * 3.0 + closeAfter,
-                closePane = true
+                closePane = true,
+                callback = onCloseCallback
             })
         end
     end
@@ -429,6 +432,10 @@ function UISystem.updateChat(dt)
                     chatPaneVisible = false
                     chatPaneTransition.active = true
                     chatPaneTransition.progress = 0
+                    -- Call callback after closing if provided
+                    if queuedDialog.callback then
+                        queuedDialog.callback()
+                    end
                 else
                     -- Progress dialog immediately
                     UISystem.progressJarfScript(1)

@@ -340,8 +340,13 @@ quests.dialogueSequences = {
             {speaker = "npc_canada_goose", text = "Triple... nipple... aw c'mon guys, this is too hard to rhyme."}
         },
         onComplete = function(npc)
-            UISystem.showToast("J.A.R.F. gave you item_goose_feathers", {1, 0.5, 0.5})
-            UISystem.progressJarfScript(8, 5.0)
+            -- Progress JARF dialogue, then show toast after it closes
+            -- (JARF is giving the item, not the geese)
+            -- The geese still need to declare they are giving you this item, otherwise the quest text will just start again.
+            PlayerSystem.addItem("item_goose_feathers")
+            UISystem.progressJarfScript(8, 5.0, function()
+                UISystem.showToast("J.A.R.F. gave you item_goose_feathers", {0.7, 0.5, 0.9})
+            end)
         end
     }
 }
@@ -602,7 +607,7 @@ function quests.interactWithNPC(npc)
                 text = text
             })
         elseif npc.givesItem then
-            -- Quest is active and NPC gives an item, show dialogue sequence with item reward
+            -- Quest is active and NPC gives an item, show dialogue sequence then give item
             local dialogueSeq = quests.dialogueSequences[npc.dialogueGroup]
             local dialoguePages = {}
             for _, dialogue in ipairs(dialogueSeq.sequence) do
@@ -610,12 +615,12 @@ function quests.interactWithNPC(npc)
             end
             
             quests.gameState = DialogSystem.showDialog({
-                type = "itemGive",
+                type = "generic",
                 npc = npc,
-                item = npc.givesItem,
                 text = table.concat(dialoguePages, "\n\n"),
                 speakers = dialogueSeq.sequence,  -- Pass speaker info separately
                 onComplete = function()
+                    -- Run the dialogue sequence onComplete (which will handle item giving)
                     if dialogueSeq.onComplete then
                         dialogueSeq.onComplete(npc)
                     end
