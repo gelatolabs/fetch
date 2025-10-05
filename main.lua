@@ -7,15 +7,8 @@ local DialogSystem = require "dialog_system"
 local UISystem = require "ui_system"
 local MapSystem = require "map_system"
 
--- Game constants
-local GAME_WIDTH = 320
-local GAME_HEIGHT = 240
-local SCALE
-
--- Graphics resources
-local canvas
-local font
-local titleFont
+-- Game constants (managed by UISystem)
+-- Graphics resources (managed by UISystem)
 
 -- Sprites
 local playerTileset
@@ -35,7 +28,6 @@ local gameState = "mainMenu"
 
 -- Settings
 local volume = 1.0
-local draggingSlider = false
 
 -- Input tracking for movement priority
 local heldKeys = {}
@@ -179,17 +171,13 @@ local playerGold = 0
 -- UI state
 local nearbyNPC = nil
 local nearbyDoor = nil
-local mouseX = 0
-local mouseY = 0
 local selectedShopItem = nil
 local questTurnInData = nil  -- Stores {npc, quest} for quest turn-in UI
 local questOfferData = nil  -- Stores {npc, quest} for quest offer UI
 local winScreenTimer = 0
 local introShown = false
 
--- Toast system
-local toasts = {}
-local TOAST_DURATION = 3.0 -- seconds
+-- Toast system (managed by UISystem)
 
 -- Door/Map transition system (managed by MapSystem)
 local currentMap = "map"
@@ -197,30 +185,8 @@ local currentMap = "map"
 function love.load()
     love.window.setTitle("Go Fetch")
 
-    -- Calculate scale factor (highest integer multiple that fits screen)
-    local desktopWidth, desktopHeight = love.window.getDesktopDimensions()
-    local scaleX = math.floor(desktopWidth / GAME_WIDTH)
-    local scaleY = math.floor(desktopHeight / GAME_HEIGHT)
-    SCALE = math.min(scaleX, scaleY)
-    if SCALE < 1 then SCALE = 1 end
-
-    love.window.setMode(GAME_WIDTH * SCALE, GAME_HEIGHT * SCALE, {fullscreen = true})
-
-    -- Create canvas
-    canvas = love.graphics.newCanvas(GAME_WIDTH, GAME_HEIGHT)
-    canvas:setFilter("nearest", "nearest")
-
-    -- Disable interpolation globally
-    love.graphics.setDefaultFilter("nearest", "nearest")
-
-    -- Load font (size 16 renders at 8px height)
-    font = love.graphics.newFont("BitPotionExt.ttf", 16)
-    font:setFilter("nearest", "nearest")
-    love.graphics.setFont(font)
-
-    -- Load title font (twice as large)
-    titleFont = love.graphics.newFont("BitPotionExt.ttf", 32)
-    titleFont:setFilter("nearest", "nearest")
+    -- Initialize UI system (sets up window, graphics, canvas, and fonts)
+    UISystem.init()
 
     -- Load sprites
     playerTileset = love.graphics.newImage("tiles/player-tileset.png")
@@ -293,8 +259,8 @@ function love.load()
     end
     
     -- Initialize camera centered on player
-    camera.x = player.x - GAME_WIDTH / 2
-    camera.y = player.y - GAME_HEIGHT / 2
+    camera.x = player.x - UISystem.getGameWidth() / 2
+    camera.y = player.y - UISystem.getGameHeight() / 2
 end
 
 function loadGameData()
@@ -329,12 +295,7 @@ function love.update(dt)
     map:update(dt)
 
     -- Update toasts
-    for i = #toasts, 1, -1 do
-        toasts[i].timer = toasts[i].timer - dt
-        if toasts[i].timer <= 0 then
-            table.remove(toasts, i)
-        end
-    end
+    UISystem.updateToasts(dt)
 
     -- Handle win screen timer
     if gameState == "winScreen" then
@@ -580,8 +541,8 @@ function love.update(dt)
         end
         
         -- Pokemon-style camera: always centered on player, smooth during movement
-        camera.x = player.x - GAME_WIDTH / 2
-        camera.y = player.y - GAME_HEIGHT / 2
+        camera.x = player.x - UISystem.getGameWidth() / 2
+        camera.y = player.y - UISystem.getGameHeight() / 2
         
         -- Clamp camera to map bounds
         if world.minX and world.maxX then
@@ -589,16 +550,16 @@ function love.update(dt)
             local mapHeight = world.maxY - world.minY
             
             -- Only clamp if map is larger than screen
-            if mapWidth > GAME_WIDTH then
-                camera.x = math.max(world.minX, math.min(camera.x, world.maxX - GAME_WIDTH))
+            if mapWidth > UISystem.getGameWidth() then
+                camera.x = math.max(world.minX, math.min(camera.x, world.maxX - UISystem.getGameWidth()))
             else
-                camera.x = world.minX + (mapWidth - GAME_WIDTH) / 2
+                camera.x = world.minX + (mapWidth - UISystem.getGameWidth()) / 2
             end
             
-            if mapHeight > GAME_HEIGHT then
-                camera.y = math.max(world.minY, math.min(camera.y, world.maxY - GAME_HEIGHT))
+            if mapHeight > UISystem.getGameHeight() then
+                camera.y = math.max(world.minY, math.min(camera.y, world.maxY - UISystem.getGameHeight()))
             else
-                camera.y = world.minY + (mapHeight - GAME_HEIGHT) / 2
+                camera.y = world.minY + (mapHeight - UISystem.getGameHeight()) / 2
             end
         end
 
@@ -624,69 +585,156 @@ function love.mousemoved(x, y, dx, dy)
     -- Show mouse cursor when mouse is moved
     love.mouse.setVisible(true)
 
-    -- Track mouse position
-    mouseX = x
-    mouseY = y
+    -- Update UI mouse position
+    UISystem.updateMouse(x, y)
 
     -- Handle slider dragging
-    if draggingSlider and gameState == "settings" then
-        -- Convert screen coordinates to canvas coordinates
-        local screenWidth, screenHeight = love.graphics.getDimensions()
-        local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
-        local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
-        local canvasX = (x - offsetX) / SCALE
-
-        local sliderX = GAME_WIDTH / 2 - 50
-        local sliderWidth = 100
-
-        volume = math.max(0, math.min(1, (canvasX - sliderX) / sliderWidth))
-        love.audio.setVolume(volume)
+    if gameState == "settings" then
+        volume = UISystem.handleSliderDrag(volume, function(newVolume)
+            love.audio.setVolume(newVolume)
+        end)
     end
 end
 
 function love.mousepressed(x, y, button)
     love.mouse.setVisible(true)
+    UISystem.updateMouse(x, y)
+
+    if button ~= 1 then
+        return
+    end
 
     -- Handle main menu clicks
-    if gameState == "mainMenu" and button == 1 then
-        handleMainMenuClick(x, y)
+    if gameState == "mainMenu" then
+        UISystem.handleMainMenuClick(x, y, {
+            onPlay = function()
+                gameState = "playing"
+                -- Show intro dialog if not shown yet
+                if not introShown then
+                    introShown = true
+                    -- Find the intro NPC
+                    for _, npc in ipairs(npcs) do
+                        if npc.isIntroNPC then
+                            gameState = DialogSystem.showDialog({
+                                type = "generic",
+                                npc = npc,
+                                text = npc.introText
+                            })
+                            break
+                        end
+                    end
+                end
+            end,
+            onSettings = function()
+                gameState = "settings"
+            end,
+            onQuit = function()
+                love.event.quit()
+            end
+        })
         return
     end
 
     -- Handle pause menu clicks
-    if gameState == "pauseMenu" and button == 1 then
-        handlePauseMenuClick(x, y)
+    if gameState == "pauseMenu" then
+        UISystem.handlePauseMenuClick(x, y, {
+            onResume = function()
+                gameState = "playing"
+            end,
+            onQuit = function()
+                love.event.quit()
+            end
+        })
         return
     end
 
     -- Handle settings menu clicks
-    if gameState == "settings" and button == 1 then
-        handleSettingsClick(x, y)
+    if gameState == "settings" then
+        local handled, newVolume = UISystem.handleSettingsClick(x, y, volume, {
+            onBack = function()
+                gameState = "mainMenu"
+            end,
+            onVolumeChange = function(newVolume)
+                love.audio.setVolume(newVolume)
+            end
+        })
+        if newVolume then
+            volume = newVolume
+        end
         return
     end
 
     -- Handle shop clicks
-    if gameState == "shop" and button == 1 then
-        handleShopClick(x, y)
+    if gameState == "shop" then
+        UISystem.handleShopClick(x, y, {
+            shopInventory = shopInventory,
+            selectedShopItem = selectedShopItem,
+            playerGold = playerGold
+        }, {
+            onSelectItem = function(index)
+                selectedShopItem = index
+            end,
+            hasItem = hasItem,
+            onPurchase = function(shopItem)
+                playerGold = playerGold - shopItem.price
+                table.insert(inventory, shopItem.itemId)
+                local itemData = itemRegistry[shopItem.itemId]
+                showToast("Purchased " .. (itemData and itemData.name or shopItem.itemId) .. "!", {0, 1, 0})
+            end,
+            onInsufficientFunds = function()
+                showToast("Not enough gold!", {1, 0, 0})
+            end
+        })
         return
     end
 
     -- Handle quest offer clicks
-    if gameState == "questOffer" and button == 1 then
-        handleQuestOfferClick(x, y)
+    if gameState == "questOffer" then
+        UISystem.handleQuestOfferClick(x, y, questOfferData, {
+            onAccept = function(quest)
+                quest.active = true
+                table.insert(activeQuests, quest.id)
+                showToast("Quest Accepted: " .. quest.name, {1, 1, 0})
+                questOfferData = nil
+                DialogSystem.clearDialog()
+                gameState = "playing"
+            end,
+            onReject = function()
+                questOfferData = nil
+                DialogSystem.clearDialog()
+                gameState = "playing"
+            end
+        })
         return
     end
 
-    if button == 1 and gameState == "questTurnIn" then
+    -- Handle quest turn-in clicks
+    if gameState == "questTurnIn" then
         -- Convert screen coordinates to canvas coordinates
         local screenWidth, screenHeight = love.graphics.getDimensions()
-        local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
-        local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
+        local offsetX = math.floor((screenWidth - UISystem.getGameWidth() * UISystem.getScale()) / 2 / UISystem.getScale()) * UISystem.getScale()
+        local offsetY = math.floor((screenHeight - UISystem.getGameHeight() * UISystem.getScale()) / 2 / UISystem.getScale()) * UISystem.getScale()
+        local canvasX = (x - offsetX) / UISystem.getScale()
+        local canvasY = (y - offsetY) / UISystem.getScale()
 
-        local canvasX = (x - offsetX) / SCALE
-        local canvasY = (y - offsetY) / SCALE
-
-        handleQuestTurnInClick(canvasX, canvasY)
+        UISystem.handleQuestTurnInClick(canvasX, canvasY, questTurnInData, inventory, {
+            onCorrectItem = function(quest, npc)
+                removeItem(quest.requiredItem)
+                completeQuest(quest)
+                -- Show reward dialog
+                gameState = DialogSystem.showDialog({
+                    type = "generic",
+                    npc = npc,
+                    text = quest.reward,
+                    completedMainQuest = quest.isMainQuest
+                })
+                questTurnInData = nil
+            end,
+            onWrongItem = function()
+                showToast("That's not the right item!", {1, 0.5, 0})
+            end
+        })
+        return
     end
 end
 
@@ -831,24 +879,24 @@ function enterDoor(door)
     player.moving = false
 
     -- Update camera to follow player
-    camera.x = math.floor(player.x - GAME_WIDTH / 2)
-    camera.y = math.floor(player.y - GAME_HEIGHT / 2)
+    camera.x = math.floor(player.x - UISystem.getGameWidth() / 2)
+    camera.y = math.floor(player.y - UISystem.getGameHeight() / 2)
 
     -- Clamp camera to map bounds
     if world.minX and world.maxX then
         local mapWidth = world.maxX - world.minX
         local mapHeight = world.maxY - world.minY
 
-        if mapWidth > GAME_WIDTH then
-            camera.x = math.max(world.minX, math.min(camera.x, world.maxX - GAME_WIDTH))
+        if mapWidth > UISystem.getGameWidth() then
+            camera.x = math.max(world.minX, math.min(camera.x, world.maxX - UISystem.getGameWidth()))
         else
-            camera.x = world.minX + (mapWidth - GAME_WIDTH) / 2
+            camera.x = world.minX + (mapWidth - UISystem.getGameWidth()) / 2
         end
 
-        if mapHeight > GAME_HEIGHT then
-            camera.y = math.max(world.minY, math.min(camera.y, world.maxY - GAME_HEIGHT))
+        if mapHeight > UISystem.getGameHeight() then
+            camera.y = math.max(world.minY, math.min(camera.y, world.maxY - UISystem.getGameHeight()))
         else
-            camera.y = world.minY + (mapHeight - GAME_HEIGHT) / 2
+            camera.y = world.minY + (mapHeight - UISystem.getGameHeight()) / 2
         end
     end
 end
@@ -957,7 +1005,7 @@ function interactWithNPC(npc)
 end
 
 -- Helper function to complete a quest
-local function completeQuest(quest)
+function completeQuest(quest)
     quest.active = false
     quest.completed = true
     table.remove(activeQuests, indexOf(activeQuests, quest.id))
@@ -1062,164 +1110,15 @@ function indexOf(tbl, value)
     return nil
 end
 
+-- Wrapper function for backward compatibility
 function showToast(message, color)
-    table.insert(toasts, {
-        message = message,
-        timer = TOAST_DURATION,
-        color = color or {1, 1, 1}
-    })
+    UISystem.showToast(message, color)
 end
 
-function handleQuestTurnInClick(x, y)
-    if not questTurnInData then
-        return
-    end
-
-    local quest = questTurnInData.quest
-
-    -- Calculate item slot positions (must match drawQuestTurnIn)
-    local boxX = GAME_WIDTH / 2 - 75
-    local boxY = GAME_HEIGHT - 90
-    local slotSize = 16
-    local padding = 3
-    local startY = boxY + 30
-
-    for i, itemId in ipairs(inventory) do
-        local slotX = boxX + 6
-        local slotY = startY + (i - 1) * (slotSize + padding)
-
-        -- Check if click is within this item slot
-        if x >= slotX and x <= slotX + slotSize and y >= slotY and y <= slotY + slotSize then
-            if itemId == quest.requiredItem then
-                -- Correct item clicked! Remove item and complete quest
-                removeItem(quest.requiredItem)
-                completeQuest(quest)
-
-                -- Show reward dialog
-                gameState = DialogSystem.showDialog({
-                    type = "generic",
-                    npc = questTurnInData.npc,
-                    text = quest.reward,
-                    completedMainQuest = quest.isMainQuest  -- Track if this was a main quest
-                })
-                questTurnInData = nil
-            else
-                -- Wrong item
-                showToast("That's not the right item!", {1, 0.5, 0})
-            end
-            return
-        end
-    end
-end
-
-function handlePauseMenuClick(x, y)
-    -- Convert screen coordinates to canvas coordinates
-    local screenWidth, screenHeight = love.graphics.getDimensions()
-    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
-    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
-    local canvasX = (x - offsetX) / SCALE
-    local canvasY = (y - offsetY) / SCALE
-
-    -- Button positions
-    local btnWidth = 100
-    local btnHeight = 20
-    local btnX = GAME_WIDTH / 2 - btnWidth / 2
-    local resumeY = 100
-    local quitY = 130
-
-    -- Check Resume button
-    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= resumeY and canvasY <= resumeY + btnHeight then
-        gameState = "playing"
-    end
-
-    -- Check Quit Game button
-    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= quitY and canvasY <= quitY + btnHeight then
-        love.event.quit()
-    end
-end
-
-function handleMainMenuClick(x, y)
-    -- Convert screen coordinates to canvas coordinates
-    local screenWidth, screenHeight = love.graphics.getDimensions()
-    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
-    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
-    local canvasX = (x - offsetX) / SCALE
-    local canvasY = (y - offsetY) / SCALE
-
-    -- Button positions
-    local btnWidth = 100
-    local btnHeight = 20
-    local btnX = GAME_WIDTH / 2 - btnWidth / 2
-    local playY = 100
-    local settingsY = 130
-    local quitY = 160
-
-    -- Check Play button
-    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= playY and canvasY <= playY + btnHeight then
-        gameState = "playing"
-        
-        -- Show intro dialog if not shown yet
-        if not introShown then
-            introShown = true
-            -- Find the intro NPC
-            for _, npc in ipairs(npcs) do
-                if npc.isIntroNPC then
-                    gameState = DialogSystem.showDialog({
-                        type = "generic",
-                        npc = npc,
-                        text = npc.introText
-                    })
-                    break
-                end
-            end
-        end
-    end
-
-    -- Check Settings button
-    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= settingsY and canvasY <= settingsY + btnHeight then
-        gameState = "settings"
-    end
-
-    -- Check Quit button
-    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= quitY and canvasY <= quitY + btnHeight then
-        love.event.quit()
-    end
-end
-
-function handleSettingsClick(x, y)
-    -- Convert screen coordinates to canvas coordinates
-    local screenWidth, screenHeight = love.graphics.getDimensions()
-    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
-    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
-    local canvasX = (x - offsetX) / SCALE
-    local canvasY = (y - offsetY) / SCALE
-
-    -- Back button
-    local btnWidth = 100
-    local btnHeight = 20
-    local btnX = GAME_WIDTH / 2 - btnWidth / 2
-    local backY = 160
-
-    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= backY and canvasY <= backY + btnHeight then
-        gameState = "mainMenu"
-    end
-
-    -- Volume slider
-    local sliderX = GAME_WIDTH / 2 - 50
-    local sliderY = 100
-    local sliderWidth = 100
-    local sliderHeight = 10
-
-    if canvasX >= sliderX and canvasX <= sliderX + sliderWidth and canvasY >= sliderY - 5 and canvasY <= sliderY + sliderHeight + 5 then
-        draggingSlider = true
-        volume = math.max(0, math.min(1, (canvasX - sliderX) / sliderWidth))
-        love.audio.setVolume(volume)
-    end
-end
 
 function love.mousereleased(x, y, button)
     if button == 1 then
-        draggingSlider = false
+        UISystem.stopSliderDrag()
     end
 end
 
@@ -1249,13 +1148,13 @@ end
 
 function love.draw()
     -- Draw to canvas
-    love.graphics.setCanvas(canvas)
+    love.graphics.setCanvas(UISystem.getCanvas())
     love.graphics.clear(0.1, 0.1, 0.1)
 
     if gameState == "mainMenu" then
-        UISystem.drawMainMenu(GAME_WIDTH, GAME_HEIGHT, titleFont, font, mouseX, mouseY, SCALE)
+        UISystem.drawMainMenu()
     elseif gameState == "settings" then
-        UISystem.drawSettings(GAME_WIDTH, GAME_HEIGHT, volume, mouseX, mouseY, SCALE)
+        UISystem.drawSettings(volume)
     elseif gameState == "playing" or gameState == "dialog" then
         -- Draw world (manual camera offset, no translate)
         local camX = camera.x
@@ -1304,33 +1203,27 @@ function love.draw()
         -- Draw interaction prompt
         if nearbyDoor and gameState == "playing" then
             local doorText = nearbyDoor.indoor and "[E] Exit" or "[E] Enter"
-            UISystem.drawTextBox(GAME_WIDTH/2 - 45, GAME_HEIGHT - 14, 90, 12, doorText, {1, 1, 1}, true)
+            UISystem.drawTextBox(UISystem.getGameWidth()/2 - 45, UISystem.getGameHeight() - 14, 90, 12, doorText, {1, 1, 1}, true)
         elseif nearbyNPC and gameState == "playing" then
-            UISystem.drawTextBox(GAME_WIDTH/2 - 45, GAME_HEIGHT - 14, 90, 12, "[E] Talk", {1, 1, 1}, true)
+            UISystem.drawTextBox(UISystem.getGameWidth()/2 - 45, UISystem.getGameHeight() - 14, 90, 12, "[E] Talk", {1, 1, 1}, true)
         end
 
         -- Draw dialog
         if gameState == "dialog" then
-            DialogSystem.draw(GAME_WIDTH, GAME_HEIGHT, UISystem.drawFancyBorder)
+            DialogSystem.draw(UISystem.getGameWidth(), UISystem.getGameHeight(), UISystem.drawFancyBorder)
         end
 
         -- Draw tile grid overlay (cheat)
-        CheatConsole.drawGrid(camX, camY, GAME_WIDTH, GAME_HEIGHT)
+        UISystem.drawGrid(camX, camY, CheatConsole.isGridActive())
 
         -- Draw UI hints
-        love.graphics.setColor(0, 0, 0, 0.7)
-        love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, 12)
-        love.graphics.setColor(1, 1, 1)
-        love.graphics.print("L: Quest log  I: Inventory", 2, -2)
+        UISystem.drawUIHints()
         
         -- Draw gold display
-        local goldText = "Gold: " .. playerGold
-        local goldTextWidth = font:getWidth(goldText)
-        love.graphics.setColor(1, 0.84, 0) -- Gold color
-        love.graphics.print(goldText, GAME_WIDTH / 2 - goldTextWidth / 2, -1)
+        UISystem.drawGoldDisplay(playerGold)
         
         -- Draw cheat indicators
-        CheatConsole.drawIndicators(GAME_WIDTH, font, abilityManager)
+        UISystem.drawIndicators(CheatConsole.isNoclipActive(), CheatConsole.isGridActive(), abilityManager)
 
     elseif gameState == "pauseMenu" then
         -- Draw game world in background
@@ -1351,7 +1244,8 @@ function love.draw()
 
         -- Draw player
         love.graphics.setColor(1, 1, 1)
-        local currentQuad = playerQuads[player.direction][player.moving and (player.walkFrame + 1) or 1]
+        local spriteSet = getPlayerSpriteSet()
+        local currentQuad = spriteSet[player.direction][player.moving and (player.walkFrame + 1) or 1]
         local scaleX = (player.facing == "left") and -1 or 1
         local offsetX = (player.facing == "left") and player.size or 0
         love.graphics.draw(
@@ -1365,16 +1259,16 @@ function love.draw()
         )
 
         -- Draw pause menu overlay
-        UISystem.drawPauseMenu(GAME_WIDTH, GAME_HEIGHT, mouseX, mouseY, SCALE)
+        UISystem.drawPauseMenu()
 
     elseif gameState == "questLog" then
-        UISystem.drawQuestLog(GAME_WIDTH, GAME_HEIGHT, activeQuests, completedQuests, quests)
+        UISystem.drawQuestLog(activeQuests, completedQuests, quests)
     elseif gameState == "inventory" then
-        UISystem.drawInventory(GAME_WIDTH, GAME_HEIGHT, inventory, itemRegistry)
+        UISystem.drawInventory(inventory, itemRegistry)
     elseif gameState == "shop" then
-        UISystem.drawShop(GAME_WIDTH, GAME_HEIGHT, shopInventory, selectedShopItem, playerGold, inventory, itemRegistry, font, mouseX, mouseY, SCALE, hasItem)
+        UISystem.drawShop(shopInventory, selectedShopItem, playerGold, inventory, itemRegistry, hasItem)
     elseif gameState == "questTurnIn" then
-        UISystem.drawQuestTurnIn(GAME_WIDTH, GAME_HEIGHT, questTurnInData, inventory, itemRegistry, map, camera, npcs, currentMap, npcSprite, player, playerTileset, getPlayerSpriteSet)
+        UISystem.drawQuestTurnIn(questTurnInData, inventory, itemRegistry, map, camera, npcs, currentMap, npcSprite, player, playerTileset, getPlayerSpriteSet)
     elseif gameState == "questOffer" then
         -- Draw game world in background
         local camX = camera.x
@@ -1409,16 +1303,16 @@ function love.draw()
         )
 
         -- Draw quest offer UI
-        UISystem.drawQuestOffer(GAME_WIDTH, GAME_HEIGHT, questOfferData, mouseX, mouseY, SCALE)
+        UISystem.drawQuestOffer(questOfferData)
     elseif gameState == "winScreen" then
-        UISystem.drawWinScreen(GAME_WIDTH, GAME_HEIGHT, titleFont, font, playerGold, completedQuests)
+        UISystem.drawWinScreen(playerGold, completedQuests)
     end
 
     -- Draw cheat console (overlay on top of everything)
-    CheatConsole.draw(GAME_WIDTH, GAME_HEIGHT, font)
+    UISystem.drawCheatConsole(CheatConsole)
 
     -- Draw toasts (always on top)
-    UISystem.drawToasts(toasts, font, GAME_WIDTH)
+    UISystem.drawToasts()
 
     -- Draw canvas to screen (centered)
     love.graphics.setCanvas()
@@ -1428,116 +1322,10 @@ function love.draw()
 
     love.graphics.setColor(1, 1, 1)
     local screenWidth, screenHeight = love.graphics.getDimensions()
-    -- Round offset to multiples of SCALE to ensure pixel-perfect alignment
-    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
-    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
-    love.graphics.draw(canvas, offsetX, offsetY, 0, SCALE, SCALE)
+    -- Round offset to multiples of UISystem.getScale() to ensure pixel-perfect alignment
+    local offsetX = math.floor((screenWidth - UISystem.getGameWidth() * UISystem.getScale()) / 2 / UISystem.getScale()) * UISystem.getScale()
+    local offsetY = math.floor((screenHeight - UISystem.getGameHeight() * UISystem.getScale()) / 2 / UISystem.getScale()) * UISystem.getScale()
+    love.graphics.draw(UISystem.getCanvas(), offsetX, offsetY, 0, UISystem.getScale(), UISystem.getScale())
 end
 
--- All draw functions have been moved to ui_system.lua
-
-function handleShopClick(x, y)
-    -- Convert screen coordinates to canvas coordinates
-    local screenWidth, screenHeight = love.graphics.getDimensions()
-    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
-    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
-    local canvasX = (x - offsetX) / SCALE
-    local canvasY = (y - offsetY) / SCALE
-
-    local boxX, boxY = 10, 10
-    local boxW = GAME_WIDTH - 20
-    local boxH = GAME_HEIGHT - 20
-
-    -- Check grid item clicks
-    local gridX = boxX + 4
-    local gridY = boxY + 30
-    local slotSize = 20
-    local padding = 4
-
-    for i, shopItem in ipairs(shopInventory) do
-        local slotX = gridX + ((i - 1) % 6) * (slotSize + padding)
-        local slotY = gridY + math.floor((i - 1) / 6) * (slotSize + padding)
-
-        if canvasX >= slotX and canvasX <= slotX + slotSize and canvasY >= slotY and canvasY <= slotY + slotSize then
-            selectedShopItem = i
-            return
-        end
-    end
-
-    -- Check purchase button click
-    if selectedShopItem then
-        local shopItem = shopInventory[selectedShopItem]
-        if shopItem then
-            local alreadyOwns = hasItem(shopItem.itemId)
-            local canAfford = playerGold >= shopItem.price
-
-            if not alreadyOwns then
-                local btnY = boxY + boxH - 40
-                local btnW = 80
-                local btnH = 20
-                local detailX = boxX + 150
-                local detailW = boxW - 150 - 8
-                local btnX = detailX + (detailW - btnW) / 2
-
-                if canvasX >= btnX and canvasX <= btnX + btnW and canvasY >= btnY and canvasY <= btnY + btnH then
-                    if canAfford then
-                        -- Purchase item
-                        playerGold = playerGold - shopItem.price
-                        table.insert(inventory, shopItem.itemId)
-                        local itemData = itemRegistry[shopItem.itemId]
-                        showToast("Purchased " .. (itemData and itemData.name or shopItem.itemId) .. "!", {0, 1, 0})
-                    else
-                        showToast("Not enough gold!", {1, 0, 0})
-                    end
-                    return
-                end
-            end
-        end
-    end
-end
-
-function handleQuestOfferClick(x, y)
-    if not questOfferData then
-        return
-    end
-
-    -- Convert screen coordinates to canvas coordinates
-    local screenWidth, screenHeight = love.graphics.getDimensions()
-    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
-    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
-    local canvasX = (x - offsetX) / SCALE
-    local canvasY = (y - offsetY) / SCALE
-
-    local boxX = GAME_WIDTH / 2 - 100
-    local boxY = GAME_HEIGHT / 2 - 60
-    local boxW = 200
-    local boxH = 120
-
-    local btnW = 70
-    local btnH = 18
-    local btnY = boxY + boxH - btnH - 6
-    local acceptX = boxX + boxW/2 - btnW - 4
-    local rejectX = boxX + boxW/2 + 4
-
-    -- Check accept button
-    if canvasX >= acceptX and canvasX <= acceptX + btnW and canvasY >= btnY and canvasY <= btnY + btnH then
-        -- Accept quest
-        local quest = questOfferData.quest
-        quest.active = true
-        table.insert(activeQuests, quest.id)
-        showToast("Quest Accepted: " .. quest.name, {1, 1, 0})
-        questOfferData = nil
-        DialogSystem.clearDialog()
-        gameState = "playing"
-        return
-    end
-
-    -- Check reject button
-    if canvasX >= rejectX and canvasX <= rejectX + btnW and canvasY >= btnY and canvasY <= btnY + btnH then
-        -- Reject quest
-        questOfferData = nil
-        DialogSystem.clearDialog()
-        gameState = "playing"
-        return
-    end
-end
+-- All draw and click handler functions have been moved to ui_system.lua
