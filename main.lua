@@ -7,6 +7,7 @@ local DialogSystem = require "dialog_system"
 local UISystem = require "ui_system"
 local MapSystem = require "map_system"
 local PlayerSystem = require "player_system"
+local ShopSystem = require "shop_system"
 
 -- Game constants (managed by UISystem)
 -- Graphics resources (managed by UISystem)
@@ -39,22 +40,10 @@ local world = {
     tileSize = 16
 }
 
--- NPCs
-local npcs = {}
-
 -- Quests
 local quests = {}
 local activeQuests = {}
 local completedQuests = {}
-
--- Inventory
-local inventory = {}
-
--- Shop inventory
-local shopInventory = {
-    {itemId = "item_rubber_duck", price = 10, description = "A cheerful rubber duck. Perfect for bath time or just keeping you company!"},
-    {itemId = "item_labubu", price = 10000, description = "An extremely rare and adorable Labubu collectible. Highly sought after by collectors!"}
-}
 
 -- Item registry (single source of truth for all items)
 local itemRegistry = {
@@ -71,7 +60,6 @@ local itemRegistry = {
 -- UI state
 local nearbyNPC = nil
 local nearbyDoor = nil
-local selectedShopItem = nil
 local questTurnInData = nil  -- Stores {npc, quest} for quest turn-in UI
 local questOfferData = nil  -- Stores {npc, quest} for quest offer UI
 local winScreenTimer = 0
@@ -138,6 +126,9 @@ function love.load()
     PlayerSystem.init(UISystem)
     player = PlayerSystem.getPlayer()
 
+    -- Initialize Shop system
+    ShopSystem.init()
+
     -- Load audio
     quackSound = love.audio.newSource("audio/quack.wav", "static")
 
@@ -145,7 +136,7 @@ function love.load()
     map = sti(MapSystem.getMapPath(currentMap))
     
     -- Initialize MapSystem
-    MapSystem.init(map, world, CheatConsole, npcs, currentMap)
+    MapSystem.init(map, world, CheatConsole, questData.npcs, currentMap)
     MapSystem.calculateMapBounds()
 
     -- Load game data
@@ -168,7 +159,7 @@ end
 function loadGameData()
     -- Load NPCs from quest data, validating positions
     local npcTileset = love.graphics.newImage("tiles/fetch-tileset.png")
-    for _, npcData in ipairs(questData.npcs) do
+    for _, npcData in pairs(questData.npcs) do
         local newX, newY, success = MapSystem.findValidSpawnPosition(npcData.x, npcData.y, "NPC '" .. npcData.name .. "'", 20)
         npcData.x = newX
         npcData.y = newY
@@ -191,8 +182,6 @@ function loadGameData()
                 image = love.graphics.newImage("sprites/npc.png")
             }
         end
-        
-        table.insert(npcs, npcData)
     end
 
     -- Load quests from quest data
@@ -270,7 +259,7 @@ function love.update(dt)
         -- Check for nearby NPCs (only on current map, not during transition)
         if not mapTransition.active then
             nearbyNPC = nil
-            for _, npc in ipairs(npcs) do
+            for _, npc in pairs(questData.npcs) do
                 if npc.map == currentMap then
                     local dist = math.sqrt((player.x - npc.x)^2 + (player.y - npc.y)^2)
                     if dist < 40 then
@@ -319,7 +308,7 @@ function love.mousepressed(x, y, button)
                 if not introShown then
                     introShown = true
                     -- Find the intro NPC
-                    for _, npc in ipairs(npcs) do
+                    for _, npc in pairs(questData.npcs) do
                         if npc.isIntroNPC then
                             gameState = DialogSystem.showDialog({
                                 type = "generic",
@@ -372,25 +361,16 @@ function love.mousepressed(x, y, button)
 
     -- Handle shop clicks
     if gameState == "shop" then
-        UISystem.handleShopClick(x, y, {
-            shopInventory = shopInventory,
-            selectedShopItem = selectedShopItem,
-            playerGold = PlayerSystem.getGold()
-        }, {
-            onSelectItem = function(index)
-                selectedShopItem = index
-            end,
-            hasItem = hasItem,
-            onPurchase = function(shopItem)
-                PlayerSystem.subtractGold(shopItem.price)
-                table.insert(inventory, shopItem.itemId)
-                local itemData = itemRegistry[shopItem.itemId]
-                showToast("Purchased " .. (itemData and itemData.name or shopItem.itemId) .. "!", {0, 1, 0})
-            end,
-            onInsufficientFunds = function()
+        ShopSystem.handleClick(x, y, function(shopItem)
+            if shopItem then
+                -- Purchase the item
+                local success, message, color = ShopSystem.purchaseItem(shopItem, itemRegistry)
+                showToast(message, color)
+            else
+                -- Insufficient funds (nil indicates this)
                 showToast("Not enough gold!", {1, 0, 0})
             end
-        })
+        end)
         return
     end
 
@@ -424,9 +404,9 @@ function love.mousepressed(x, y, button)
         local canvasX = (x - offsetX) / UISystem.getScale()
         local canvasY = (y - offsetY) / UISystem.getScale()
 
-        UISystem.handleQuestTurnInClick(canvasX, canvasY, questTurnInData, inventory, {
+        UISystem.handleQuestTurnInClick(canvasX, canvasY, questTurnInData, PlayerSystem.getInventory(), {
             onCorrectItem = function(quest, npc)
-                removeItem(quest.requiredItem)
+                PlayerSystem.removeItem(quest.requiredItem)
                 completeQuest(quest)
                 -- Show reward dialog
                 gameState = DialogSystem.showDialog({
@@ -471,7 +451,7 @@ function love.keypressed(key)
         activeQuests = activeQuests,
         completedQuests = completedQuests,
         quests = quests,
-        inventory = inventory,
+        inventory = PlayerSystem.getInventory(),
         itemRegistry = itemRegistry,
         progressDialog = UISystem.progressDialog
     }, gameState) then
@@ -498,11 +478,11 @@ function love.keypressed(key)
                     showToast("Quest Accepted: " .. quest.name, {1, 1, 0})
                 end,
                 onQuestComplete = function(quest)
-                    removeItem(quest.requiredItem)
+                    PlayerSystem.removeItem(quest.requiredItem)
                     completeQuest(quest)
                 end,
                 onItemReceive = function(itemId)
-                    table.insert(inventory, itemId)
+                    PlayerSystem.addItem(itemId)
                     local itemData = itemRegistry[itemId]
                     local itemName = itemData and itemData.name or itemId
                     showToast("Received: " .. itemName, {0.7, 0.5, 0.9})
@@ -630,7 +610,7 @@ function interactWithNPC(npc)
         })
     elseif npc.isShopkeeper then
         -- Open shop UI
-        selectedShopItem = 1  -- Select first item by default
+        ShopSystem.open()
         gameState = "shop"
     elseif npc.isQuestGiver then
         local quest = quests[npc.questId]
@@ -643,7 +623,7 @@ function interactWithNPC(npc)
                 quest = quest,
                 text = dialogText
             })
-        elseif quest.active and quest.requiredItem and hasItem(quest.requiredItem) then
+        elseif quest.active and quest.requiredItem and PlayerSystem.hasItem(quest.requiredItem) then
             -- Turn in quest - show inventory selection UI (not using DialogSystem for this special UI)
             questTurnInData = {npc = npc, quest = quest}
             gameState = "questTurnIn"
@@ -669,7 +649,7 @@ function interactWithNPC(npc)
                 npc = npc,
                 text = text
             })
-        elseif not hasItem(npc.givesItem) then
+        elseif not PlayerSystem.hasItem(npc.givesItem) then
             -- Quest active and don't have item, give it
             local text = npc.itemGiveText or "Here, take this!"
             gameState = DialogSystem.showDialog({
@@ -726,6 +706,17 @@ end
 function completeQuest(quest)
     quest.active = false
     quest.completed = true
+    if quest.updateQuestGiverSpriteX and quest.updateQuestGiverSpriteY then
+        questData.npcs[quest.questGiver].spriteX = quest.updateQuestGiverSpriteX
+        questData.npcs[quest.questGiver].spriteY = quest.updateQuestGiverSpriteY
+        questData.npcs[quest.questGiver].sprite.quad = love.graphics.newQuad(
+                    questData.npcs[quest.questGiver].spriteX, 
+                    questData.npcs[quest.questGiver].spriteY, 
+                    16, -- sprite width
+                    16, -- sprite height
+                    questData.npcs[quest.questGiver].sprite.tileset:getDimensions()
+                )
+    end
     table.remove(activeQuests, indexOf(activeQuests, quest.id))
     table.insert(completedQuests, quest.id)
 
@@ -754,25 +745,6 @@ function completeQuest(quest)
 end
 
 
-function hasItem(itemId)
-    for _, item in ipairs(inventory) do
-        if item == itemId then
-            return true
-        end
-    end
-    return false
-end
-
-
-function removeItem(itemId)
-    for i, item in ipairs(inventory) do
-        if item == itemId then
-            table.remove(inventory, i)
-            return
-        end
-    end
-end
-
 function indexOf(tbl, value)
     for i, v in ipairs(tbl) do
         if v == value then
@@ -797,7 +769,7 @@ function drawMapAndNPCs(mapObj, mapName, camX, camY, chatOffset, offsetX, offset
     mapObj:draw(chatOffset - camX + offsetX, -camY + offsetY)
 
     -- Draw NPCs (only on this map)
-    for _, npc in ipairs(npcs) do
+    for _, npc in pairs(questData.npcs) do
         if npc.map == mapName then
             love.graphics.setColor(1, 1, 1)
             if npc.sprite.quad then
@@ -823,7 +795,7 @@ function drawMapAndNPCs(mapObj, mapName, camX, camY, chatOffset, offsetX, offset
                 if not quest.active and not quest.completed then
                     love.graphics.setColor(1, 1, 0)
                     love.graphics.circle("fill", chatOffset + npc.x - camX + offsetX, npc.y - 10 - camY + offsetY, 2)
-                elseif quest.active and hasItem(quest.requiredItem) then
+                elseif quest.active and PlayerSystem.hasItem(quest.requiredItem) then
                     love.graphics.setColor(0, 1, 0)
                     love.graphics.circle("fill", chatOffset + npc.x - camX + offsetX, npc.y - 10 - camY + offsetY, 2)
                 end
@@ -988,27 +960,7 @@ function love.draw()
         map:draw(chatOffset - camX, -camY)
 
         -- Draw NPCs (only on current map, offset by chat pane)
-        for _, npc in ipairs(npcs) do
-            if npc.map == currentMap then
-                love.graphics.setColor(1, 1, 1)
-                if npc.sprite.quad then
-                    -- Draw from tileset using quad
-                    love.graphics.draw(
-                        npc.sprite.tileset, 
-                        npc.sprite.quad,
-                        npc.x - chatOffset + npc.size/2 - camX, 
-                        npc.y - npc.size/2 - camY
-                    )
-                else
-                    -- Draw fallback sprite
-                    love.graphics.draw(
-                        npc.sprite.image,
-                        npc.x - npc.size/2 - camX, 
-                        npc.y - npc.size/2 - camY
-                    )
-                end
-            end
-        end
+        drawNPCs(camX, camY, chatOffset)
 
         -- Draw player
         PlayerSystem.draw(camX, camY, chatOffset)
@@ -1022,9 +974,16 @@ function love.draw()
     elseif gameState == "questLog" then
         UISystem.drawQuestLog(activeQuests, completedQuests, quests)
     elseif gameState == "inventory" then
-        UISystem.drawInventory(inventory, itemRegistry)
+        UISystem.drawInventory(PlayerSystem.getInventory(), itemRegistry)
     elseif gameState == "shop" then
-        UISystem.drawShop(shopInventory, selectedShopItem, PlayerSystem.getGold(), inventory, itemRegistry, hasItem)
+        -- Draw gold display at top
+        love.graphics.push()
+        love.graphics.translate(UISystem.getChatPaneWidth(), 0)
+        UISystem.drawGoldDisplay(PlayerSystem.getGold())
+        love.graphics.pop()
+        
+        -- Draw shop UI
+        ShopSystem.draw(itemRegistry)
     elseif gameState == "questTurnIn" then
         -- Clip rendering to game area only
         love.graphics.setScissor(UISystem.getChatPaneWidth(), 0, UISystem.getGameWidth(), UISystem.getGameHeight())
@@ -1039,23 +998,14 @@ function love.draw()
         map:draw(chatOffset - camX, -camY)
 
         -- Draw NPCs (only on current map, offset by chat pane)
-        for _, npc in ipairs(npcs) do
-            if npc.map == currentMap then
-                love.graphics.setColor(1, 1, 1)
-                if npc.sprite.quad then
-                    love.graphics.draw(npc.sprite.tileset, npc.sprite.quad, chatOffset + npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
-                else
-                    love.graphics.draw(npc.sprite.image, chatOffset + npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
-                end
-            end
-        end
+        drawNPCs(camX, camY, chatOffset)
 
         -- Draw player
         PlayerSystem.draw(camX, camY, chatOffset)
 
         -- Update game state references for UISystem
         UISystem.setGameStateRefs({
-            inventory = inventory,
+            inventory = PlayerSystem.getInventory(),
             itemRegistry = itemRegistry,
             questTurnInData = questTurnInData
         })
@@ -1078,27 +1028,7 @@ function love.draw()
         map:draw(chatOffset - camX, -camY)
 
         -- Draw NPCs (only on current map, offset by chat pane)
-        for _, npc in ipairs(npcs) do
-            if npc.map == currentMap then
-                love.graphics.setColor(1, 1, 1)
-                if npc.sprite.quad then
-                    -- Draw from tileset using quad
-                    love.graphics.draw(
-                        npc.sprite.tileset, 
-                        npc.sprite.quad,
-                        chatOffset + npc.x - npc.size/2 - camX, 
-                        npc.y - npc.size/2 - camY
-                    )
-                else
-                    -- Draw fallback sprite
-                    love.graphics.draw(
-                        npc.sprite.image,
-                        chatOffset + npc.x - npc.size/2 - camX, 
-                        npc.y - npc.size/2 - camY
-                    )
-                end
-            end
-        end
+        drawNPCs(camX, camY, chatOffset)
 
         -- Draw player
         PlayerSystem.draw(camX, camY, chatOffset)
