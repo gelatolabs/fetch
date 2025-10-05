@@ -235,9 +235,22 @@ GPU: GooseForce 128]]
         UISystem.showToast(screenfetch, {0.3, 0.8, 1})
 
     elseif command == "jarf" then
+        -- Open chat pane if it's closed
+        local wasHidden = not UISystem.isChatPaneVisible()
+        if wasHidden then
+            UISystem.toggleChatPane()
+        end
+        
+        -- Progress dialog if available
         if gameState.progressDialog then
             gameState.progressDialog()
-            UISystem.showToast("Dialog progressed", {0.5, 1, 0.5})
+            if wasHidden then
+                UISystem.showToast("Chat opened & dialog progressed", {0.5, 1, 0.5})
+            else
+                UISystem.showToast("Dialog progressed", {0.5, 1, 0.5})
+            end
+        elseif wasHidden then
+            UISystem.showToast("Chat pane opened", {0.5, 1, 0.5})
         else
             UISystem.showToast("progressDialog not available", {1, 0.3, 0.3})
         end
