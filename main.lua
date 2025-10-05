@@ -293,7 +293,7 @@ function love.update(dt)
             for _, npc in pairs(questData.npcs) do
                 if npc.map == currentMap then
                     local dist = math.sqrt((player.x - npc.x)^2 + (player.y - npc.y)^2)
-                    if dist < 40 then
+                    if dist < 20 then
                         nearbyNPC = npc
                         break
                     end
