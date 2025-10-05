@@ -365,8 +365,10 @@ function love.update(dt)
 
                     if queuedDir == "up" then
                         newGridY = player.gridY - 1
+                        player.lastVertical = "up"
                     elseif queuedDir == "down" then
                         newGridY = player.gridY + 1
+                        player.lastVertical = "down"
                     elseif queuedDir == "left" then
                         player.facing = "left"
                         newGridX = player.gridX - 1
@@ -430,10 +432,12 @@ function love.update(dt)
                 if love.keyboard.isDown(key) then
                     if key == "w" or key == "up" then
                         moveDir = "up"
+                        player.lastVertical = "up"  -- Add this line
                         newGridY = player.gridY - 1
                         break
                     elseif key == "s" or key == "down" then
                         moveDir = "down"
+                        player.lastVertical = "down"  -- Add this line
                         newGridY = player.gridY + 1
                         break
                     elseif key == "a" or key == "left" then
