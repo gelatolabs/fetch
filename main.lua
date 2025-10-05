@@ -1273,7 +1273,45 @@ function love.draw()
     elseif gameState == "shop" then
         UISystem.drawShop(shopInventory, selectedShopItem, playerGold, inventory, itemRegistry, hasItem)
     elseif gameState == "questTurnIn" then
-        UISystem.drawQuestTurnIn(questTurnInData, inventory, itemRegistry, map, camera, npcs, currentMap, player, playerTileset, getPlayerSpriteSet)
+        -- Draw game world in background
+        local camX = camera.x
+        local camY = camera.y
+
+        -- Draw the Tiled map
+        love.graphics.setColor(1, 1, 1)
+        map:draw(-camX, -camY)
+
+        -- Draw NPCs (only on current map)
+        for _, npc in ipairs(npcs) do
+            if npc.map == currentMap then
+                love.graphics.setColor(1, 1, 1)
+                love.graphics.draw(npc.spriteImage, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+            end
+        end
+
+        -- Draw player
+        love.graphics.setColor(1, 1, 1)
+        local spriteSet = getPlayerSpriteSet()
+        local currentQuad = spriteSet[player.direction][player.moving and (player.walkFrame + 1) or 1]
+        local scaleX = (player.facing == "left") and -1 or 1
+        local offsetX = (player.facing == "left") and player.size or 0
+        love.graphics.draw(
+            playerTileset,
+            currentQuad,
+            player.x - player.size/2 - camX + offsetX,
+            player.y - player.size/2 - camY - player.jumpHeight,
+            0,
+            scaleX,
+            1
+        )
+
+        -- Update game state references for UISystem
+        UISystem.setGameStateRefs({
+            inventory = inventory,
+            itemRegistry = itemRegistry,
+            questTurnInData = questTurnInData
+        })
+        UISystem.drawQuestTurnIn()
     elseif gameState == "questOffer" then
         -- Draw game world in background
         local camX = camera.x
