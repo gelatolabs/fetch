@@ -34,6 +34,12 @@ local currentDialogIndex = 0
 local chatMessages = {} -- {speaker, text, displayedText, animTimer}
 local jarfSprite = nil
 local developerSprite = nil
+local chatPaneVisible = false -- Track if chat pane should be visible
+local chatPaneTransition = {
+    active = false,
+    progress = 0,
+    duration = 0.5 -- seconds for the slide animation
+}
 
 -- Game state references (set by main.lua)
 local gameStateRefs = {
@@ -85,18 +91,19 @@ function UISystem.init()
     local desktopWidth, desktopHeight = love.window.getDesktopDimensions()
 
     -- Calculate scale factor (highest integer multiple that fits screen)
+    -- Use the full width from the start to avoid resizing
     local scaleX = math.floor(desktopWidth / TOTAL_WIDTH)
     local scaleY = math.floor(desktopHeight / GAME_HEIGHT)
     SCALE = math.min(scaleX, scaleY)
     if SCALE < 1 then SCALE = 1 end
 
-    -- Set window mode
+    -- Set window mode (full size from the start)
     love.window.setMode(TOTAL_WIDTH * SCALE, GAME_HEIGHT * SCALE, {fullscreen = true})
 
     -- Disable interpolation globally
     love.graphics.setDefaultFilter("nearest", "nearest")
 
-    -- Create canvas (now includes chat pane)
+    -- Create canvas (always full width to support both states)
     canvas = love.graphics.newCanvas(TOTAL_WIDTH, GAME_HEIGHT)
     canvas:setFilter("nearest", "nearest")
 
@@ -160,6 +167,26 @@ function UISystem.updateMouse(x, y)
     mouseY = y
 end
 
+-- Helper function to convert screen coordinates to canvas coordinates
+local function screenToCanvas(x, y)
+    local screenWidth, screenHeight = love.graphics.getDimensions()
+    
+    -- Account for the canvas shift during transition
+    local transitionProgress = chatPaneVisible and (chatPaneTransition.active and (1 - (1 - chatPaneTransition.progress)^3) or 1) or 0
+    local currentVisibleWidth = GAME_WIDTH + (CHAT_PANE_WIDTH * transitionProgress)
+    
+    -- Calculate where the canvas is drawn
+    local offsetX = math.floor((screenWidth - currentVisibleWidth * SCALE) / 2 / SCALE) * SCALE
+    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
+    
+    -- Account for canvas shift to hide chat pane initially
+    offsetX = offsetX - (CHAT_PANE_WIDTH * (1 - transitionProgress) * SCALE)
+    
+    local canvasX = (x - offsetX) / SCALE
+    local canvasY = (y - offsetY) / SCALE
+    return canvasX, canvasY
+end
+
 -- Handle slider dragging during mouse move
 function UISystem.handleSliderDrag(volume, onVolumeChange)
     if not draggingSlider then
@@ -167,9 +194,7 @@ function UISystem.handleSliderDrag(volume, onVolumeChange)
     end
 
     -- Convert screen coordinates to canvas coordinates
-    local screenWidth, screenHeight = love.graphics.getDimensions()
-    local offsetX = math.floor((screenWidth - TOTAL_WIDTH * SCALE) / 2 / SCALE) * SCALE
-    local canvasX = (mouseX - offsetX) / SCALE
+    local canvasX, canvasY = screenToCanvas(mouseX, mouseY)
 
     local sliderX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - 50
     local sliderWidth = 100
@@ -186,11 +211,7 @@ function UISystem.startSliderDrag(volume, onVolumeChange)
     draggingSlider = true
 
     -- Immediately update volume at click position
-    local screenWidth, screenHeight = love.graphics.getDimensions()
-    local offsetX = math.floor((screenWidth - TOTAL_WIDTH * SCALE) / 2 / SCALE) * SCALE
-    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
-    local canvasX = (mouseX - offsetX) / SCALE
-    local canvasY = (mouseY - offsetY) / SCALE
+    local canvasX, canvasY = screenToCanvas(mouseX, mouseY)
 
     local sliderX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - 50
     local sliderY = 100
@@ -235,6 +256,14 @@ end
 -- Progress the dialog script
 function UISystem.progressDialog()
     if currentDialogIndex < #dialogScript then
+        -- Show chat pane on first dialog
+        if not chatPaneVisible then
+            chatPaneVisible = true
+            -- Start transition animation
+            chatPaneTransition.active = true
+            chatPaneTransition.progress = 0
+        end
+        
         currentDialogIndex = currentDialogIndex + 1
         local dialog = dialogScript[currentDialogIndex]
         table.insert(chatMessages, {
@@ -252,6 +281,17 @@ end
 
 -- Update chat animation
 function UISystem.updateChat(dt)
+    -- Update chat pane transition
+    if chatPaneTransition.active then
+        chatPaneTransition.progress = chatPaneTransition.progress + dt / chatPaneTransition.duration
+        
+        if chatPaneTransition.progress >= 1 then
+            chatPaneTransition.progress = 1
+            chatPaneTransition.active = false
+        end
+    end
+    
+    -- Update message text animation
     for _, msg in ipairs(chatMessages) do
         if #msg.displayedText < #msg.text then
             msg.animTimer = msg.animTimer + dt
@@ -411,13 +451,8 @@ end
 
 -- Helper function to check if mouse is over a button
 function UISystem.isMouseOverButton(btnX, btnY, btnWidth, btnHeight)
-    -- Convert screen coordinates to canvas coordinates
-    local screenWidth, screenHeight = love.graphics.getDimensions()
-    local offsetX = math.floor((screenWidth - TOTAL_WIDTH * SCALE) / 2 / SCALE) * SCALE
-    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
-    local canvasX = (mouseX - offsetX) / SCALE
-    local canvasY = (mouseY - offsetY) / SCALE
-
+    -- Convert screen coordinates to canvas coordinates using the helper function
+    local canvasX, canvasY = screenToCanvas(mouseX, mouseY)
     return canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= btnY and canvasY <= btnY + btnHeight
 end
 
@@ -993,6 +1028,10 @@ function UISystem.drawWinScreen(playerGold, completedQuests)
     love.graphics.setColor(0.8, 0.8, 0.8)
     love.graphics.printf("Final Gold: " .. playerGold, CHAT_PANE_WIDTH, 155, GAME_WIDTH, "center")
     love.graphics.printf("Quests Completed: " .. #completedQuests, CHAT_PANE_WIDTH, 170, GAME_WIDTH, "center")
+
+    -- Footer
+    love.graphics.setColor(0.6, 0.6, 0.6)
+    love.graphics.printf("The game will close in a moment...", CHAT_PANE_WIDTH, 200, GAME_WIDTH, "center")
 end
 
 -- Draw UI hints bar at top of screen
@@ -1011,8 +1050,50 @@ function UISystem.drawGoldDisplay(playerGold)
     love.graphics.print(goldText, GAME_WIDTH / 2 - goldTextWidth / 2, -1)
 end
 
+-- Check if chat pane is visible
+function UISystem.isChatPaneVisible()
+    return chatPaneVisible
+end
+
+-- Toggle chat pane visibility (for cheats)
+function UISystem.toggleChatPane()
+    chatPaneVisible = not chatPaneVisible
+    if chatPaneVisible then
+        -- Opening chat pane
+        chatPaneTransition.active = true
+        chatPaneTransition.progress = 0
+    else
+        -- Closing chat pane - reverse the transition
+        chatPaneTransition.active = true
+        chatPaneTransition.progress = 0
+    end
+end
+
+-- Get chat pane transition progress (0 to 1)
+function UISystem.getChatPaneTransitionProgress()
+    if not chatPaneVisible then
+        -- When closing, reverse the progress
+        if chatPaneTransition.active then
+            local t = chatPaneTransition.progress
+            return 1 - (1 - (1 - t)^3)
+        end
+        return 0
+    elseif chatPaneTransition.active then
+        -- Ease-out cubic for smooth animation
+        local t = chatPaneTransition.progress
+        return 1 - (1 - t)^3
+    else
+        return 1
+    end
+end
+
 -- Draw chat pane
 function UISystem.drawChatPane()
+    -- Only draw if visible
+    if not chatPaneVisible then
+        return
+    end
+    
     -- Dark background for the chat pane
     love.graphics.setColor(0.1, 0.1, 0.12)
     love.graphics.rectangle("fill", 0, 0, CHAT_PANE_WIDTH, GAME_HEIGHT)
@@ -1099,16 +1180,6 @@ function UISystem.drawChatPane()
 
         y = bubbleY - 3  -- Reduced from 8 to 3 for tighter spacing
     end
-end
-
--- Helper function to convert screen coordinates to canvas coordinates
-local function screenToCanvas(x, y)
-    local screenWidth, screenHeight = love.graphics.getDimensions()
-    local offsetX = math.floor((screenWidth - TOTAL_WIDTH * SCALE) / 2 / SCALE) * SCALE
-    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
-    local canvasX = (x - offsetX) / SCALE
-    local canvasY = (y - offsetY) / SCALE
-    return canvasX, canvasY
 end
 
 -- Handle main menu clicks

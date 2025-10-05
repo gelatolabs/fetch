@@ -87,6 +87,7 @@ local mapTransition = {
 
 -- Camera helper functions
 local function centerCameraOnPlayer()
+    -- Always center on the game viewport (320x240), regardless of chat pane visibility
     camera.x = player.x - UISystem.getGameWidth() / 2
     camera.y = player.y - UISystem.getGameHeight() / 2
 end
@@ -99,11 +100,14 @@ local function clampCameraToMapBounds()
     local mapWidth = world.maxX - world.minX
     local mapHeight = world.maxY - world.minY
     
+    -- Viewport is always GAME_WIDTH x GAME_HEIGHT
+    local viewportWidth = UISystem.getGameWidth()
+    
     -- Only clamp if map is larger than screen
-    if mapWidth > UISystem.getGameWidth() then
-        camera.x = math.max(world.minX, math.min(camera.x, world.maxX - UISystem.getGameWidth()))
+    if mapWidth > viewportWidth then
+        camera.x = math.max(world.minX, math.min(camera.x, world.maxX - viewportWidth))
     else
-        camera.x = world.minX + (mapWidth - UISystem.getGameWidth()) / 2
+        camera.x = world.minX + (mapWidth - viewportWidth) / 2
     end
     
     if mapHeight > UISystem.getGameHeight() then
@@ -425,12 +429,26 @@ function love.mousepressed(x, y, button)
     -- Handle quest turn-in clicks
     if gameState == "questTurnIn" then
         -- Convert screen coordinates to canvas coordinates
+        -- Need to account for canvas shift during transition
         local screenWidth, screenHeight = love.graphics.getDimensions()
-        local totalWidth = UISystem.getChatPaneWidth() + UISystem.getGameWidth()
-        local offsetX = math.floor((screenWidth - totalWidth * UISystem.getScale()) / 2 / UISystem.getScale()) * UISystem.getScale()
-        local offsetY = math.floor((screenHeight - UISystem.getGameHeight() * UISystem.getScale()) / 2 / UISystem.getScale()) * UISystem.getScale()
-        local canvasX = (x - offsetX) / UISystem.getScale()
-        local canvasY = (y - offsetY) / UISystem.getScale()
+        local chatPaneWidth = UISystem.getChatPaneWidth()
+        local gameWidth = UISystem.getGameWidth()
+        local gameHeight = UISystem.getGameHeight()
+        local totalWidth = chatPaneWidth + gameWidth
+        local scale = UISystem.getScale()
+        
+        -- Get transition progress to account for canvas shift
+        local transitionProgress = UISystem.getChatPaneTransitionProgress()
+        local currentVisibleWidth = gameWidth + (chatPaneWidth * transitionProgress)
+        
+        local offsetX = math.floor((screenWidth - currentVisibleWidth * scale) / 2 / scale) * scale
+        local offsetY = math.floor((screenHeight - gameHeight * scale) / 2 / scale) * scale
+        
+        -- Account for canvas shift to hide chat pane initially
+        offsetX = offsetX - (chatPaneWidth * (1 - transitionProgress) * scale)
+        
+        local canvasX = (x - offsetX) / scale
+        local canvasY = (y - offsetY) / scale
 
         UISystem.handleQuestTurnInClick(canvasX, canvasY, questTurnInData, PlayerSystem.getInventory(), {
             onCorrectItem = function(quest, npc)
@@ -558,9 +576,7 @@ function love.keypressed(key)
             UISystem.questTurnInNextPage()
         end
     elseif key == "escape" then
-        if gameState == "winScreen" then
-            love.event.quit()
-        elseif gameState == "playing" then
+        if gameState == "playing" then
             gameState = "pauseMenu"
         elseif gameState == "pauseMenu" then
             gameState = "playing"
@@ -889,13 +905,13 @@ function love.draw()
     elseif gameState == "settings" then
         UISystem.drawSettings(volume)
     elseif gameState == "playing" or gameState == "dialog" then
-        -- Clip rendering to game area only (in canvas coordinates)
-        love.graphics.setScissor(UISystem.getChatPaneWidth(), 0, UISystem.getGameWidth(), UISystem.getGameHeight())
-
-        -- Draw world with chat pane offset
+        -- Draw world with chat pane offset (always offset by chat pane width in canvas)
         local camX = camera.x
         local camY = camera.y
         local chatOffset = UISystem.getChatPaneWidth()
+        
+        -- Clip rendering to game area only (always at chat pane offset in canvas)
+        love.graphics.setScissor(UISystem.getChatPaneWidth(), 0, UISystem.getGameWidth(), UISystem.getGameHeight())
 
         -- Handle map transitions
         if mapTransition.active then
@@ -1009,13 +1025,13 @@ function love.draw()
         love.graphics.setScissor()
 
     elseif gameState == "pauseMenu" then
-        -- Clip rendering to game area only
-        love.graphics.setScissor(UISystem.getChatPaneWidth(), 0, UISystem.getGameWidth(), UISystem.getGameHeight())
-
         -- Draw game world in background with chat pane offset
         local camX = camera.x
         local camY = camera.y
         local chatOffset = UISystem.getChatPaneWidth()
+        
+        -- Clip rendering to game area only
+        love.graphics.setScissor(UISystem.getChatPaneWidth(), 0, UISystem.getGameWidth(), UISystem.getGameHeight())
 
         -- Draw the map and NPCs
         drawMapAndNPCs(map, currentMap, camX, camY, chatOffset)
@@ -1043,13 +1059,13 @@ function love.draw()
         -- Draw shop UI
         ShopSystem.draw(itemRegistry)
     elseif gameState == "questTurnIn" then
-        -- Clip rendering to game area only
-        love.graphics.setScissor(UISystem.getChatPaneWidth(), 0, UISystem.getGameWidth(), UISystem.getGameHeight())
-
         -- Draw game world in background with chat pane offset
         local camX = camera.x
         local camY = camera.y
         local chatOffset = UISystem.getChatPaneWidth()
+        
+        -- Clip rendering to game area only
+        love.graphics.setScissor(UISystem.getChatPaneWidth(), 0, UISystem.getGameWidth(), UISystem.getGameHeight())
 
         -- Draw the map and NPCs
         drawMapAndNPCs(map, currentMap, camX, camY, chatOffset)
@@ -1069,13 +1085,13 @@ function love.draw()
         love.graphics.setScissor()
 
     elseif gameState == "questOffer" then
-        -- Clip rendering to game area only
-        love.graphics.setScissor(UISystem.getChatPaneWidth(), 0, UISystem.getGameWidth(), UISystem.getGameHeight())
-
         -- Draw game world in background with chat pane offset
         local camX = camera.x
         local camY = camera.y
         local chatOffset = UISystem.getChatPaneWidth()
+        
+        -- Clip rendering to game area only
+        love.graphics.setScissor(UISystem.getChatPaneWidth(), 0, UISystem.getGameWidth(), UISystem.getGameHeight())
 
         -- Draw the map and NPCs
         drawMapAndNPCs(map, currentMap, camX, camY, chatOffset)
@@ -1105,7 +1121,7 @@ function love.draw()
     UISystem.drawToasts()
     love.graphics.pop()
 
-    -- Draw canvas to screen (centered)
+    -- Draw canvas to screen
     love.graphics.setCanvas()
 
     -- Clear screen with black (for letterboxing in fullscreen)
@@ -1113,11 +1129,40 @@ function love.draw()
 
     love.graphics.setColor(1, 1, 1)
     local screenWidth, screenHeight = love.graphics.getDimensions()
-    -- Round offset to multiples of UISystem.getScale() to ensure pixel-perfect alignment
-    local totalWidth = UISystem.getChatPaneWidth() + UISystem.getGameWidth()
-    local offsetX = math.floor((screenWidth - totalWidth * UISystem.getScale()) / 2 / UISystem.getScale()) * UISystem.getScale()
-    local offsetY = math.floor((screenHeight - UISystem.getGameHeight() * UISystem.getScale()) / 2 / UISystem.getScale()) * UISystem.getScale()
-    love.graphics.draw(UISystem.getCanvas(), offsetX, offsetY, 0, UISystem.getScale(), UISystem.getScale())
+    
+    -- Get transition progress (0 = hidden, 1 = fully visible)
+    local transitionProgress = UISystem.getChatPaneTransitionProgress()
+    
+    local chatPaneWidth = UISystem.getChatPaneWidth()
+    local gameWidth = UISystem.getGameWidth()
+    local gameHeight = UISystem.getGameHeight()
+    local totalWidth = chatPaneWidth + gameWidth
+    local scale = UISystem.getScale()
+    
+    local offsetY = math.floor((screenHeight - gameHeight * scale) / 2 / scale) * scale
+    
+    -- The canvas layout: [chat: 0-106][game: 106-426]
+    -- Initially: show game area centered (canvas at x such that game area is centered)
+    -- Finally: show full canvas centered
+    
+    -- When progress = 0: center the game portion (106-426) in the window
+    -- When progress = 1: center the full canvas (0-426) in the window
+    local currentVisibleWidth = gameWidth + (chatPaneWidth * transitionProgress)
+    local offsetX = math.floor((screenWidth - currentVisibleWidth * scale) / 2 / scale) * scale
+    
+    -- Offset the canvas drawing so the right portion is visible
+    -- We need to shift left by chatPaneWidth * (1 - progress) to hide the chat initially
+    offsetX = offsetX - (chatPaneWidth * (1 - transitionProgress) * scale)
+    
+    -- Use scissor to clip what's visible (hide the chat pane when off-screen)
+    local scissorX = math.floor((screenWidth - currentVisibleWidth * scale) / 2)
+    love.graphics.setScissor(scissorX, offsetY, currentVisibleWidth * scale, gameHeight * scale)
+    
+    -- Draw the full canvas
+    love.graphics.draw(UISystem.getCanvas(), offsetX, offsetY, 0, scale, scale)
+    
+    -- Reset scissor
+    love.graphics.setScissor()
 end
 
 -- All draw and click handler functions have been moved to ui_system.lua

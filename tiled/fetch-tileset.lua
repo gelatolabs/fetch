@@ -193,6 +193,26 @@ return {
       type = "ground::clay"
     },
     {
+      id = 112,
+      type = "ground::carpet"
+    },
+    {
+      id = 114,
+      type = "ground::stone"
+    },
+    {
+      id = 128,
+      type = "picket::cap_left"
+    },
+    {
+      id = 130,
+      type = "picket::cap_right"
+    },
+    {
+      id = 134,
+      type = "gravel::bl_corner2"
+    },
+    {
       id = 140,
       type = "wall",
       properties = {
@@ -202,7 +222,7 @@ return {
     },
     {
       id = 141,
-      type = "wall",
+      type = "wall::vines",
       properties = {
         ["collides"] = true,
         ["height"] = 1
@@ -210,11 +230,39 @@ return {
     },
     {
       id = 142,
-      type = "wall",
+      type = "wall::broken",
       properties = {
         ["collides"] = true,
         ["height"] = 1
       }
+    },
+    {
+      id = 144,
+      type = "door"
+    },
+    {
+      id = 148,
+      type = "picket::left_side"
+    },
+    {
+      id = 150,
+      type = "picket::right_side"
+    },
+    {
+      id = 152,
+      type = "gravel::br_corner"
+    },
+    {
+      id = 153,
+      type = "gravel::cross"
+    },
+    {
+      id = 154,
+      type = "gravel::ew2"
+    },
+    {
+      id = 155,
+      type = "gravel::tr_corner"
     },
     {
       id = 160,
@@ -261,18 +309,80 @@ return {
       }
     },
     {
+      id = 166,
+      type = "rock::ice"
+    },
+    {
+      id = 168,
+      type = "picket::bl_corner"
+    },
+    {
+      id = 169,
+      type = "picket::front"
+    },
+    {
+      id = 170,
+      type = "picket::br_corner"
+    },
+    {
+      id = 173,
+      type = "gravel::ns"
+    },
+    {
+      id = 175,
+      type = "gravel::ns_2"
+    },
+    {
       id = 180,
+      type = "tree",
       properties = {
         ["collides"] = true,
         ["height"] = 1
       }
     },
     {
+      id = 181,
+      type = "mushroom"
+    },
+    {
+      id = 182,
+      type = "grass"
+    },
+    {
       id = 183,
+      type = "bush",
       properties = {
         ["collides"] = true,
         ["height"] = 0.5
       }
+    },
+    {
+      id = 193,
+      type = "gravel::bl_corner2"
+    },
+    {
+      id = 194,
+      type = "gravel::ew"
+    },
+    {
+      id = 195,
+      type = "gravel::br_corner"
+    },
+    {
+      id = 200,
+      type = "throne"
+    },
+    {
+      id = 240,
+      type = "item::cat"
+    },
+    {
+      id = 241,
+      type = "item::book"
+    },
+    {
+      id = 242,
+      type = "item::no_icon"
     }
   }
 }
