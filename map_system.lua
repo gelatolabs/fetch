@@ -17,6 +17,7 @@ local mapPaths = {
     mapnorth = "tiled/mapnorth.lua",
     mapsouth = "tiled/mapsouth.lua",
     mapwest = "tiled/mapwest.lua",
+    mapeast = "tiled/mapeast.lua",
     throneroom = "tiled/throneroom.lua"
 }
 
@@ -24,99 +25,117 @@ local doors = {
     {
         map = "map",
         direction = "up",
-        positions = {{x = 3, y = -16}},
+        positions = {{x = 19, y = 0}},
         targetMap = "mapnorth",
-        targetX = 3,
-        targetY = 30,
+        targetX = 19,
+        targetY = 46,
         text = "Travel"
     },
     {
         map = "mapnorth",
         direction = "down",
-        positions = {{x = 3, y = 31}},
+        positions = {{x = 19, y = 47}},
         targetMap = "map",
-        targetX = 3,
-        targetY = -15,
+        targetX = 19,
+        targetY = 1,
         text = "Travel"
     },
     {
         map = "map",
         direction = "down",
-        positions = {{x = 16, y = 31}},
+        positions = {{x = 22, y = 47}},
         targetMap = "mapsouth",
-        targetX = 16,
-        targetY = -15,
+        targetX = 22,
+        targetY = 1,
         text = "Travel"
     },
     {
         map = "mapsouth",
         direction = "up",
-        positions = {{x = 16, y = -16}},
+        positions = {{x = 22, y = 0}},
         targetMap = "map",
-        targetX = 16,
-        targetY = 30,
+        targetX = 22,
+        targetY = 46,
         text = "Travel"
     },
     {
         map = "map",
         direction = "left",
-        positions = {{x = -16, y = 5}},
+        positions = {{x = 0, y = 21}},
         targetMap = "mapwest",
-        targetX = 30,
-        targetY = 5,
+        targetX = 47,
+        targetY = 21,
         text = "Travel"
     },
     {
         map = "mapwest",
         direction = "right",
-        positions = {{x = 31, y = 5}},
+        positions = {{x = 47, y = 21}},
         targetMap = "map",
-        targetX = -15,
-        targetY = 5,
+        targetX = 1,
+        targetY = 21,
+        text = "Travel"
+    },
+    {
+        map = "map",
+        direction = "right",
+        positions = {{x = 47, y = 17}},
+        targetMap = "mapeast",
+        targetX = 1,
+        targetY = 17,
+        text = "Travel"
+    },
+    {
+        map = "mapeast",
+        direction = "left",
+        positions = {{x = 0, y = 17}},
+        targetMap = "map",
+        targetX = 46,
+        targetY = 17,
         text = "Travel"
     },
     {
         map = "map",
         direction = nil,
-        positions = {{x = 21, y = 9}},
+        positions = {{x = 37, y = 25}},
         targetMap = "shop",
-        targetX = -9,
-        targetY = 0,
+        targetX = 1,
+        targetY = 7,
         text = "Enter"
     },
     {
         map = "shop",
         direction = nil,
         positions = {
-            {x = -10, y = -1},
-            {x = -10, y = 0},
-            {x = -10, y = 1}
+            {x = 0, y = 6},
+            {x = 0, y = 7},
+            {x = 0, y = 8}
         },
         targetMap = "map",
-        targetX = 21,
-        targetY = 9,
+        targetX = 37,
+        targetY = 25,
         text = "Leave"
     },
     {
         map = "mapnorth",
         direction = nil,
-        positions = {{x = 16, y = 16}},
+        positions = {{x = 32, y = 32}},
         targetMap = "throneroom",
-        targetX = -6,
-        targetY = -1,
+        targetX = 1,
+        targetY = 9,
         text = "Enter"
     },
     {
         map = "throneroom",
         direction = nil,
         positions = {
-            {x = -7, y = -2},
-            {x = -7, y = -1},
-            {x = -7, y = 0}
+            {x = 0, y = 8},
+            {x = 0, y = 9},
+            {x = 0, y = 10}
         },
         targetMap = "mapnorth",
-        targetX = 15,
-        targetY = 16,
+        targetX = 31,
+        targetY = 32,
         text = "Leave"
     }
 }
