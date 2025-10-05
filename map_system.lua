@@ -237,77 +237,33 @@ end
 
 -- Get map height in pixels
 function MapSystem.getMapHeight(mapObj)
-    local layer = mapObj.layers[1]
-    if layer and layer.chunks then
-        local maxY = -math.huge
-        for _, chunk in ipairs(layer.chunks) do
-            maxY = math.max(maxY, chunk.y + chunk.height)
-        end
-        return maxY * 16 -- tileSize
-    end
-    return 0
+    return (mapObj.height or 0) * 16 -- tileSize
 end
 
--- Get map minimum Y in pixels
+-- Get map minimum Y in pixels (always 0 for non-infinite maps)
 function MapSystem.getMapMinY(mapObj)
-    local layer = mapObj.layers[1]
-    if layer and layer.chunks then
-        local minY = math.huge
-        for _, chunk in ipairs(layer.chunks) do
-            minY = math.min(minY, chunk.y)
-        end
-        return minY * 16 -- tileSize
-    end
     return 0
 end
 
 -- Get map width in pixels
 function MapSystem.getMapWidth(mapObj)
-    local layer = mapObj.layers[1]
-    if layer and layer.chunks then
-        local maxX = -math.huge
-        for _, chunk in ipairs(layer.chunks) do
-            maxX = math.max(maxX, chunk.x + chunk.width)
-        end
-        return maxX * 16 -- tileSize
-    end
-    return 0
+    return (mapObj.width or 0) * 16 -- tileSize
 end
 
--- Get map minimum X in pixels
+-- Get map minimum X in pixels (always 0 for non-infinite maps)
 function MapSystem.getMapMinX(mapObj)
-    local layer = mapObj.layers[1]
-    if layer and layer.chunks then
-        local minX = math.huge
-        for _, chunk in ipairs(layer.chunks) do
-            minX = math.min(minX, chunk.x)
-        end
-        return minX * 16 -- tileSize
-    end
     return 0
 end
 
--- Calculate map bounds from chunks
+-- Calculate map bounds from map dimensions
 function MapSystem.calculateMapBounds()
-    local layer = map.layers[1]
-    if layer and layer.chunks then
-        local minX, minY = math.huge, math.huge
-        local maxX, maxY = -math.huge, -math.huge
-        
-        for _, chunk in ipairs(layer.chunks) do
-            minX = math.min(minX, chunk.x)
-            minY = math.min(minY, chunk.y)
-            maxX = math.max(maxX, chunk.x + chunk.width)
-            maxY = math.max(maxY, chunk.y + chunk.height)
-        end
-        
-        -- Store map bounds in pixels
-        world.minX = minX * world.tileSize
-        world.minY = minY * world.tileSize
-        world.maxX = maxX * world.tileSize
-        world.maxY = maxY * world.tileSize
+    if map.width and map.height then
+        world.minX = 0
+        world.minY = 0
+        world.maxX = map.width * world.tileSize
+        world.maxY = map.height * world.tileSize
     else
-        -- If no chunks, set no bounds (allow full movement)
+        -- No bounds available
         world.minX = nil
         world.minY = nil
         world.maxX = nil
