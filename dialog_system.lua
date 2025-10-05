@@ -34,6 +34,12 @@ function DialogSystem.showDialog(dialogData)
     local text = dialogData.text or ""
     dialogPages = splitDialogPages(text)
     currentDialogPage = 1
+    
+    -- If speakers info is provided, store it for multi-speaker dialogues
+    if dialogData.speakers then
+        currentDialog.speakersInfo = dialogData.speakers
+    end
+    
     return "dialog"  -- Return the game state to switch to
 end
 
@@ -150,7 +156,22 @@ function DialogSystem.draw(GAME_WIDTH, GAME_HEIGHT, drawFancyBorder)
     love.graphics.setColor(0.15, 0.1, 0.05, 0.9)
     love.graphics.rectangle("fill", boxX+2, boxY+2, boxW-4, 12)
     love.graphics.setColor(0.9, 0.7, 0.3)
-    love.graphics.print(currentDialog.npc.name, boxX+4, boxY)
+    
+    -- Determine speaker name for current page
+    local speakerName = currentDialog.npc.name
+    if currentDialog.speakersInfo and #currentDialog.speakersInfo > 0 then
+        -- Multi-speaker dialogue - get speaker for current page
+        local speakerInfo = currentDialog.speakersInfo[currentDialogPage]
+        if speakerInfo and speakerInfo.speaker then
+            local questsModule = require("quests")
+            local speakerNpc = questsModule.npcs[speakerInfo.speaker]
+            if speakerNpc and speakerNpc.name then
+                speakerName = speakerNpc.name
+            end
+        end
+    end
+    
+    love.graphics.print(speakerName, boxX+4, boxY)
 
     -- Page indicator (if multiple pages)
     if #dialogPages > 1 then

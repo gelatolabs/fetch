@@ -524,6 +524,10 @@ function quests.interactWithNPC(npc)
     if npc.isIntroNPC then
         -- Show manifesto if intro already shown, otherwise show intro text
         local text = quests.introShown and npc.manifestoText or npc.introText
+        if quests.introShown and npc.manifestoText then
+            -- Playing manifesto - switch to lullaby music
+            AudioSystem.startManifestoMusic()
+        end
         quests.gameState = DialogSystem.showDialog({
             type = "generic",
             npc = npc,

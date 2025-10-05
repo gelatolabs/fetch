@@ -269,6 +269,9 @@ function love.update(dt)
     -- Update chat animation
     UISystem.updateChat(dt)
 
+    -- Handle chat pane music switching
+    AudioSystem.updateChatPaneMusic(UISystem.isChatPaneVisible())
+
     -- Handle win screen timer
     if gameState == "winScreen" then
         winScreenTimer = winScreenTimer + dt
@@ -415,11 +418,13 @@ function love.mousepressed(x, y, button)
                 showToast("Quest Accepted: " .. quest.name, {1, 1, 0})
                 questOfferData = nil
                 DialogSystem.clearDialog()
+                AudioSystem.stopManifestoMusic()
                 gameState = "playing"
             end,
             onReject = function()
                 questOfferData = nil
                 DialogSystem.clearDialog()
+                AudioSystem.stopManifestoMusic()
                 gameState = "playing"
             end
         })
@@ -552,6 +557,8 @@ function love.keypressed(key)
                     currentDialog.onComplete()
                 end
                 DialogSystem.clearDialog()
+                -- Stop manifesto music if it was playing
+                AudioSystem.stopManifestoMusic()
             end
         end
     elseif key == "l" then
