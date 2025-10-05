@@ -3,7 +3,12 @@ local AudioSystem = {}
 -- Audio resources
 local quackSound = nil
 local currentMusic = nil
+local previousMusic = nil  -- Track previous music before special music (chat/manifesto)
 local musicTracks = {}
+
+-- Music state tracking
+local wasChatPaneVisible = false
+local isShowingManifesto = false
 
 -- Initialize audio system
 function AudioSystem.init()
@@ -75,6 +80,57 @@ end
 -- Set volume
 function AudioSystem.setVolume(volume)
     love.audio.setVolume(volume)
+end
+
+-- Update music based on chat pane visibility
+function AudioSystem.updateChatPaneMusic(isChatVisible)
+    -- Don't switch if showing manifesto
+    if isChatVisible ~= wasChatPaneVisible and not isShowingManifesto then
+        wasChatPaneVisible = isChatVisible
+        if isChatVisible then
+            -- Chat pane opened - save current music and switch to glitch
+            if currentMusic ~= musicTracks.glitch then
+                previousMusic = currentMusic
+                AudioSystem.playMusic("glitch")
+            end
+        else
+            -- Chat pane closed - restore previous music
+            if previousMusic and currentMusic == musicTracks.glitch then
+                -- Find the track name from the previous music object
+                for trackName, track in pairs(musicTracks) do
+                    if track == previousMusic then
+                        AudioSystem.playMusic(trackName)
+                        break
+                    end
+                end
+                previousMusic = nil
+            end
+        end
+    end
+end
+
+-- Start manifesto music
+function AudioSystem.startManifestoMusic()
+    isShowingManifesto = true
+    previousMusic = currentMusic
+    AudioSystem.playMusic("lullaby")
+end
+
+-- Stop manifesto music and restore previous
+function AudioSystem.stopManifestoMusic()
+    if isShowingManifesto then
+        isShowingManifesto = false
+        if previousMusic then
+            -- Find the track name from the previous music object
+            for trackName, track in pairs(musicTracks) do
+                if track == previousMusic then
+                    AudioSystem.playMusic(trackName)
+                    break
+                end
+            end
+            previousMusic = nil
+        end
+    end
 end
 
 return AudioSystem
