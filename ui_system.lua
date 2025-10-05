@@ -17,6 +17,9 @@ local canvas = nil
 local font = nil
 local titleFont = nil
 
+-- CRT glitch shader
+local crtShader = nil
+
 -- Mouse state
 local mouseX = 0
 local mouseY = 0
@@ -115,6 +118,42 @@ function UISystem.init()
     jarfSprite:setFilter("nearest", "nearest")
     developerSprite = love.graphics.newImage("sprites/developer.png")
     developerSprite:setFilter("nearest", "nearest")
+    
+    -- Create CRT glitch shader
+    crtShader = love.graphics.newShader([[
+        uniform float time;
+        uniform float glitchIntensity;
+        
+        vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords) {
+            vec4 pixel = Texel(texture, texture_coords);
+            
+            if (glitchIntensity > 0.0) {
+                // Horizontal glitch lines
+                float glitchLine = sin(screen_coords.y * 0.5 + time * 50.0) * 0.5 + 0.5;
+                if (glitchLine > 0.95) {
+                    texture_coords.x += sin(time * 100.0) * 0.05 * glitchIntensity;
+                    pixel = Texel(texture, texture_coords);
+                }
+                
+                // RGB split
+                float offset = 0.003 * glitchIntensity;
+                float r = Texel(texture, texture_coords + vec2(offset, 0.0)).r;
+                float g = Texel(texture, texture_coords).g;
+                float b = Texel(texture, texture_coords - vec2(offset, 0.0)).b;
+                pixel.rgb = vec3(r, g, b);
+                
+                // Scanlines
+                float scanline = sin(screen_coords.y * 2.0) * 0.1 * glitchIntensity;
+                pixel.rgb -= scanline;
+                
+                // Random noise
+                float noise = fract(sin(dot(screen_coords + time * 10.0, vec2(12.9898, 78.233))) * 43758.5453);
+                pixel.rgb += noise * 0.05 * glitchIntensity;
+            }
+            
+            return pixel * color;
+        }
+    ]])
 end
 
 -- Get the canvas
@@ -1096,6 +1135,27 @@ function UISystem.getChatPaneTransitionProgress()
     else
         return 1
     end
+end
+
+-- Get glitch intensity based on transition
+function UISystem.getGlitchIntensity()
+    if chatPaneTransition.active then
+        -- Glitch effect during transition
+        local progress = chatPaneTransition.progress
+        if chatPaneVisible then
+            -- Opening: strong glitch at start, fades out
+            return (1 - progress) * 1.0
+        else
+            -- Closing: glitch builds up
+            return progress * 0.8
+        end
+    end
+    return 0
+end
+
+-- Get shader for effects
+function UISystem.getShader()
+    return crtShader
 end
 
 -- Draw chat pane
