@@ -265,7 +265,8 @@ quests.npcs = {
                 questId = "quest_defeat_geese",
                 questOfferDialog = "Now that you're done that, can you defeat 3 geese and bring me their feathers?\n\nI need them for a powerful spell that will allow you to fly across the map --\n\n-- as you were meant to..." 
             }
-        }
+        },
+        noQuestText = "Leave me alone, I have much magical things to attend to!"
     },
     npc_jailer = {
         id = "npc_jailer",
@@ -274,6 +275,8 @@ quests.npcs = {
         y = -8 * 16 + 8,
         size = 16,
         name = "Jailer",
+        spriteX = 0,
+        spriteY = 112,
         givesItem = "item_wizard_hat",
         requiresQuest = "quest_wizard_hat",
         itemGiveText = "Here is your hat, wizard. I hope it protects you from the sun.",
