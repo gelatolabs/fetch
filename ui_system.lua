@@ -3,6 +3,297 @@
 
 local UISystem = {}
 
+-- UI constants
+local GAME_WIDTH = 320
+local GAME_HEIGHT = 240
+local SCALE = 1
+
+-- Graphics resources
+local canvas = nil
+
+-- Font resources
+local font = nil
+local titleFont = nil
+
+-- Mouse state
+local mouseX = 0
+local mouseY = 0
+
+-- Slider state
+local draggingSlider = false
+
+-- Toast system
+local toasts = {}
+local TOAST_DURATION = 3.0 -- seconds
+
+-- Game state references (set by main.lua)
+local gameStateRefs = {
+    map = nil,
+    camera = nil,
+    npcs = nil,
+    currentMap = nil,
+    player = nil,
+    playerTileset = nil,
+    getPlayerSpriteSet = nil,
+    inventory = nil,
+    itemRegistry = nil,
+    questTurnInData = nil
+}
+
+-- Set game state references
+function UISystem.setGameStateRefs(refs)
+    for key, value in pairs(refs) do
+        gameStateRefs[key] = value
+    end
+end
+
+-- Initialize UI system
+function UISystem.init()
+    -- Get desktop dimensions
+    local desktopWidth, desktopHeight = love.window.getDesktopDimensions()
+    
+    -- Calculate scale factor (highest integer multiple that fits screen)
+    local scaleX = math.floor(desktopWidth / GAME_WIDTH)
+    local scaleY = math.floor(desktopHeight / GAME_HEIGHT)
+    SCALE = math.min(scaleX, scaleY)
+    if SCALE < 1 then SCALE = 1 end
+    
+    -- Set window mode
+    love.window.setMode(GAME_WIDTH * SCALE, GAME_HEIGHT * SCALE, {fullscreen = true})
+    
+    -- Disable interpolation globally
+    love.graphics.setDefaultFilter("nearest", "nearest")
+    
+    -- Create canvas
+    canvas = love.graphics.newCanvas(GAME_WIDTH, GAME_HEIGHT)
+    canvas:setFilter("nearest", "nearest")
+    
+    -- Load fonts
+    UISystem.loadFonts()
+end
+
+-- Get the canvas
+function UISystem.getCanvas()
+    return canvas
+end
+
+-- Get UI constants
+function UISystem.getGameWidth()
+    return GAME_WIDTH
+end
+
+function UISystem.getGameHeight()
+    return GAME_HEIGHT
+end
+
+function UISystem.getScale()
+    return SCALE
+end
+
+-- Initialize fonts
+function UISystem.loadFonts()
+    -- Load font (size 16 renders at 8px height)
+    font = love.graphics.newFont("BitPotionExt.ttf", 16)
+    font:setFilter("nearest", "nearest")
+    love.graphics.setFont(font)
+
+    -- Load title font (twice as large)
+    titleFont = love.graphics.newFont("BitPotionExt.ttf", 32)
+    titleFont:setFilter("nearest", "nearest")
+end
+
+-- Get the regular font
+function UISystem.getFont()
+    return font
+end
+
+-- Get the title font
+function UISystem.getTitleFont()
+    return titleFont
+end
+
+-- Update mouse position
+function UISystem.updateMouse(x, y)
+    mouseX = x
+    mouseY = y
+end
+
+-- Handle slider dragging during mouse move
+function UISystem.handleSliderDrag(volume, onVolumeChange)
+    if not draggingSlider then
+        return volume
+    end
+    
+    -- Convert screen coordinates to canvas coordinates
+    local screenWidth, screenHeight = love.graphics.getDimensions()
+    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
+    local canvasX = (mouseX - offsetX) / SCALE
+    
+    local sliderX = GAME_WIDTH / 2 - 50
+    local sliderWidth = 100
+    
+    local newVolume = math.max(0, math.min(1, (canvasX - sliderX) / sliderWidth))
+    if onVolumeChange then
+        onVolumeChange(newVolume)
+    end
+    return newVolume
+end
+
+-- Start slider dragging
+function UISystem.startSliderDrag(volume, onVolumeChange)
+    draggingSlider = true
+    
+    -- Immediately update volume at click position
+    local screenWidth, screenHeight = love.graphics.getDimensions()
+    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
+    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
+    local canvasX = (mouseX - offsetX) / SCALE
+    local canvasY = (mouseY - offsetY) / SCALE
+    
+    local sliderX = GAME_WIDTH / 2 - 50
+    local sliderY = 100
+    local sliderWidth = 100
+    local sliderHeight = 10
+    
+    if canvasX >= sliderX and canvasX <= sliderX + sliderWidth and canvasY >= sliderY - 5 and canvasY <= sliderY + sliderHeight + 5 then
+        local newVolume = math.max(0, math.min(1, (canvasX - sliderX) / sliderWidth))
+        if onVolumeChange then
+            onVolumeChange(newVolume)
+        end
+        return newVolume
+    end
+    
+    return volume
+end
+
+-- Stop slider dragging
+function UISystem.stopSliderDrag()
+    draggingSlider = false
+end
+
+-- Add a toast notification
+function UISystem.showToast(message, color)
+    table.insert(toasts, {
+        message = message,
+        timer = TOAST_DURATION,
+        color = color or {1, 1, 1}
+    })
+end
+
+-- Update toasts (call in love.update)
+function UISystem.updateToasts(dt)
+    for i = #toasts, 1, -1 do
+        toasts[i].timer = toasts[i].timer - dt
+        if toasts[i].timer <= 0 then
+            table.remove(toasts, i)
+        end
+    end
+end
+
+-- Draw tile grid overlay (for debugging/cheats)
+function UISystem.drawGrid(camX, camY, showGrid)
+    if not showGrid then
+        return
+    end
+    
+    love.graphics.setColor(0, 1, 0, 0.3)
+    local startX = math.floor(camX / 16) * 16
+    local startY = math.floor(camY / 16) * 16
+    for x = startX - 16, camX + GAME_WIDTH + 16, 16 do
+        love.graphics.line(x - camX, 0, x - camX, GAME_HEIGHT)
+    end
+    for y = startY - 16, camY + GAME_HEIGHT + 16, 16 do
+        love.graphics.line(0, y - camY, GAME_WIDTH, y - camY)
+    end
+end
+
+-- Draw active cheat/ability indicators
+function UISystem.drawIndicators(noclipActive, gridActive, abilityManager)
+    local cheatText = ""
+    
+    if noclipActive then 
+        cheatText = cheatText .. " [NOCLIP]" 
+    end
+    
+    -- Show all active abilities
+    if abilityManager then
+        for _, ability in pairs(abilityManager:getAllAbilities()) do
+            local displayText = ability.name:upper()
+            if ability.type == "consumable" and ability.maxUses then
+                displayText = displayText .. ":" .. ability.currentUses
+            end
+            cheatText = cheatText .. " [" .. displayText .. "]"
+        end
+    end
+    
+    if gridActive then 
+        cheatText = cheatText .. " [GRID]" 
+    end
+    
+    if cheatText ~= "" then
+        love.graphics.setColor(1, 0.5, 0, 0.9)
+        local textWidth = font:getWidth(cheatText)
+        love.graphics.print(cheatText, GAME_WIDTH - textWidth - 2, -1)
+    end
+end
+
+-- Draw cheat console
+function UISystem.drawCheatConsole(CheatConsole)
+    if not CheatConsole.isOpen() then
+        return
+    end
+    
+    local boxX, boxY = 10, GAME_HEIGHT - 92
+    local boxW, boxH = GAME_WIDTH - 20, 87
+
+    -- Background with slight transparency
+    love.graphics.setColor(0, 0, 0, 0.92)
+    love.graphics.rectangle("fill", boxX, boxY, boxW, boxH)
+
+    -- Border (console green style)
+    love.graphics.setColor(0.2, 1, 0.2)
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle("line", boxX, boxY, boxW, boxH)
+    love.graphics.setLineWidth(1)
+
+    -- Title
+    love.graphics.setColor(0.2, 1, 0.2)
+    love.graphics.print("CHEAT CONSOLE", boxX+4, boxY+4)
+    
+    -- Hint
+    love.graphics.setColor(0.6, 0.6, 0.6)
+    love.graphics.print("Type 'help' for available cheats", boxX+4, boxY+16)
+
+    -- History (last 3 commands)
+    local y = boxY + 30
+    love.graphics.setColor(0.4, 0.8, 0.4)
+    local history = CheatConsole.getHistory()
+    for i = math.min(3, #history), 1, -1 do
+        love.graphics.print("> " .. history[i], boxX+4, y)
+        y = y + 10
+    end
+
+    -- Input prompt
+    y = boxY + boxH - 24
+    love.graphics.setColor(0.2, 1, 0.2)
+    love.graphics.print("> ", boxX+4, y)
+    
+    -- Input text
+    love.graphics.setColor(1, 1, 1)
+    local input = CheatConsole.getInput()
+    love.graphics.print(input, boxX+16, y)
+    
+    -- Cursor (blinking)
+    if math.floor(love.timer.getTime() * 2) % 2 == 0 then
+        local cursorX = boxX + 16 + font:getWidth(input)
+        love.graphics.rectangle("fill", cursorX, y, 6, 10)
+    end
+    
+    -- Instructions (inside the box, with padding)
+    love.graphics.setColor(0.5, 0.5, 0.5)
+    love.graphics.print("[Enter] Submit  [Up/Down] History  [Esc/~] Close", boxX+4, boxY+boxH-14)
+end
+
 -- Helper function to draw WoW-style decorative borders
 function UISystem.drawFancyBorder(x, y, w, h, color)
     color = color or {0.8, 0.6, 0.2}
@@ -47,7 +338,7 @@ function UISystem.drawTextBox(x, y, w, h, text, color, centered)
 end
 
 -- Helper function to check if mouse is over a button
-function UISystem.isMouseOverButton(mouseX, mouseY, btnX, btnY, btnWidth, btnHeight, GAME_WIDTH, GAME_HEIGHT, SCALE)
+function UISystem.isMouseOverButton(btnX, btnY, btnWidth, btnHeight)
     -- Convert screen coordinates to canvas coordinates
     local screenWidth, screenHeight = love.graphics.getDimensions()
     local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
@@ -59,7 +350,7 @@ function UISystem.isMouseOverButton(mouseX, mouseY, btnX, btnY, btnWidth, btnHei
 end
 
 -- Draw toasts
-function UISystem.drawToasts(toasts, font, GAME_WIDTH)
+function UISystem.drawToasts()
     local y = 14 -- Start below the top bar (12px height + 2px padding)
     for i, toast in ipairs(toasts) do
         -- Calculate fade-out alpha based on remaining time
@@ -106,7 +397,7 @@ function UISystem.drawToasts(toasts, font, GAME_WIDTH)
 end
 
 -- Draw pause menu
-function UISystem.drawPauseMenu(GAME_WIDTH, GAME_HEIGHT, mouseX, mouseY, SCALE)
+function UISystem.drawPauseMenu()
     -- Semi-transparent background overlay
     love.graphics.setColor(0, 0, 0, 0.7)
     love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, GAME_HEIGHT)
@@ -121,7 +412,7 @@ function UISystem.drawPauseMenu(GAME_WIDTH, GAME_HEIGHT, mouseX, mouseY, SCALE)
     local btnX = GAME_WIDTH / 2 - btnWidth / 2
 
     -- Resume button
-    local resumeHover = UISystem.isMouseOverButton(mouseX, mouseY, btnX, 100, btnWidth, btnHeight, GAME_WIDTH, GAME_HEIGHT, SCALE)
+    local resumeHover = UISystem.isMouseOverButton(btnX, 100, btnWidth, btnHeight)
     love.graphics.setColor(resumeHover and 0.3 or 0.2, resumeHover and 0.2 or 0.15, resumeHover and 0.15 or 0.1)
     love.graphics.rectangle("fill", btnX, 100, btnWidth, btnHeight)
     love.graphics.setColor(resumeHover and 1 or 0.8, resumeHover and 0.8 or 0.6, resumeHover and 0.4 or 0.2)
@@ -130,7 +421,7 @@ function UISystem.drawPauseMenu(GAME_WIDTH, GAME_HEIGHT, mouseX, mouseY, SCALE)
     love.graphics.printf("Resume", btnX, 100 + 3, btnWidth, "center")
 
     -- Quit Game button
-    local quitHover = UISystem.isMouseOverButton(mouseX, mouseY, btnX, 130, btnWidth, btnHeight, GAME_WIDTH, GAME_HEIGHT, SCALE)
+    local quitHover = UISystem.isMouseOverButton(btnX, 130, btnWidth, btnHeight)
     love.graphics.setColor(quitHover and 0.3 or 0.2, quitHover and 0.2 or 0.15, quitHover and 0.15 or 0.1)
     love.graphics.rectangle("fill", btnX, 130, btnWidth, btnHeight)
     love.graphics.setColor(quitHover and 1 or 0.8, quitHover and 0.8 or 0.6, quitHover and 0.4 or 0.2)
@@ -140,7 +431,7 @@ function UISystem.drawPauseMenu(GAME_WIDTH, GAME_HEIGHT, mouseX, mouseY, SCALE)
 end
 
 -- Draw main menu
-function UISystem.drawMainMenu(GAME_WIDTH, GAME_HEIGHT, titleFont, font, mouseX, mouseY, SCALE)
+function UISystem.drawMainMenu()
     -- Background
     love.graphics.setColor(0.05, 0.05, 0.1)
     love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, GAME_HEIGHT)
@@ -157,7 +448,7 @@ function UISystem.drawMainMenu(GAME_WIDTH, GAME_HEIGHT, titleFont, font, mouseX,
     local btnX = GAME_WIDTH / 2 - btnWidth / 2
 
     -- Play button
-    local playHover = UISystem.isMouseOverButton(mouseX, mouseY, btnX, 100, btnWidth, btnHeight, GAME_WIDTH, GAME_HEIGHT, SCALE)
+    local playHover = UISystem.isMouseOverButton(btnX, 100, btnWidth, btnHeight)
     love.graphics.setColor(playHover and 0.3 or 0.2, playHover and 0.2 or 0.15, playHover and 0.15 or 0.1)
     love.graphics.rectangle("fill", btnX, 100, btnWidth, btnHeight)
     love.graphics.setColor(playHover and 1 or 0.8, playHover and 0.8 or 0.6, playHover and 0.4 or 0.2)
@@ -166,7 +457,7 @@ function UISystem.drawMainMenu(GAME_WIDTH, GAME_HEIGHT, titleFont, font, mouseX,
     love.graphics.printf("Play", btnX, 100 + 3, btnWidth, "center")
 
     -- Settings button
-    local settingsHover = UISystem.isMouseOverButton(mouseX, mouseY, btnX, 130, btnWidth, btnHeight, GAME_WIDTH, GAME_HEIGHT, SCALE)
+    local settingsHover = UISystem.isMouseOverButton(btnX, 130, btnWidth, btnHeight)
     love.graphics.setColor(settingsHover and 0.3 or 0.2, settingsHover and 0.2 or 0.15, settingsHover and 0.15 or 0.1)
     love.graphics.rectangle("fill", btnX, 130, btnWidth, btnHeight)
     love.graphics.setColor(settingsHover and 1 or 0.8, settingsHover and 0.8 or 0.6, settingsHover and 0.4 or 0.2)
@@ -175,7 +466,7 @@ function UISystem.drawMainMenu(GAME_WIDTH, GAME_HEIGHT, titleFont, font, mouseX,
     love.graphics.printf("Settings", btnX, 130 + 3, btnWidth, "center")
 
     -- Quit button
-    local quitHover = UISystem.isMouseOverButton(mouseX, mouseY, btnX, 160, btnWidth, btnHeight, GAME_WIDTH, GAME_HEIGHT, SCALE)
+    local quitHover = UISystem.isMouseOverButton(btnX, 160, btnWidth, btnHeight)
     love.graphics.setColor(quitHover and 0.3 or 0.2, quitHover and 0.2 or 0.15, quitHover and 0.15 or 0.1)
     love.graphics.rectangle("fill", btnX, 160, btnWidth, btnHeight)
     love.graphics.setColor(quitHover and 1 or 0.8, quitHover and 0.8 or 0.6, quitHover and 0.4 or 0.2)
@@ -185,7 +476,7 @@ function UISystem.drawMainMenu(GAME_WIDTH, GAME_HEIGHT, titleFont, font, mouseX,
 end
 
 -- Draw settings menu
-function UISystem.drawSettings(GAME_WIDTH, GAME_HEIGHT, volume, mouseX, mouseY, SCALE)
+function UISystem.drawSettings(volume)
     -- Background
     love.graphics.setColor(0.05, 0.05, 0.1)
     love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, GAME_HEIGHT)
@@ -224,7 +515,7 @@ function UISystem.drawSettings(GAME_WIDTH, GAME_HEIGHT, volume, mouseX, mouseY, 
     local btnWidth = 100
     local btnHeight = 20
     local btnX = GAME_WIDTH / 2 - btnWidth / 2
-    local backHover = UISystem.isMouseOverButton(mouseX, mouseY, btnX, 160, btnWidth, btnHeight, GAME_WIDTH, GAME_HEIGHT, SCALE)
+    local backHover = UISystem.isMouseOverButton(btnX, 160, btnWidth, btnHeight)
     love.graphics.setColor(backHover and 0.3 or 0.2, backHover and 0.2 or 0.15, backHover and 0.15 or 0.1)
     love.graphics.rectangle("fill", btnX, 160, btnWidth, btnHeight)
     love.graphics.setColor(backHover and 1 or 0.8, backHover and 0.8 or 0.6, backHover and 0.4 or 0.2)
@@ -234,7 +525,7 @@ function UISystem.drawSettings(GAME_WIDTH, GAME_HEIGHT, volume, mouseX, mouseY, 
 end
 
 -- Draw quest log
-function UISystem.drawQuestLog(GAME_WIDTH, GAME_HEIGHT, activeQuests, completedQuests, quests)
+function UISystem.drawQuestLog(activeQuests, completedQuests, quests)
     local boxX, boxY = 10, 10
     local boxW, boxH = GAME_WIDTH - 20, GAME_HEIGHT - 20
 
@@ -344,46 +635,13 @@ function UISystem.drawQuestLog(GAME_WIDTH, GAME_HEIGHT, activeQuests, completedQ
     love.graphics.print("[L] Close", boxX+4, boxY+boxH-15)
 end
 
--- Draw quest turn-in UI
-function UISystem.drawQuestTurnIn(GAME_WIDTH, GAME_HEIGHT, questTurnInData, inventory, itemRegistry, map, camera, npcs, currentMap, npcSprite, player, playerTileset, getPlayerSpriteSet)
-    if not questTurnInData then
+-- Draw quest turn-in UI (dialog box only)
+function UISystem.drawQuestTurnIn()
+    if not gameStateRefs.questTurnInData then
         return
     end
 
-    -- Draw the game world in the background
-    local camX = camera.x
-    local camY = camera.y
-
-    -- Draw the Tiled map
-    love.graphics.setColor(1, 1, 1)
-    map:draw(-camX, -camY)
-
-    -- Draw NPCs (only on current map)
-    for _, npc in ipairs(npcs) do
-        if npc.map == currentMap then
-            love.graphics.setColor(1, 1, 1)
-            love.graphics.draw(npcSprite, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
-        end
-    end
-
-    -- Draw player
-    love.graphics.setColor(1, 1, 1)
-    local spriteSet = getPlayerSpriteSet()
-    local currentQuad = spriteSet[player.direction][player.moving and (player.walkFrame + 1) or 1]
-    local scaleX = (player.facing == "left") and -1 or 1
-    local offsetX = (player.facing == "left") and player.size or 0
-    love.graphics.draw(
-        playerTileset,
-        currentQuad,
-        player.x - player.size/2 - camX + offsetX,
-        player.y - player.size/2 - camY - player.jumpHeight,
-        0,
-        scaleX,
-        1
-    )
-
-    -- Draw dialog box
-    local quest = questTurnInData.quest
+    local quest = gameStateRefs.questTurnInData.quest
     local boxX = GAME_WIDTH / 2 - 75
     local boxY = GAME_HEIGHT - 90
     local boxW = 150
@@ -411,7 +669,7 @@ function UISystem.drawQuestTurnIn(GAME_WIDTH, GAME_HEIGHT, questTurnInData, inve
     local padding = 3
     local startY = boxY + 30
 
-    for i, itemId in ipairs(inventory) do
+    for i, itemId in ipairs(gameStateRefs.inventory) do
         local slotX = boxX + 6
         local slotY = startY + (i - 1) * (slotSize + padding)
 
@@ -428,7 +686,7 @@ function UISystem.drawQuestTurnIn(GAME_WIDTH, GAME_HEIGHT, questTurnInData, inve
         love.graphics.rectangle("fill", slotX + 2, slotY + 2, slotSize - 4, slotSize - 4)
 
         -- Item name from registry
-        local itemData = itemRegistry[itemId]
+        local itemData = gameStateRefs.itemRegistry[itemId]
         local itemName = itemData and itemData.name or itemId
         love.graphics.setColor(1, 1, 1)
         love.graphics.print(itemName, slotX + slotSize + 4, slotY + 2)
@@ -440,7 +698,7 @@ function UISystem.drawQuestTurnIn(GAME_WIDTH, GAME_HEIGHT, questTurnInData, inve
 end
 
 -- Draw quest offer UI
-function UISystem.drawQuestOffer(GAME_WIDTH, GAME_HEIGHT, questOfferData, mouseX, mouseY, SCALE)
+function UISystem.drawQuestOffer(questOfferData)
     if not questOfferData then
         return
     end
@@ -490,7 +748,7 @@ function UISystem.drawQuestOffer(GAME_WIDTH, GAME_HEIGHT, questOfferData, mouseX
     local rejectX = boxX + boxW/2 + 4
 
     -- Accept button
-    local acceptHover = UISystem.isMouseOverButton(mouseX, mouseY, acceptX, btnY, btnW, btnH, GAME_WIDTH, GAME_HEIGHT, SCALE)
+    local acceptHover = UISystem.isMouseOverButton(acceptX, btnY, btnW, btnH)
     love.graphics.setColor(acceptHover and 0.2 or 0.15, acceptHover and 0.35 or 0.25, acceptHover and 0.15 or 0.1)
     love.graphics.rectangle("fill", acceptX, btnY, btnW, btnH)
     love.graphics.setColor(acceptHover and 0.4 or 0.2, acceptHover and 0.8 or 0.6, acceptHover and 0.3 or 0.2)
@@ -499,7 +757,7 @@ function UISystem.drawQuestOffer(GAME_WIDTH, GAME_HEIGHT, questOfferData, mouseX
     love.graphics.printf("Accept", acceptX, btnY + 2, btnW, "center")
 
     -- Reject button
-    local rejectHover = UISystem.isMouseOverButton(mouseX, mouseY, rejectX, btnY, btnW, btnH, GAME_WIDTH, GAME_HEIGHT, SCALE)
+    local rejectHover = UISystem.isMouseOverButton(rejectX, btnY, btnW, btnH)
     love.graphics.setColor(rejectHover and 0.35 or 0.25, rejectHover and 0.2 or 0.15, rejectHover and 0.15 or 0.1)
     love.graphics.rectangle("fill", rejectX, btnY, btnW, btnH)
     love.graphics.setColor(rejectHover and 0.9 or 0.7, rejectHover and 0.4 or 0.3, rejectHover and 0.3 or 0.2)
@@ -509,7 +767,7 @@ function UISystem.drawQuestOffer(GAME_WIDTH, GAME_HEIGHT, questOfferData, mouseX
 end
 
 -- Draw inventory
-function UISystem.drawInventory(GAME_WIDTH, GAME_HEIGHT, inventory, itemRegistry)
+function UISystem.drawInventory(inventory, itemRegistry)
     local boxX, boxY = 10, 10
     local boxW, boxH = GAME_WIDTH - 20, GAME_HEIGHT - 20
 
@@ -581,7 +839,7 @@ function UISystem.drawInventory(GAME_WIDTH, GAME_HEIGHT, inventory, itemRegistry
 end
 
 -- Draw shop
-function UISystem.drawShop(GAME_WIDTH, GAME_HEIGHT, shopInventory, selectedShopItem, playerGold, inventory, itemRegistry, font, mouseX, mouseY, SCALE, hasItem)
+function UISystem.drawShop(shopInventory, selectedShopItem, playerGold, inventory, itemRegistry, hasItem)
     local boxX, boxY = 10, 10
     local boxW, boxH = GAME_WIDTH - 20, GAME_HEIGHT - 20
 
@@ -703,7 +961,7 @@ function UISystem.drawShop(GAME_WIDTH, GAME_HEIGHT, shopInventory, selectedShopI
                 local btnH = 20
                 local btnX = detailX + (detailW - btnW) / 2
 
-                local isHovered = UISystem.isMouseOverButton(mouseX, mouseY, btnX, btnY, btnW, btnH, GAME_WIDTH, GAME_HEIGHT, SCALE)
+                local isHovered = UISystem.isMouseOverButton(btnX, btnY, btnW, btnH)
 
                 -- Button background
                 if not canAfford then
@@ -742,7 +1000,7 @@ function UISystem.drawShop(GAME_WIDTH, GAME_HEIGHT, shopInventory, selectedShopI
 end
 
 -- Draw win screen
-function UISystem.drawWinScreen(GAME_WIDTH, GAME_HEIGHT, titleFont, font, playerGold, completedQuests)
+function UISystem.drawWinScreen(playerGold, completedQuests)
     -- Background
     love.graphics.setColor(0, 0, 0, 0.95)
     love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, GAME_HEIGHT)
@@ -766,6 +1024,261 @@ function UISystem.drawWinScreen(GAME_WIDTH, GAME_HEIGHT, titleFont, font, player
     -- Footer
     love.graphics.setColor(0.6, 0.6, 0.6)
     love.graphics.printf("The game will close in a moment...", 0, 200, GAME_WIDTH, "center")
+end
+
+-- Draw UI hints bar at top of screen
+function UISystem.drawUIHints()
+    love.graphics.setColor(0, 0, 0, 0.7)
+    love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, 12)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.print("L: Quest log  I: Inventory", 2, -2)
+end
+
+-- Draw gold display at top center of screen
+function UISystem.drawGoldDisplay(playerGold)
+    local goldText = "Gold: " .. playerGold
+    local goldTextWidth = font:getWidth(goldText)
+    love.graphics.setColor(1, 0.84, 0) -- Gold color
+    love.graphics.print(goldText, GAME_WIDTH / 2 - goldTextWidth / 2, -1)
+end
+
+-- Helper function to convert screen coordinates to canvas coordinates
+local function screenToCanvas(x, y)
+    local screenWidth, screenHeight = love.graphics.getDimensions()
+    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
+    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
+    local canvasX = (x - offsetX) / SCALE
+    local canvasY = (y - offsetY) / SCALE
+    return canvasX, canvasY
+end
+
+-- Handle main menu clicks
+function UISystem.handleMainMenuClick(x, y, callbacks)
+    local canvasX, canvasY = screenToCanvas(x, y)
+
+    -- Button positions
+    local btnWidth = 100
+    local btnHeight = 20
+    local btnX = GAME_WIDTH / 2 - btnWidth / 2
+    local playY = 100
+    local settingsY = 130
+    local quitY = 160
+
+    -- Check Play button
+    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= playY and canvasY <= playY + btnHeight then
+        if callbacks.onPlay then
+            callbacks.onPlay()
+        end
+        return true
+    end
+
+    -- Check Settings button
+    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= settingsY and canvasY <= settingsY + btnHeight then
+        if callbacks.onSettings then
+            callbacks.onSettings()
+        end
+        return true
+    end
+
+    -- Check Quit button
+    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= quitY and canvasY <= quitY + btnHeight then
+        if callbacks.onQuit then
+            callbacks.onQuit()
+        end
+        return true
+    end
+
+    return false
+end
+
+-- Handle pause menu clicks
+function UISystem.handlePauseMenuClick(x, y, callbacks)
+    local canvasX, canvasY = screenToCanvas(x, y)
+
+    -- Button positions
+    local btnWidth = 100
+    local btnHeight = 20
+    local btnX = GAME_WIDTH / 2 - btnWidth / 2
+    local resumeY = 100
+    local quitY = 130
+
+    -- Check Resume button
+    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= resumeY and canvasY <= resumeY + btnHeight then
+        if callbacks.onResume then
+            callbacks.onResume()
+        end
+        return true
+    end
+
+    -- Check Quit Game button
+    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= quitY and canvasY <= quitY + btnHeight then
+        if callbacks.onQuit then
+            callbacks.onQuit()
+        end
+        return true
+    end
+
+    return false
+end
+
+-- Handle settings menu clicks
+function UISystem.handleSettingsClick(x, y, volume, callbacks)
+    local canvasX, canvasY = screenToCanvas(x, y)
+
+    -- Back button
+    local btnWidth = 100
+    local btnHeight = 20
+    local btnX = GAME_WIDTH / 2 - btnWidth / 2
+    local backY = 160
+
+    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= backY and canvasY <= backY + btnHeight then
+        if callbacks.onBack then
+            callbacks.onBack()
+        end
+        return true
+    end
+
+    -- Volume slider
+    local newVolume = UISystem.startSliderDrag(volume, callbacks.onVolumeChange)
+    return false, newVolume
+end
+
+-- Handle shop clicks
+function UISystem.handleShopClick(x, y, shopData, callbacks)
+    local canvasX, canvasY = screenToCanvas(x, y)
+
+    local boxX, boxY = 10, 10
+    local boxW = GAME_WIDTH - 20
+    local boxH = GAME_HEIGHT - 20
+
+    -- Check grid item clicks
+    local gridX = boxX + 4
+    local gridY = boxY + 30
+    local slotSize = 20
+    local padding = 4
+
+    for i, shopItem in ipairs(shopData.shopInventory) do
+        local slotX = gridX + ((i - 1) % 6) * (slotSize + padding)
+        local slotY = gridY + math.floor((i - 1) / 6) * (slotSize + padding)
+
+        if canvasX >= slotX and canvasX <= slotX + slotSize and canvasY >= slotY and canvasY <= slotY + slotSize then
+            if callbacks.onSelectItem then
+                callbacks.onSelectItem(i)
+            end
+            return true
+        end
+    end
+
+    -- Check purchase button click
+    if shopData.selectedShopItem then
+        local shopItem = shopData.shopInventory[shopData.selectedShopItem]
+        if shopItem then
+            local alreadyOwns = callbacks.hasItem and callbacks.hasItem(shopItem.itemId)
+            local canAfford = shopData.playerGold >= shopItem.price
+
+            if not alreadyOwns then
+                local btnY = boxY + boxH - 40
+                local btnW = 80
+                local btnH = 20
+                local detailX = boxX + 150
+                local detailW = boxW - 150 - 8
+                local btnX = detailX + (detailW - btnW) / 2
+
+                if canvasX >= btnX and canvasX <= btnX + btnW and canvasY >= btnY and canvasY <= btnY + btnH then
+                    if canAfford then
+                        if callbacks.onPurchase then
+                            callbacks.onPurchase(shopItem)
+                        end
+                    else
+                        if callbacks.onInsufficientFunds then
+                            callbacks.onInsufficientFunds()
+                        end
+                    end
+                    return true
+                end
+            end
+        end
+    end
+
+    return false
+end
+
+-- Handle quest turn-in clicks
+function UISystem.handleQuestTurnInClick(x, y, questTurnInData, inventory, callbacks)
+    if not questTurnInData then
+        return false
+    end
+
+    -- Note: x, y are already in canvas coordinates for this function
+    local quest = questTurnInData.quest
+
+    -- Calculate item slot positions (must match drawQuestTurnIn)
+    local boxX = GAME_WIDTH / 2 - 75
+    local boxY = GAME_HEIGHT - 90
+    local slotSize = 16
+    local padding = 3
+    local startY = boxY + 30
+
+    for i, itemId in ipairs(inventory) do
+        local slotX = boxX + 6
+        local slotY = startY + (i - 1) * (slotSize + padding)
+
+        -- Check if click is within this item slot
+        if x >= slotX and x <= slotX + slotSize and y >= slotY and y <= slotY + slotSize then
+            if itemId == quest.requiredItem then
+                -- Correct item clicked!
+                if callbacks.onCorrectItem then
+                    callbacks.onCorrectItem(quest, questTurnInData.npc)
+                end
+            else
+                -- Wrong item
+                if callbacks.onWrongItem then
+                    callbacks.onWrongItem()
+                end
+            end
+            return true
+        end
+    end
+
+    return false
+end
+
+-- Handle quest offer clicks
+function UISystem.handleQuestOfferClick(x, y, questOfferData, callbacks)
+    if not questOfferData then
+        return false
+    end
+
+    local canvasX, canvasY = screenToCanvas(x, y)
+
+    local boxX = GAME_WIDTH / 2 - 100
+    local boxY = GAME_HEIGHT / 2 - 60
+    local boxW = 200
+    local boxH = 120
+
+    local btnW = 70
+    local btnH = 18
+    local btnY = boxY + boxH - btnH - 6
+    local acceptX = boxX + boxW/2 - btnW - 4
+    local rejectX = boxX + boxW/2 + 4
+
+    -- Check accept button
+    if canvasX >= acceptX and canvasX <= acceptX + btnW and canvasY >= btnY and canvasY <= btnY + btnH then
+        if callbacks.onAccept then
+            callbacks.onAccept(questOfferData.quest)
+        end
+        return true
+    end
+
+    -- Check reject button
+    if canvasX >= rejectX and canvasX <= rejectX + btnW and canvasY >= btnY and canvasY <= btnY + btnH then
+        if callbacks.onReject then
+            callbacks.onReject()
+        end
+        return true
+    end
+
+    return false
 end
 
 return UISystem
