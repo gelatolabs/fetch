@@ -136,10 +136,6 @@ abilityManager:registerAbility({
     end
 })
 
--- Legacy compatibility (will be removed after full migration)
-local playerAbilities = {}
-local boatUses = 0
-local MAX_BOAT_USES = 3
 
 
 -- UI state
@@ -744,7 +740,8 @@ function love.keypressed(key)
                     showToast("Received: " .. itemName, {0.7, 0.5, 0.9})
                 end,
                 onAbilityLearn = function(abilityId, quest)
-                    playerAbilities[abilityId] = true
+                    local context = {showToast = showToast}
+                    abilityManager:grantAbility(abilityId, context)
                     completeQuest(quest)
                 end
             }
@@ -900,7 +897,7 @@ function interactWithNPC(npc)
                 npc = npc,
                 text = text
             })
-        elseif not playerAbilities[npc.givesAbility] then
+        elseif not abilityManager:hasAbility(npc.givesAbility) then
             -- Quest active and don't have ability, give it
             local text = npc.abilityGiveText or "You learned a new ability!"
             gameState = DialogSystem.showDialog({
@@ -964,51 +961,6 @@ function hasItem(itemId)
     return false
 end
 
--- Get item info from registry by ID or alias
-function getItemFromRegistry(nameOrAlias)
-    -- First check if it's a direct item ID
-    if itemRegistry[nameOrAlias] then
-        return itemRegistry[nameOrAlias]
-    end
-    
-    -- Then check aliases
-    for itemId, itemData in pairs(itemRegistry) do
-        for _, alias in ipairs(itemData.aliases) do
-            if alias == nameOrAlias then
-                return itemData
-            end
-        end
-    end
-    
-    return nil
-end
-
--- Get all item IDs from registry
-function getAllItemIds()
-    local ids = {}
-    for itemId, _ in pairs(itemRegistry) do
-        table.insert(ids, itemId)
-    end
-    return ids
-end
-
--- Get ability info from registry by ID or alias
-function getAbilityFromRegistry(nameOrAlias)
-    local ability = abilityManager:getRegisteredAbility(nameOrAlias)
-    if ability then
-        return {
-            id = ability.id,
-            name = ability.name,
-            aliases = ability.aliases
-        }
-    end
-    return nil
-end
-
--- Get all ability IDs from registry
-function getAllAbilityIds()
-    return abilityManager:getAllRegisteredAbilityIds()
-end
 
 function removeItem(itemId)
     for i, item in ipairs(inventory) do
