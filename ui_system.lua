@@ -38,6 +38,7 @@ local currentDialogIndex = 0
 local chatMessages = {} -- {speaker, text, displayedText, animTimer}
 local jarfSprite = nil
 local developerSprite = nil
+local itemTileset = nil -- Tileset containing item sprites
 local chatPaneVisible = false -- Track if chat pane should be visible
 local chatPaneTransition = {
     active = false,
@@ -128,6 +129,10 @@ function UISystem.init()
     jarfSprite:setFilter("nearest", "nearest")
     developerSprite = love.graphics.newImage("sprites/developer.png")
     developerSprite:setFilter("nearest", "nearest")
+    
+    -- Load item tileset
+    itemTileset = love.graphics.newImage("tiles/fetch-tileset.png")
+    itemTileset:setFilter("nearest", "nearest")
     
     -- Create CRT glitch shader
     -- Glitch shader (RGB split, horizontal distortion, noise)
@@ -224,6 +229,10 @@ end
 
 function UISystem.getScale()
     return SCALE
+end
+
+function UISystem.getItemTileset()
+    return itemTileset
 end
 
 function UISystem.getChatPaneWidth()
@@ -1113,10 +1122,22 @@ function UISystem.drawInventory(inventory, itemRegistry)
 
         -- Draw item if present
         if inventory[i+1] then
-            love.graphics.setColor(0.7, 0.5, 0.9)
-            love.graphics.rectangle("fill", slotX+2, slotY+2, slotSize-4, slotSize-4)
-            love.graphics.setColor(0.9, 0.7, 1)
-            love.graphics.rectangle("line", slotX+2, slotY+2, slotSize-4, slotSize-4)
+            local itemId = inventory[i+1]
+            local itemData = itemRegistry[itemId]
+            
+            -- Get icon (with fallback to placeholder at 32, 192)
+            local icon = itemData and itemData.icon
+            local spriteX = icon and icon.x or 32
+            local spriteY = icon and icon.y or 192
+            
+            love.graphics.setColor(1, 1, 1)
+            local quad = love.graphics.newQuad(
+                spriteX, spriteY,
+                16, 16,
+                itemTileset:getDimensions()
+            )
+            -- Center the 16x16 sprite in the 20x20 slot
+            love.graphics.draw(itemTileset, quad, slotX+2, slotY+2)
         end
     end
 
