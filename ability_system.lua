@@ -50,18 +50,18 @@ function Ability:hasEffect(effectType)
     return false
 end
 
-function Ability:use(context)
+function Ability:use()
     -- Consume use if consumable
     if self.type == AbilitySystem.AbilityType.CONSUMABLE then
         self.currentUses = self.currentUses - 1
         
         if self.currentUses <= 0 and self.onExpire then
-            self.onExpire(context)
+            self.onExpire(self)
         end
     end
     
     if self.onUse then
-        self.onUse(context, self)
+        self.onUse(self)
     end
     
     return true
@@ -84,7 +84,7 @@ function PlayerAbilityManager:registerAbility(config)
     return ability
 end
 
-function PlayerAbilityManager:grantAbility(abilityId, context)
+function PlayerAbilityManager:grantAbility(abilityId)
     local def = self.abilityRegistry[abilityId]
     if not def then
         return false
@@ -107,7 +107,7 @@ function PlayerAbilityManager:grantAbility(abilityId, context)
     self.abilities[abilityId] = ability
     
     if ability.onAcquire then
-        ability.onAcquire(context, ability)
+        ability.onAcquire(ability)
     end
     
     return true
