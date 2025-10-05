@@ -546,6 +546,11 @@ function love.keypressed(key)
                 end
             end
             if shouldClear then
+                -- Call onComplete callback if it exists before clearing
+                local currentDialog = DialogSystem.getCurrentDialog()
+                if currentDialog and currentDialog.onComplete then
+                    currentDialog.onComplete()
+                end
                 DialogSystem.clearDialog()
             end
         end
