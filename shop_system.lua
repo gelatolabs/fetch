@@ -255,17 +255,26 @@ end
 function ShopSystem.handleClick(x, y, purchaseCallback)
     
     -- Convert screen coordinates to canvas coordinates
+    -- Need to account for canvas shift during transition
     local screenWidth, screenHeight = love.graphics.getDimensions()
-    local TOTAL_WIDTH = UISystem.getChatPaneWidth() + UISystem.getGameWidth()
-    local SCALE = UISystem.getScale()
-    local offsetX = math.floor((screenWidth - TOTAL_WIDTH * SCALE) / 2 / SCALE) * SCALE
-    local offsetY = math.floor((screenHeight - UISystem.getGameHeight() * SCALE) / 2 / SCALE) * SCALE
-    local canvasX = (x - offsetX) / SCALE
-    local canvasY = (y - offsetY) / SCALE
-    
     local CHAT_PANE_WIDTH = UISystem.getChatPaneWidth()
     local GAME_WIDTH = UISystem.getGameWidth()
     local GAME_HEIGHT = UISystem.getGameHeight()
+    local TOTAL_WIDTH = CHAT_PANE_WIDTH + GAME_WIDTH
+    local SCALE = UISystem.getScale()
+    
+    -- Get transition progress to account for canvas shift
+    local transitionProgress = UISystem.getChatPaneTransitionProgress()
+    local currentVisibleWidth = GAME_WIDTH + (CHAT_PANE_WIDTH * transitionProgress)
+    
+    local offsetX = math.floor((screenWidth - currentVisibleWidth * SCALE) / 2 / SCALE) * SCALE
+    local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
+    
+    -- Account for canvas shift to hide chat pane initially
+    offsetX = offsetX - (CHAT_PANE_WIDTH * (1 - transitionProgress) * SCALE)
+    
+    local canvasX = (x - offsetX) / SCALE
+    local canvasY = (y - offsetY) / SCALE
     
     local boxX, boxY = CHAT_PANE_WIDTH + 10, 10
     local boxW = GAME_WIDTH - 20
