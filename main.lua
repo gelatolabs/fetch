@@ -608,21 +608,7 @@ function love.keyreleased(key)
 end
 
 function enterDoor(door)
-    -- Determine transition direction based on door direction property
-    local transitionDirection = nil
-    if door.direction == "horizontal" then
-        -- Horizontal doors are north/south transitions
-        if door.targetMap == "mapnorth" or (currentMap == "mapnorth" and door.targetMap == "map") then
-            transitionDirection = door.targetMap == "mapnorth" and "north" or "south"
-        elseif door.targetMap == "mapsouth" or (currentMap == "mapsouth" and door.targetMap == "map") then
-            transitionDirection = door.targetMap == "mapsouth" and "south" or "north"
-        end
-    elseif door.direction == "vertical" then
-        -- Vertical doors are east/west transitions
-        if door.targetMap == "mapwest" or (currentMap == "mapwest" and door.targetMap == "map") then
-            transitionDirection = door.targetMap == "mapwest" and "west" or "east"
-        end
-    end
+    local transitionDirection = door.direction
 
     -- Calculate target position with offset
     local targetX = door.targetX + (door.offsetX or 0)
@@ -635,8 +621,8 @@ function enterDoor(door)
         AudioSystem.playMusic("theme")
     end
 
-    -- For shop (indoor) transitions or no direction, use instant transition
-    if not transitionDirection or door.targetMap == "shop" or currentMap == "shop" then
+    -- If no direction, use instant transition
+    if not transitionDirection then
         -- Load the new map
         currentMap = door.targetMap
         map = sti(MapSystem.getMapPath(currentMap))
@@ -832,12 +818,12 @@ function love.draw()
             local gameHeight = UISystem.getGameHeight()
             local gameWidth = UISystem.getGameWidth()
 
-            if mapTransition.direction == "north" then
-                -- Moving north: new map (mapnorth) slides in from top
+            if mapTransition.direction == "up" then
+                -- Moving up: new map slides in from top
                 -- Show bottom of new map touching top of old map, then slide down
                 local slideOffset = eased * gameHeight
 
-                -- For the new map (mapnorth), we need to show its BOTTOM edge at the top
+                -- For the new map, we need to show its BOTTOM edge at the top
                 -- This means adjusting camY to point to the bottom of the new map
                 local newMapCamY = MapSystem.getMapHeight(mapTransition.toMapObj) - gameHeight
 
@@ -845,50 +831,23 @@ function love.draw()
                 drawMapAndNPCs(mapTransition.toMapObj, mapTransition.toMap, camX, newMapCamY, chatOffset, 0, -gameHeight + slideOffset)
                 -- Draw old map below
                 drawMapAndNPCs(mapTransition.fromMapObj, mapTransition.fromMap, camX, camY, chatOffset, 0, slideOffset)
-            elseif mapTransition.direction == "south" then
-                -- Moving south: new map slides in from bottom
-                -- Show top of new map touching bottom of old map, then slide up
+            elseif mapTransition.direction == "down" then
                 local slideOffset = -eased * gameHeight
-
-                -- For the new map, we need to show its TOP edge at the bottom
                 local newMapCamY = MapSystem.getMapMinY(mapTransition.toMapObj)
-
-                -- For the old map (e.g., mapnorth), we need to show its BOTTOM edge
                 local oldMapCamY = MapSystem.getMapHeight(mapTransition.fromMapObj) - gameHeight
-
-                -- Draw new map below (showing its top edge)
                 drawMapAndNPCs(mapTransition.toMapObj, mapTransition.toMap, camX, newMapCamY, chatOffset, 0, gameHeight + slideOffset)
-                -- Draw old map above (showing its bottom edge)
                 drawMapAndNPCs(mapTransition.fromMapObj, mapTransition.fromMap, camX, oldMapCamY, chatOffset, 0, slideOffset)
-            elseif mapTransition.direction == "east" then
-                -- Moving east: new map slides in from right
-                -- Show left edge of new map touching right edge of old map, then slide left
+            elseif mapTransition.direction == "right" then
                 local slideOffset = -eased * gameWidth
-
-                -- For the new map, show its LEFT edge (minX)
                 local newMapCamX = MapSystem.getMapMinX(mapTransition.toMapObj)
-
-                -- For the old map, show its RIGHT edge
                 local oldMapCamX = MapSystem.getMapWidth(mapTransition.fromMapObj) - gameWidth
-
-                -- Draw new map on right (showing its left edge)
                 drawMapAndNPCs(mapTransition.toMapObj, mapTransition.toMap, newMapCamX, camY, chatOffset, gameWidth + slideOffset, 0)
-                -- Draw old map on left (showing its right edge)
                 drawMapAndNPCs(mapTransition.fromMapObj, mapTransition.fromMap, oldMapCamX, camY, chatOffset, slideOffset, 0)
-            elseif mapTransition.direction == "west" then
-                -- Moving west: new map (mapwest) slides in from left
-                -- Show right edge of new map touching left edge of old map, then slide right
+            elseif mapTransition.direction == "left" then
                 local slideOffset = eased * gameWidth
-
-                -- For the new map (mapwest), show its RIGHT edge
                 local newMapCamX = MapSystem.getMapWidth(mapTransition.toMapObj) - gameWidth
-
-                -- For the old map, show its LEFT edge (minX)
                 local oldMapCamX = MapSystem.getMapMinX(mapTransition.fromMapObj)
-
-                -- Draw new map on left (showing its right edge)
                 drawMapAndNPCs(mapTransition.toMapObj, mapTransition.toMap, newMapCamX, camY, chatOffset, -gameWidth + slideOffset, 0)
-                -- Draw old map on right (showing its left edge)
                 drawMapAndNPCs(mapTransition.fromMapObj, mapTransition.fromMap, oldMapCamX, camY, chatOffset, slideOffset, 0)
             end
         else
