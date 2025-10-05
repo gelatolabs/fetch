@@ -138,6 +138,19 @@ function PlayerSystem.init(UISystem)
             UISystem.showToast("You can now jump over low obstacles!", {1.0, 0.9, 0.3})
         end
     })
+
+    abilityManager:registerAbility({
+        id = "speed",
+        name = "Speed Boost",
+        aliases = {"speed", "speedboost", "fast"},
+        type = AbilitySystem.AbilityType.PASSIVE,
+        effects = {AbilitySystem.EffectType.SPEED},
+        description = "Move 4x faster",
+        color = {1.0, 0.3, 0.3},
+        onAcquire = function(ability)
+            UISystem.showToast("You feel lightning fast!", {1.0, 0.3, 0.3})
+        end
+    })
 end
 
 -- Get player state
@@ -437,7 +450,7 @@ function PlayerSystem.update(dt, heldKeys)
                         player.moving = true
                         player.jumping = true
                         player.moveTimer = 0
-                        player.moveDuration = 0.25
+                        player.moveDuration = abilityManager:hasEffect(AbilitySystem.EffectType.SPEED) and 0.25 / 4 or 0.25
                     end
                 elseif not tileBlocked and not npcBlocked then
                     -- Normal movement
@@ -447,7 +460,7 @@ function PlayerSystem.update(dt, heldKeys)
                     player.moving = true
                     player.jumping = false
                     player.moveTimer = 0
-                    player.moveDuration = 0.15
+                    player.moveDuration = abilityManager:hasEffect(AbilitySystem.EffectType.SPEED) and 0.15 / 4 or 0.15
                 end
             end
         end
@@ -516,7 +529,7 @@ function PlayerSystem.update(dt, heldKeys)
                     player.moving = true
                     player.jumping = true
                     player.moveTimer = 0
-                    player.moveDuration = 0.25  -- Jumps take a bit longer
+                    player.moveDuration = abilityManager:hasEffect(AbilitySystem.EffectType.SPEED) and 0.25 / 4 or 0.25  -- Jumps take a bit longer
                 end
             elseif not tileBlocked and not npcBlocked then
                 -- Normal movement
@@ -525,7 +538,7 @@ function PlayerSystem.update(dt, heldKeys)
                 player.moving = true
                 player.jumping = false
                 player.moveTimer = 0
-                player.moveDuration = 0.15  -- Normal walk speed
+                player.moveDuration = abilityManager:hasEffect(AbilitySystem.EffectType.SPEED) and 0.15 / 4 or 0.15  -- Normal walk speed
             end
         end
     end
