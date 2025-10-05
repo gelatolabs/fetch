@@ -242,8 +242,12 @@ GPU: GooseForce 128]]
             UISystem.showToast("progressDialog not available", {1, 0.3, 0.3})
         end
 
+    elseif command == "nojarf" then
+        UISystem.toggleChatPane()
+        UISystem.showToast("Chat pane toggled", {1, 0.5, 0})
+        
     elseif command == "help" or command == "?" then
-        UISystem.showToast("Cheats: noclip, grid, unlock/lock, god, fetch, toss, gold/setgold, jarf, screenfetch", {1, 1, 0.3})
+        UISystem.showToast("Cheats: noclip, grid, unlock/lock, god, fetch, toss, gold/setgold, jarf, nojarf, screenfetch", {1, 1, 0.3})
 
     else
         UISystem.showToast("Unknown cheat: " .. code, {1, 0.3, 0.3})
