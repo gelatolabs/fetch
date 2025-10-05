@@ -955,12 +955,8 @@ function love.draw()
         local camY = camera.y
         local chatOffset = UISystem.getChatPaneWidth()
 
-        -- Draw the Tiled map (offset by chat pane width)
-        love.graphics.setColor(1, 1, 1)
-        map:draw(chatOffset - camX, -camY)
-
-        -- Draw NPCs (only on current map, offset by chat pane)
-        drawNPCs(camX, camY, chatOffset)
+        -- Draw the map and NPCs
+        drawMapAndNPCs(map, currentMap, camX, camY, chatOffset)
 
         -- Draw player
         PlayerSystem.draw(camX, camY, chatOffset)
@@ -993,12 +989,8 @@ function love.draw()
         local camY = camera.y
         local chatOffset = UISystem.getChatPaneWidth()
 
-        -- Draw the Tiled map (offset by chat pane width)
-        love.graphics.setColor(1, 1, 1)
-        map:draw(chatOffset - camX, -camY)
-
-        -- Draw NPCs (only on current map, offset by chat pane)
-        drawNPCs(camX, camY, chatOffset)
+        -- Draw the map and NPCs
+        drawMapAndNPCs(map, currentMap, camX, camY, chatOffset)
 
         -- Draw player
         PlayerSystem.draw(camX, camY, chatOffset)
@@ -1023,12 +1015,8 @@ function love.draw()
         local camY = camera.y
         local chatOffset = UISystem.getChatPaneWidth()
 
-        -- Draw the Tiled map (offset by chat pane width)
-        love.graphics.setColor(1, 1, 1)
-        map:draw(chatOffset - camX, -camY)
-
-        -- Draw NPCs (only on current map, offset by chat pane)
-        drawNPCs(camX, camY, chatOffset)
+        -- Draw the map and NPCs
+        drawMapAndNPCs(map, currentMap, camX, camY, chatOffset)
 
         -- Draw player
         PlayerSystem.draw(camX, camY, chatOffset)
