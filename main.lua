@@ -667,7 +667,8 @@ function love.mousepressed(x, y, button)
     if gameState == "questTurnIn" then
         -- Convert screen coordinates to canvas coordinates
         local screenWidth, screenHeight = love.graphics.getDimensions()
-        local offsetX = math.floor((screenWidth - UISystem.getGameWidth() * UISystem.getScale()) / 2 / UISystem.getScale()) * UISystem.getScale()
+        local totalWidth = UISystem.getChatPaneWidth() + UISystem.getGameWidth()
+        local offsetX = math.floor((screenWidth - totalWidth * UISystem.getScale()) / 2 / UISystem.getScale()) * UISystem.getScale()
         local offsetY = math.floor((screenHeight - UISystem.getGameHeight() * UISystem.getScale()) / 2 / UISystem.getScale()) * UISystem.getScale()
         local canvasX = (x - offsetX) / UISystem.getScale()
         local canvasY = (y - offsetY) / UISystem.getScale()
@@ -1177,7 +1178,11 @@ function love.draw()
         for _, npc in ipairs(npcs) do
             if npc.map == currentMap then
                 love.graphics.setColor(1, 1, 1)
-                love.graphics.draw(npc.spriteImage, chatOffset + npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+                if npc.sprite.quad then
+                    love.graphics.draw(npc.sprite.tileset, npc.sprite.quad, chatOffset + npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+                else
+                    love.graphics.draw(npc.sprite.image, chatOffset + npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+                end
             end
         end
 
