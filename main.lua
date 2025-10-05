@@ -50,6 +50,7 @@ local player = {
     size = 16,
     direction = "down",
     facing = "right",  -- Add this line: remembers last horizontal direction
+    lastVertical = "down",  -- Add this line: tracks last vertical direction
     moving = false,
     moveTimer = 0,
     moveDuration = 0.15,  -- Time to move one tile (in seconds)
@@ -236,8 +237,6 @@ function love.load()
             love.graphics.newQuad(48, 0, 16, 16, playerTileset:getDimensions())
         }
     }
-    playerQuads.regular.left = playerQuads.regular.down
-    playerQuads.regular.right = playerQuads.regular.down
 
     -- Boat movement quads
     playerQuads.boat = {
@@ -250,8 +249,6 @@ function love.load()
             love.graphics.newQuad(112, 0, 16, 16, playerTileset:getDimensions())
         }
     }
-    playerQuads.boat.left = playerQuads.boat.down
-    playerQuads.boat.right = playerQuads.boat.down
 
     -- Swimming movement quads
     playerQuads.swimming = {
@@ -264,8 +261,6 @@ function love.load()
             love.graphics.newQuad(176, 0, 16, 16, playerTileset:getDimensions())
         }
     }
-    playerQuads.swimming.left = playerQuads.swimming.down
-    playerQuads.swimming.right = playerQuads.swimming.down
     
     npcSprite = love.graphics.newImage("sprites/npc.png")
 
@@ -449,8 +444,10 @@ function love.update(dt)
 
                     if queuedDir == "up" then
                         newGridY = player.gridY - 1
+                        player.lastVertical = "up"
                     elseif queuedDir == "down" then
                         newGridY = player.gridY + 1
+                        player.lastVertical = "down"
                     elseif queuedDir == "left" then
                         player.facing = "left"
                         newGridX = player.gridX - 1
@@ -514,10 +511,12 @@ function love.update(dt)
                 if love.keyboard.isDown(key) then
                     if key == "w" or key == "up" then
                         moveDir = "up"
+                        player.lastVertical = "up"  -- Add this line
                         newGridY = player.gridY - 1
                         break
                     elseif key == "s" or key == "down" then
                         moveDir = "down"
+                        player.lastVertical = "down"  -- Add this line
                         newGridY = player.gridY + 1
                         break
                     elseif key == "a" or key == "left" then
@@ -1288,7 +1287,7 @@ function love.draw()
         -- Draw player with appropriate sprite
         love.graphics.setColor(1, 1, 1)
         local spriteSet = getPlayerSpriteSet()
-        local currentQuad = spriteSet[player.direction][player.moving and (player.walkFrame + 1) or 1]
+        local currentQuad = spriteSet[player.lastVertical][player.moving and (player.walkFrame + 1) or 1]
         local scaleX = (player.facing == "left") and -1 or 1
         local offsetX = (player.facing == "left") and player.size or 0
         love.graphics.draw(
@@ -1351,7 +1350,7 @@ function love.draw()
 
         -- Draw player
         love.graphics.setColor(1, 1, 1)
-        local currentQuad = playerQuads[player.direction][player.moving and (player.walkFrame + 1) or 1]
+        local currentQuad = playerQuads[player.lastVertical][player.moving and (player.walkFrame + 1) or 1]
         local scaleX = (player.facing == "left") and -1 or 1
         local offsetX = (player.facing == "left") and player.size or 0
         love.graphics.draw(
@@ -1395,7 +1394,7 @@ function love.draw()
         -- Draw player
         love.graphics.setColor(1, 1, 1)
         local spriteSet = getPlayerSpriteSet()
-        local currentQuad = spriteSet[player.direction][player.moving and (player.walkFrame + 1) or 1]
+        local currentQuad = spriteSet[player.lastVertical][player.moving and (player.walkFrame + 1) or 1]
         local scaleX = (player.facing == "left") and -1 or 1
         local offsetX = (player.facing == "left") and player.size or 0
         love.graphics.draw(
