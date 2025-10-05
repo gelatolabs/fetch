@@ -28,7 +28,7 @@ local doors = {
         targetMap = "shop",
         targetX = -9,
         targetY = 0,
-        text = "outside"
+        text = "Enter"
     },
     {
         map = "shop",
@@ -38,7 +38,7 @@ local doors = {
         targetMap = "map",
         targetX = 21,
         targetY = 9,
-        text = "inside"
+        text = "Leave"
     },
     {
         map = "map",
