@@ -12,6 +12,7 @@ local SCALE = 1
 
 -- Graphics resources
 local canvas = nil
+local tempCanvas = nil -- Temporary canvas for shader compositing
 
 -- Font resources
 local font = nil
@@ -43,6 +44,11 @@ local chatPaneTransition = {
     progress = 0,
     duration = 0.5 -- seconds for the slide animation
 }
+local scanlineGlitchTimer = 0 -- Timer for scanline appearance glitch
+local randomGlitchTimer = 0 -- Timer for random glitches while chat is open
+local nextRandomGlitch = 0 -- Time until next random glitch
+local timedGlitchTimer = 0 -- Timer for periodic glitch bursts
+local nextTimedGlitch = 0 -- Time until next timed glitch
 
 -- Game state references (set by main.lua)
 local gameStateRefs = {
@@ -109,6 +115,10 @@ function UISystem.init()
     -- Create canvas (always full width to support both states)
     canvas = love.graphics.newCanvas(TOTAL_WIDTH, GAME_HEIGHT)
     canvas:setFilter("nearest", "nearest")
+    
+    -- Create temporary canvas for shader compositing
+    tempCanvas = love.graphics.newCanvas(TOTAL_WIDTH, GAME_HEIGHT)
+    tempCanvas:setFilter("nearest", "nearest")
 
     -- Load fonts
     UISystem.loadFonts()
@@ -120,7 +130,8 @@ function UISystem.init()
     developerSprite:setFilter("nearest", "nearest")
     
     -- Create CRT glitch shader
-    crtShader = love.graphics.newShader([[
+    -- Glitch shader (RGB split, horizontal distortion, noise)
+    glitchShader = love.graphics.newShader([[
         uniform float time;
         uniform float glitchIntensity;
         
@@ -142,7 +153,7 @@ function UISystem.init()
                 float b = Texel(texture, texture_coords - vec2(offset, 0.0)).b;
                 pixel.rgb = vec3(r, g, b);
                 
-                // Scanlines
+                // Scanlines (during glitch)
                 float scanline = sin(screen_coords.y * 2.0) * 0.1 * glitchIntensity;
                 pixel.rgb -= scanline;
                 
@@ -154,11 +165,52 @@ function UISystem.init()
             return pixel * color;
         }
     ]])
+    
+    -- Scanline shader (persistent CRT effect)
+    scanlineShader = love.graphics.newShader([[
+        uniform float time;
+        uniform float scanlineIntensity;
+        
+        vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords) {
+            vec4 pixel = Texel(texture, texture_coords);
+            
+            if (scanlineIntensity > 0.0) {
+                // Intermittent tracking issues - only happens occasionally
+                float trackingGlitch = sin(time * 0.3) * 0.5 + 0.5; // Slow oscillation
+                float shouldGlitch = step(0.85, trackingGlitch); // Only glitch 15% of the time
+                
+                // Bigger, more visible scanlines with occasional movement
+                float movement = shouldGlitch * sin(time * 2.0) * 3.0; // Quick drift when glitching
+                float scanline = sin((screen_coords.y + movement) * 1.0) * 0.15;
+                pixel.rgb -= scanline * scanlineIntensity;
+                
+                // Rare interference lines that sweep by
+                float interferenceTime = sin(time * 0.8) * 0.5 + 0.5;
+                if (interferenceTime > 0.95) {
+                    float interference = sin((screen_coords.y * 0.1) + (time * 5.0)) * 0.5 + 0.5;
+                    if (interference > 0.97) {
+                        pixel.rgb -= 0.12 * scanlineIntensity;
+                    }
+                }
+                
+                // Subtle CRT curve darkening at edges
+                vec2 uv = screen_coords / love_ScreenSize.xy;
+                float vignette = 1.0 - length(uv - 0.5) * 0.3;
+                pixel.rgb *= mix(1.0, vignette, scanlineIntensity * 0.5);
+            }
+            
+            return pixel * color;
+        }
+    ]])
 end
 
 -- Get the canvas
 function UISystem.getCanvas()
     return canvas
+end
+
+function UISystem.getTempCanvas()
+    return tempCanvas
 end
 
 -- Get UI constants
@@ -301,6 +353,8 @@ function UISystem.progressDialog()
             -- Start transition animation
             chatPaneTransition.active = true
             chatPaneTransition.progress = 0
+            -- Trigger scanline glitch effect
+            scanlineGlitchTimer = 0.4 -- Glitch for 0.4 seconds when scanlines appear
         end
         
         currentDialogIndex = currentDialogIndex + 1
@@ -328,6 +382,39 @@ function UISystem.updateChat(dt)
             chatPaneTransition.progress = 1
             chatPaneTransition.active = false
         end
+    end
+    
+    -- Update scanline glitch timer
+    if scanlineGlitchTimer > 0 then
+        scanlineGlitchTimer = scanlineGlitchTimer - dt
+        if scanlineGlitchTimer < 0 then
+            scanlineGlitchTimer = 0
+        end
+    end
+    
+    -- Timed glitch bursts while chat is open
+    if chatPaneVisible and not chatPaneTransition.active then
+        -- Countdown to next timed glitch
+        if nextTimedGlitch <= 0 then
+            -- Trigger a timed glitch burst
+            timedGlitchTimer = love.math.random() * 0.3 + 0.2 -- 0.2-0.5 seconds
+            -- Schedule next glitch in 4-10 seconds
+            nextTimedGlitch = love.math.random() * 6 + 4
+        else
+            nextTimedGlitch = nextTimedGlitch - dt
+        end
+        
+        -- Update active timed glitch
+        if timedGlitchTimer > 0 then
+            timedGlitchTimer = timedGlitchTimer - dt
+            if timedGlitchTimer < 0 then
+                timedGlitchTimer = 0
+            end
+        end
+    else
+        -- Reset timers when chat is closed
+        timedGlitchTimer = 0
+        nextTimedGlitch = 0
     end
     
     -- Update message text animation
@@ -1112,6 +1199,8 @@ function UISystem.toggleChatPane()
         -- Opening chat pane
         chatPaneTransition.active = true
         chatPaneTransition.progress = 0
+        -- Trigger scanline glitch effect
+        scanlineGlitchTimer = 0.4
     else
         -- Closing chat pane - reverse the transition
         chatPaneTransition.active = true
@@ -1139,23 +1228,113 @@ end
 
 -- Get glitch intensity based on transition
 function UISystem.getGlitchIntensity()
+    local intensity = 0
+    
+    -- Glitch during chat pane transition
     if chatPaneTransition.active then
-        -- Glitch effect during transition
         local progress = chatPaneTransition.progress
         if chatPaneVisible then
             -- Opening: strong glitch at start, fades out
-            return (1 - progress) * 1.0
+            intensity = math.max(intensity, (1 - progress) * 1.0)
         else
             -- Closing: glitch builds up
-            return progress * 0.8
+            intensity = math.max(intensity, progress * 0.8)
         end
     end
-    return 0
+    
+    -- Additional glitch when scanlines first appear
+    if scanlineGlitchTimer > 0 then
+        -- Intense glitch that fades out
+        intensity = math.max(intensity, (scanlineGlitchTimer / 0.4) * 1.2)
+    end
+    
+    -- Timed glitch bursts while chat is open
+    if timedGlitchTimer > 0 then
+        -- Moderate intensity glitch with fade
+        local normalizedTime = timedGlitchTimer / 0.5
+        intensity = math.max(intensity, normalizedTime * 0.7)
+    end
+    
+    return intensity
 end
 
--- Get shader for effects
-function UISystem.getShader()
-    return crtShader
+-- Check if persistent scanlines should be shown
+function UISystem.shouldShowScanlines()
+    return chatPaneVisible
+end
+
+-- Get glitch shader
+function UISystem.getGlitchShader()
+    return glitchShader
+end
+
+-- Get scanline shader
+function UISystem.getScanlineShader()
+    return scanlineShader
+end
+
+-- Draw the canvas with shader effects applied
+-- Call this instead of manually drawing the canvas
+function UISystem.drawCanvasWithShaders(offsetX, offsetY, scale)
+    local glitchIntensity = UISystem.getGlitchIntensity()
+    local showScanlines = UISystem.shouldShowScanlines()
+    local scanlineIntensity = showScanlines and 1.0 or 0.0
+    
+    local hasGlitch = glitchIntensity > 0
+    local hasScanlines = scanlineIntensity > 0
+    
+    -- If we have both effects, composite them using a temp canvas
+    if hasGlitch and hasScanlines then
+        -- Save current scissor state
+        local sx, sy, sw, sh = love.graphics.getScissor()
+        
+        -- Temporarily disable scissor for rendering to temp canvas
+        love.graphics.setScissor()
+        
+        -- First pass: draw main canvas with glitch shader to temp canvas
+        love.graphics.setShader(glitchShader)
+        glitchShader:send("time", love.timer.getTime())
+        glitchShader:send("glitchIntensity", glitchIntensity)
+        
+        love.graphics.setCanvas(tempCanvas)
+        love.graphics.clear()
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.draw(canvas, 0, 0)
+        love.graphics.setCanvas()
+        
+        -- Restore scissor
+        if sx then
+            love.graphics.setScissor(sx, sy, sw, sh)
+        end
+        
+        -- Second pass: draw temp canvas with scanline shader to screen
+        love.graphics.setShader(scanlineShader)
+        scanlineShader:send("time", love.timer.getTime())
+        scanlineShader:send("scanlineIntensity", scanlineIntensity)
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.draw(tempCanvas, offsetX, offsetY, 0, scale, scale)
+        
+    elseif hasGlitch then
+        -- Only glitch shader
+        love.graphics.setShader(glitchShader)
+        glitchShader:send("time", love.timer.getTime())
+        glitchShader:send("glitchIntensity", glitchIntensity)
+        love.graphics.draw(canvas, offsetX, offsetY, 0, scale, scale)
+        
+    elseif hasScanlines then
+        -- Only scanline shader
+        love.graphics.setShader(scanlineShader)
+        scanlineShader:send("time", love.timer.getTime())
+        scanlineShader:send("scanlineIntensity", scanlineIntensity)
+        love.graphics.draw(canvas, offsetX, offsetY, 0, scale, scale)
+        
+    else
+        -- No shaders
+        love.graphics.draw(canvas, offsetX, offsetY, 0, scale, scale)
+    end
+    
+    -- Clear shader
+    love.graphics.setShader()
 end
 
 -- Draw chat pane
