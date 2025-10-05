@@ -22,6 +22,28 @@ local function trim(s)
     return s:match("^%s*(.-)%s*$")
 end
 
+-- Helper function to find item by name or alias
+local function findItemByNameOrAlias(param, itemRegistry)
+    -- First try direct lookup
+    local itemData = itemRegistry[param]
+    if itemData then
+        return itemData
+    end
+    
+    -- Check aliases
+    for itemId, data in pairs(itemRegistry) do
+        if data.aliases then
+            for _, alias in ipairs(data.aliases) do
+                if alias == param then
+                    return data
+                end
+            end
+        end
+    end
+    
+    return nil
+end
+
 -- Process a cheat code
 -- gameState should contain: abilityManager, activeQuests, completedQuests, quests, inventory, itemRegistry
 function CheatConsole.processCode(code, gameState)
@@ -119,47 +141,46 @@ function CheatConsole.processCode(code, gameState)
             UISystem.showToast("Usage: fetch <item> or fetch all", {1, 1, 0.3})
         elseif param == "all" then
             -- Clear inventory and add all items
-            for i = #gameState.inventory, 1, -1 do
-                gameState.inventory[i] = nil
-            end
+            PlayerSystem.clearInventory()
             -- Get all item IDs from registry
             for itemId, _ in pairs(gameState.itemRegistry) do
-                table.insert(gameState.inventory, itemId)
+                PlayerSystem.addItem(itemId)
             end
             UISystem.showToast("Given all items", {1, 0.5, 0})
         else
             -- Look up item in registry
-            local itemData = gameState.itemRegistry[param]
-            -- Also check aliases
-            if not itemData then
-                for itemId, data in pairs(gameState.itemRegistry) do
-                    if data.aliases then
-                        for _, alias in ipairs(data.aliases) do
-                            if alias == param then
-                                itemData = data
-                                break
-                            end
-                        end
-                    end
-                    if itemData then break end
-                end
-            end
+            local itemData = findItemByNameOrAlias(param, gameState.itemRegistry)
             
             if itemData then
                 -- Check if already have it
-                local hasItem = false
-                for _, item in ipairs(gameState.inventory) do
-                    if item == itemData.id then
-                        hasItem = true
-                        break
-                    end
-                end
-                
-                if not hasItem then
-                    table.insert(gameState.inventory, itemData.id)
+                if not PlayerSystem.hasItem(itemData.id) then
+                    PlayerSystem.addItem(itemData.id)
                     UISystem.showToast("Received: " .. itemData.name, {1, 0.5, 0})
                 else
                     UISystem.showToast("You already have that item!", {1, 0.5, 0})
+                end
+            else
+                UISystem.showToast("Unknown item: " .. param, {1, 0.3, 0.3})
+            end
+        end
+        
+    elseif command == "toss" then
+        if param == "" then
+            UISystem.showToast("Usage: toss <item> or toss all", {1, 1, 0.3})
+        elseif param == "all" then
+            local count = PlayerSystem.clearInventory()
+            UISystem.showToast("Tossed " .. count .. " items from inventory", {1, 0.5, 0})
+        else
+            -- Look up item in registry
+            local itemData = findItemByNameOrAlias(param, gameState.itemRegistry)
+            
+            if itemData then
+                -- Check if player has the item
+                if PlayerSystem.hasItem(itemData.id) then
+                    PlayerSystem.removeItem(itemData.id)
+                    UISystem.showToast("Tossed: " .. itemData.name, {1, 0.5, 0})
+                else
+                    UISystem.showToast("You don't have that item!", {1, 0.5, 0})
                 end
             else
                 UISystem.showToast("Unknown item: " .. param, {1, 0.3, 0.3})
@@ -222,7 +243,7 @@ GPU: GooseForce 128]]
         end
 
     elseif command == "help" or command == "?" then
-        UISystem.showToast("Cheats: noclip, grid, unlock/lock, god, fetch, gold/setgold, jarf, screenfetch", {1, 1, 0.3})
+        UISystem.showToast("Cheats: noclip, grid, unlock/lock, god, fetch, toss, gold/setgold, jarf, screenfetch", {1, 1, 0.3})
 
     else
         UISystem.showToast("Unknown cheat: " .. code, {1, 0.3, 0.3})
