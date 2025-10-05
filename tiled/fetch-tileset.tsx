@@ -72,4 +72,10 @@
    <property name="height" type="float" value="1"/>
   </properties>
  </tile>
+ <tile id="183">
+  <properties>
+   <property name="collides" type="bool" value="true"/>
+   <property name="height" type="float" value="0.5"/>
+  </properties>
+ </tile>
 </tileset>

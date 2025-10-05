@@ -117,6 +117,13 @@ return {
         ["collides"] = true,
         ["height"] = 1
       }
+    },
+    {
+      id = 183,
+      properties = {
+        ["collides"] = true,
+        ["height"] = 0.5
+      }
     }
   }
 }
