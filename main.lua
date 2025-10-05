@@ -214,17 +214,30 @@ end
 
 function loadGameData()
     -- Load NPCs from quest data, validating positions
+    local npcTileset = love.graphics.newImage("tiles/fetch-tileset.png")
     for _, npcData in ipairs(questData.npcs) do
         local newX, newY, success = MapSystem.findValidSpawnPosition(npcData.x, npcData.y, "NPC '" .. npcData.name .. "'", 20)
         npcData.x = newX
         npcData.y = newY
         
-        -- Load NPC sprite (default to "sprites/npc.png" if not specified)
-        local spritePath = npcData.spritePath or "sprites/npc.png"
-        if not npcSprites[spritePath] then
-            npcSprites[spritePath] = love.graphics.newImage(spritePath)
+        -- Load NPC sprite from tileset using quad
+        if npcData.spriteX and npcData.spriteY then
+            npcData.sprite = {
+                tileset = npcTileset,
+                quad = love.graphics.newQuad(
+                    npcData.spriteX, 
+                    npcData.spriteY, 
+                    16, -- sprite width
+                    16, -- sprite height
+                    npcTileset:getDimensions()
+                )
+            }
+        else
+            -- Fallback to default sprite
+            npcData.sprite = {
+                image = love.graphics.newImage("sprites/npc.png")
+            }
         end
-        npcData.spriteImage = npcSprites[spritePath]
         
         table.insert(npcs, npcData)
     end
@@ -1008,8 +1021,23 @@ function love.draw()
         for _, npc in ipairs(npcs) do
             if npc.map == currentMap then
                 love.graphics.setColor(1, 1, 1)
-                love.graphics.draw(npc.spriteImage, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
-
+                if npc.sprite.quad then
+                    -- Draw from tileset using quad
+                    love.graphics.draw(
+                        npc.sprite.tileset, 
+                        npc.sprite.quad,
+                        npc.x - npc.size/2 - camX, 
+                        npc.y - npc.size/2 - camY
+                    )
+                else
+                    -- Draw fallback sprite
+                    love.graphics.draw(
+                        npc.sprite.image,
+                        npc.x - npc.size/2 - camX, 
+                        npc.y - npc.size/2 - camY
+                    )
+                end
+                
                 -- Draw quest indicator
                 if npc.isQuestGiver then
                     local quest = quests[npc.questId]
@@ -1065,7 +1093,22 @@ function love.draw()
         for _, npc in ipairs(npcs) do
             if npc.map == currentMap then
                 love.graphics.setColor(1, 1, 1)
-                love.graphics.draw(npc.spriteImage, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+                if npc.sprite.quad then
+                    -- Draw from tileset using quad
+                    love.graphics.draw(
+                        npc.sprite.tileset, 
+                        npc.sprite.quad,
+                        npc.x - npc.size/2 - camX, 
+                        npc.y - npc.size/2 - camY
+                    )
+                else
+                    -- Draw fallback sprite
+                    love.graphics.draw(
+                        npc.sprite.image,
+                        npc.x - npc.size/2 - camX, 
+                        npc.y - npc.size/2 - camY
+                    )
+                end
             end
         end
 
@@ -1121,7 +1164,22 @@ function love.draw()
         for _, npc in ipairs(npcs) do
             if npc.map == currentMap then
                 love.graphics.setColor(1, 1, 1)
-                love.graphics.draw(npc.spriteImage, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+                if npc.sprite.quad then
+                    -- Draw from tileset using quad
+                    love.graphics.draw(
+                        npc.sprite.tileset, 
+                        npc.sprite.quad,
+                        npc.x - npc.size/2 - camX, 
+                        npc.y - npc.size/2 - camY
+                    )
+                else
+                    -- Draw fallback sprite
+                    love.graphics.draw(
+                        npc.sprite.image,
+                        npc.x - npc.size/2 - camX, 
+                        npc.y - npc.size/2 - camY
+                    )
+                end
             end
         end
 
