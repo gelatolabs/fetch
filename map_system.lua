@@ -171,7 +171,7 @@ end
 
 -- Check if an NPC is at a position
 function MapSystem.isNPCAt(x, y)
-    for _, npc in ipairs(npcs) do
+    for _, npc in pairs(npcs) do
         if npc.map == currentMap then
             -- Check if NPC occupies this position (using grid-based collision)
             local npcGridX = math.floor(npc.x / 16)

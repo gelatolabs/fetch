@@ -192,7 +192,7 @@ function love.load()
     map = sti(MapSystem.getMapPath(currentMap))
     
     -- Initialize MapSystem
-    MapSystem.init(map, world, CheatConsole, npcs, currentMap)
+    MapSystem.init(map, world, CheatConsole, questData.npcs, currentMap)
     MapSystem.calculateMapBounds()
 
     -- Load game data
@@ -215,7 +215,7 @@ end
 function loadGameData()
     -- Load NPCs from quest data, validating positions
     local npcTileset = love.graphics.newImage("tiles/fetch-tileset.png")
-    for _, npcData in ipairs(questData.npcs) do
+    for _, npcData in pairs(questData.npcs) do
         local newX, newY, success = MapSystem.findValidSpawnPosition(npcData.x, npcData.y, "NPC '" .. npcData.name .. "'", 20)
         npcData.x = newX
         npcData.y = newY
@@ -238,8 +238,6 @@ function loadGameData()
                 image = love.graphics.newImage("sprites/npc.png")
             }
         end
-        
-        table.insert(npcs, npcData)
     end
 
     -- Load quests from quest data
@@ -520,7 +518,7 @@ function love.update(dt)
 
         -- Check for nearby NPCs (only on current map)
         nearbyNPC = nil
-        for _, npc in ipairs(npcs) do
+        for _, npc in pairs(questData.npcs) do
             if npc.map == currentMap then
                 local dist = math.sqrt((player.x - npc.x)^2 + (player.y - npc.y)^2)
                 if dist < 40 then
@@ -568,7 +566,7 @@ function love.mousepressed(x, y, button)
                 if not introShown then
                     introShown = true
                     -- Find the intro NPC
-                    for _, npc in ipairs(npcs) do
+                    for _, npc in pairs(questData.npcs) do
                         if npc.isIntroNPC then
                             gameState = DialogSystem.showDialog({
                                 type = "generic",
@@ -939,6 +937,17 @@ end
 function completeQuest(quest)
     quest.active = false
     quest.completed = true
+    if quest.updateQuestGiverSpriteX and quest.updateQuestGiverSpriteY then
+        questData.npcs[quest.questGiver].spriteX = quest.updateQuestGiverSpriteX
+        questData.npcs[quest.questGiver].spriteY = quest.updateQuestGiverSpriteY
+        questData.npcs[quest.questGiver].sprite.quad = love.graphics.newQuad(
+                    questData.npcs[quest.questGiver].spriteX, 
+                    questData.npcs[quest.questGiver].spriteY, 
+                    16, -- sprite width
+                    16, -- sprite height
+                    questData.npcs[quest.questGiver].sprite.tileset:getDimensions()
+                )
+    end
     table.remove(activeQuests, indexOf(activeQuests, quest.id))
     table.insert(completedQuests, quest.id)
 
@@ -1036,7 +1045,7 @@ function love.draw()
         map:draw(chatOffset - camX, -camY)
 
         -- Draw NPCs (only on current map, offset by chat pane)
-        for _, npc in ipairs(npcs) do
+        for _, npc in pairs(questData.npcs) do
             if npc.map == currentMap then
                 love.graphics.setColor(1, 1, 1)
                 if npc.sprite.quad then
@@ -1124,7 +1133,7 @@ function love.draw()
         map:draw(chatOffset - camX, -camY)
 
         -- Draw NPCs (only on current map, offset by chat pane)
-        for _, npc in ipairs(npcs) do
+        for _, npc in pairs(questData.npcs) do
             if npc.map == currentMap then
                 love.graphics.setColor(1, 1, 1)
                 if npc.sprite.quad then
@@ -1175,7 +1184,7 @@ function love.draw()
         map:draw(chatOffset - camX, -camY)
 
         -- Draw NPCs (only on current map, offset by chat pane)
-        for _, npc in ipairs(npcs) do
+        for _, npc in pairs(questData.npcs) do
             if npc.map == currentMap then
                 love.graphics.setColor(1, 1, 1)
                 if npc.sprite.quad then
@@ -1214,7 +1223,7 @@ function love.draw()
         map:draw(chatOffset - camX, -camY)
 
         -- Draw NPCs (only on current map, offset by chat pane)
-        for _, npc in ipairs(npcs) do
+        for _, npc in pairs(questData.npcs) do
             if npc.map == currentMap then
                 love.graphics.setColor(1, 1, 1)
                 if npc.sprite.quad then
