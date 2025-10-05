@@ -7,6 +7,7 @@ local DialogSystem = require "dialog_system"
 local UISystem = require "ui_system"
 local MapSystem = require "map_system"
 local PlayerSystem = require "player_system"
+local ShopSystem = require "shop_system"
 
 -- Game constants (managed by UISystem)
 -- Graphics resources (managed by UISystem)
@@ -50,12 +51,6 @@ local completedQuests = {}
 -- Inventory
 local inventory = {}
 
--- Shop inventory
-local shopInventory = {
-    {itemId = "item_rubber_duck", price = 10, description = "A cheerful rubber duck. Perfect for bath time or just keeping you company!"},
-    {itemId = "item_labubu", price = 10000, description = "An extremely rare and adorable Labubu collectible. Highly sought after by collectors!"}
-}
-
 -- Item registry (single source of truth for all items)
 local itemRegistry = {
     item_cat = {id = "item_cat", name = "Fluffy Cat", aliases = {"cat"}},
@@ -71,7 +66,6 @@ local itemRegistry = {
 -- UI state
 local nearbyNPC = nil
 local nearbyDoor = nil
-local selectedShopItem = nil
 local questTurnInData = nil  -- Stores {npc, quest} for quest turn-in UI
 local questOfferData = nil  -- Stores {npc, quest} for quest offer UI
 local winScreenTimer = 0
@@ -124,6 +118,9 @@ function love.load()
     -- Initialize Player system (includes ability registration)
     PlayerSystem.init(UISystem)
     player = PlayerSystem.getPlayer()
+
+    -- Initialize Shop system
+    ShopSystem.init()
 
     -- Load audio
     quackSound = love.audio.newSource("audio/quack.wav", "static")
@@ -316,25 +313,21 @@ function love.mousepressed(x, y, button)
 
     -- Handle shop clicks
     if gameState == "shop" then
-        UISystem.handleShopClick(x, y, {
-            shopInventory = shopInventory,
-            selectedShopItem = selectedShopItem,
-            playerGold = PlayerSystem.getGold()
-        }, {
-            onSelectItem = function(index)
-                selectedShopItem = index
-            end,
-            hasItem = hasItem,
-            onPurchase = function(shopItem)
-                PlayerSystem.subtractGold(shopItem.price)
-                table.insert(inventory, shopItem.itemId)
-                local itemData = itemRegistry[shopItem.itemId]
-                showToast("Purchased " .. (itemData and itemData.name or shopItem.itemId) .. "!", {0, 1, 0})
-            end,
-            onInsufficientFunds = function()
+        ShopSystem.handleClick(x, y, hasItem, function(shopItem)
+            if shopItem then
+                -- Purchase the item
+                local success, message, color = ShopSystem.purchaseItem(
+                    shopItem,
+                    hasItem,
+                    function(itemId) table.insert(inventory, itemId) end,
+                    itemRegistry
+                )
+                showToast(message, color)
+            else
+                -- Insufficient funds (nil indicates this)
                 showToast("Not enough gold!", {1, 0, 0})
             end
-        })
+        end)
         return
     end
 
@@ -538,7 +531,7 @@ function interactWithNPC(npc)
         })
     elseif npc.isShopkeeper then
         -- Open shop UI
-        selectedShopItem = 1  -- Select first item by default
+        ShopSystem.open()
         gameState = "shop"
     elseif npc.isQuestGiver then
         local quest = quests[npc.questId]
@@ -853,7 +846,14 @@ function love.draw()
     elseif gameState == "inventory" then
         UISystem.drawInventory(inventory, itemRegistry)
     elseif gameState == "shop" then
-        UISystem.drawShop(shopInventory, selectedShopItem, PlayerSystem.getGold(), inventory, itemRegistry, hasItem)
+        -- Draw gold display at top
+        love.graphics.push()
+        love.graphics.translate(UISystem.getChatPaneWidth(), 0)
+        UISystem.drawGoldDisplay(PlayerSystem.getGold())
+        love.graphics.pop()
+        
+        -- Draw shop UI
+        ShopSystem.draw(hasItem, itemRegistry)
     elseif gameState == "questTurnIn" then
         -- Clip rendering to game area only
         love.graphics.setScissor(UISystem.getChatPaneWidth(), 0, UISystem.getGameWidth(), UISystem.getGameHeight())
