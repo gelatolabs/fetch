@@ -189,8 +189,17 @@ RAM: 4KB DDR0.5
 GPU: GooseForce 128]]
         gameState.showToast(screenfetch, {0.3, 0.8, 1})
 
+    elseif command == "jarf" then
+        -- Progress the dialog (requires UISystem)
+        if gameState.progressDialog then
+            gameState.progressDialog()
+            gameState.showToast("Dialog progressed", {0.5, 1, 0.5})
+        else
+            gameState.showToast("progressDialog not available", {1, 0.3, 0.3})
+        end
+
     elseif command == "help" or command == "?" then
-        gameState.showToast("Cheats: noclip, grid, unlock/lock, god, fetch, gold/setgold, screenfetch", {1, 1, 0.3})
+        gameState.showToast("Cheats: noclip, grid, unlock/lock, god, fetch, gold/setgold, jarf, screenfetch", {1, 1, 0.3})
 
     else
         gameState.showToast("Unknown cheat: " .. code, {1, 0.3, 0.3})
