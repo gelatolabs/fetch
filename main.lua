@@ -39,6 +39,8 @@ local world = {
 }
 
 -- Quests (state managed by quest module)
+local quests = {}
+-- Point to quest module's state
 local activeQuests = questData.activeQuests
 local completedQuests = questData.completedQuests
 
@@ -53,8 +55,8 @@ local Icons = {
     rubber_duck = {x = 96, y = 192},
     shoes = {x = 112, y = 192},
     planks = {x = 128, y = 192},
-    hat = {x = 160, y = 192}
-
+    hat = {x = 160, y = 192},
+    feathers = {x = 240, y = 192}
 }
 
 -- Item registry (single source of truth for all items)
@@ -68,6 +70,7 @@ local itemRegistry = {
     item_rubber_duck = {id = "item_rubber_duck", name = "Rubber Duck", aliases = {"duck", "rubber duck"}, icon = Icons.rubber_duck, shopInfo = {price = 10, description = "A cheerful rubber duck. Perfect for bath time or just keeping you company!"}},
     item_labubu = {id = "item_labubu", name = "Labubu", aliases = {"labubu"}, icon = Icons.labubu, shopInfo = {price = 10000, description = "An extremely rare and adorable Labubu collectible. Highly sought after by collectors!"}},
     item_wizard_hat = {id = "item_wizard_hat", name = "Wizard's Hat", aliases = {"hat"}, icon = Icons.hat},
+    item_goose_feathers = {id = "item_goose_feathers", name = "Goose Feathers", aliases = {"feathers", "goose feathers"}, icon = Icons.feathers},
 }
 
 -- UI state
@@ -276,8 +279,8 @@ function love.update(dt)
     end
 
     if gameState == "playing" and not CheatConsole.isOpen() then
-        -- Update player movement (only if not transitioning and chat pane is closed)
-        if not mapTransition.active and not UISystem.isChatPaneVisible() then
+        -- Update player movement (only if not transitioning)
+        if not mapTransition.active then
             PlayerSystem.update(dt, heldKeys)
         end
 
@@ -290,7 +293,7 @@ function love.update(dt)
             for _, npc in pairs(questData.npcs) do
                 if npc.map == currentMap then
                     local dist = math.sqrt((player.x - npc.x)^2 + (player.y - npc.y)^2)
-                    if dist < 40 then
+                    if dist < 20 then
                         nearbyNPC = npc
                         break
                     end
@@ -555,7 +558,7 @@ function love.keypressed(key)
             end
         end
     elseif key == "l" then
-        if gameState == "playing" then
+        if gameState == "playing" and not UISystem.isChatPaneVisible() then
             gameState = "questLog"
         elseif gameState == "questLog" then
             gameState = "playing"
@@ -565,7 +568,7 @@ function love.keypressed(key)
             AudioSystem.playQuack()
         end
     elseif key == "i" then
-        if gameState == "playing" then
+        if gameState == "playing" and not UISystem.isChatPaneVisible() then
             gameState = "inventory"
         elseif gameState == "inventory" then
             gameState = "playing"
