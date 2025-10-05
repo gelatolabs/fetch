@@ -1,6 +1,9 @@
 -- Cheat Console System
 -- Provides a developer console for debugging and testing
 
+local UISystem = require "ui_system"
+local PlayerSystem = require "player_system"
+
 local CheatConsole = {}
 
 -- Console state
@@ -20,6 +23,7 @@ local function trim(s)
 end
 
 -- Process a cheat code
+-- gameState should contain: abilityManager, activeQuests, completedQuests, quests, inventory, itemRegistry
 function CheatConsole.processCode(code, gameState)
     code = trim(code:lower())
     
@@ -42,36 +46,36 @@ function CheatConsole.processCode(code, gameState)
     -- Process cheat codes
     if command == "noclip" then
         CheatConsole.state.noclip = not CheatConsole.state.noclip
-        gameState.showToast("Noclip: " .. (CheatConsole.state.noclip and "ON" or "OFF"), {1, 0.5, 0})
+        UISystem.showToast("Noclip: " .. (CheatConsole.state.noclip and "ON" or "OFF"), {1, 0.5, 0})
         
     elseif command == "grid" then
         CheatConsole.state.showGrid = not CheatConsole.state.showGrid
-        gameState.showToast("Show Grid: " .. (CheatConsole.state.showGrid and "ON" or "OFF"), {1, 0.5, 0})
+        UISystem.showToast("Show Grid: " .. (CheatConsole.state.showGrid and "ON" or "OFF"), {1, 0.5, 0})
         
     elseif command == "unlock" then
         if param == "" then
-            gameState.showToast("Usage: unlock <ability> (e.g. unlock swim)", {1, 1, 0.3})
+            UISystem.showToast("Usage: unlock <ability> (e.g. unlock swim)", {1, 1, 0.3})
         else
-            local abilityData = gameState.getAbilityFromRegistry(param)
+            local abilityData = gameState.abilityManager:getRegisteredAbility(param)
             if abilityData then
-                local context = {showToast = gameState.showToast}
+                local context = {showToast = UISystem.showToast}
                 gameState.abilityManager:grantAbility(abilityData.id, context)
-                gameState.showToast("Unlocked: " .. abilityData.name, {1, 0.5, 0})
+                UISystem.showToast("Unlocked: " .. abilityData.name, {1, 0.5, 0})
             else
-                gameState.showToast("Unknown ability: " .. param, {1, 0.3, 0.3})
+                UISystem.showToast("Unknown ability: " .. param, {1, 0.3, 0.3})
             end
         end
         
     elseif command == "lock" then
         if param == "" then
-            gameState.showToast("Usage: lock <ability> (e.g. lock swim)", {1, 1, 0.3})
+            UISystem.showToast("Usage: lock <ability> (e.g. lock swim)", {1, 1, 0.3})
         else
-            local abilityData = gameState.getAbilityFromRegistry(param)
+            local abilityData = gameState.abilityManager:getRegisteredAbility(param)
             if abilityData and gameState.abilityManager:hasAbility(abilityData.id) then
                 gameState.abilityManager:removeAbility(abilityData.id)
-                gameState.showToast("Locked: " .. abilityData.name, {1, 0.5, 0})
+                UISystem.showToast("Locked: " .. abilityData.name, {1, 0.5, 0})
             else
-                gameState.showToast("Unknown or not unlocked ability: " .. param, {1, 0.3, 0.3})
+                UISystem.showToast("Unknown or not unlocked ability: " .. param, {1, 0.3, 0.3})
             end
         end
         
@@ -80,18 +84,18 @@ function CheatConsole.processCode(code, gameState)
             -- Turn off god mode
             CheatConsole.state.noclip = false
             -- Remove all abilities
-            for _, abilityId in ipairs(gameState.getAllAbilityIds()) do
+            for _, abilityId in ipairs(gameState.abilityManager:getAllRegisteredAbilityIds()) do
                 gameState.abilityManager:removeAbility(abilityId)
             end
-            gameState.showToast("God Mode Deactivated!", {1, 0.5, 0})
+            UISystem.showToast("God Mode Deactivated!", {1, 0.5, 0})
         else
             -- Turn on god mode
             CheatConsole.state.noclip = true
-            local context = {showToast = gameState.showToast}
-            for _, abilityId in ipairs(gameState.getAllAbilityIds()) do
+            local context = {showToast = UISystem.showToast}
+            for _, abilityId in ipairs(gameState.abilityManager:getAllRegisteredAbilityIds()) do
                 gameState.abilityManager:grantAbility(abilityId, context)
             end
-            gameState.showToast("God Mode Activated!", {1, 0.5, 0})
+            UISystem.showToast("God Mode Activated!", {1, 0.5, 0})
         end
         
     elseif command == "questcomplete" or command == "finishquests" then
@@ -107,70 +111,93 @@ function CheatConsole.processCode(code, gameState)
         end
         gameState.activeQuests = {}
         if count > 0 then
-            gameState.showToast("Completed " .. count .. " quest(s)", {1, 0.5, 0})
+            UISystem.showToast("Completed " .. count .. " quest(s)", {1, 0.5, 0})
         else
-            gameState.showToast("No active quests", {1, 0.5, 0})
+            UISystem.showToast("No active quests", {1, 0.5, 0})
         end
         
     elseif command == "fetch" then
         if param == "" then
-            gameState.showToast("Usage: fetch <item> or fetch all", {1, 1, 0.3})
+            UISystem.showToast("Usage: fetch <item> or fetch all", {1, 1, 0.3})
         elseif param == "all" then
             -- Clear inventory and add all items
             for i = #gameState.inventory, 1, -1 do
                 gameState.inventory[i] = nil
             end
-            local allItems = gameState.getAllItemIds()
-            for _, itemId in ipairs(allItems) do
+            -- Get all item IDs from registry
+            for itemId, _ in pairs(gameState.itemRegistry) do
                 table.insert(gameState.inventory, itemId)
             end
-            gameState.showToast("Given all items", {1, 0.5, 0})
+            UISystem.showToast("Given all items", {1, 0.5, 0})
         else
             -- Look up item in registry
-            local itemData = gameState.getItemFromRegistry(param)
+            local itemData = gameState.itemRegistry[param]
+            -- Also check aliases
+            if not itemData then
+                for itemId, data in pairs(gameState.itemRegistry) do
+                    if data.aliases then
+                        for _, alias in ipairs(data.aliases) do
+                            if alias == param then
+                                itemData = data
+                                break
+                            end
+                        end
+                    end
+                    if itemData then break end
+                end
+            end
+            
             if itemData then
                 -- Check if already have it
-                if not gameState.hasItem(itemData.id) then
+                local hasItem = false
+                for _, item in ipairs(gameState.inventory) do
+                    if item == itemData.id then
+                        hasItem = true
+                        break
+                    end
+                end
+                
+                if not hasItem then
                     table.insert(gameState.inventory, itemData.id)
-                    gameState.showToast("Received: " .. itemData.name, {1, 0.5, 0})
+                    UISystem.showToast("Received: " .. itemData.name, {1, 0.5, 0})
                 else
-                    gameState.showToast("You already have that item!", {1, 0.5, 0})
+                    UISystem.showToast("You already have that item!", {1, 0.5, 0})
                 end
             else
-                gameState.showToast("Unknown item: " .. param, {1, 0.3, 0.3})
+                UISystem.showToast("Unknown item: " .. param, {1, 0.3, 0.3})
             end
         end
         
     elseif command == "abilities" or command == "unlockall" then
-        local context = {showToast = gameState.showToast}
-        for _, abilityId in ipairs(gameState.getAllAbilityIds()) do
+        local context = {showToast = UISystem.showToast}
+        for _, abilityId in ipairs(gameState.abilityManager:getAllRegisteredAbilityIds()) do
             gameState.abilityManager:grantAbility(abilityId, context)
         end
-        gameState.showToast("Unlocked all abilities", {1, 0.5, 0})
+        UISystem.showToast("Unlocked all abilities", {1, 0.5, 0})
         
     elseif command == "gold" or command == "money" then
         if param == "" then
-            gameState.showToast("Usage: gold <amount> (e.g. gold 100)", {1, 1, 0.3})
+            UISystem.showToast("Usage: gold <amount> (e.g. gold 100)", {1, 1, 0.3})
         else
             local amount = tonumber(param)
             if amount then
-                gameState.setGold(gameState.getGold() + amount)
-                gameState.showToast("Added " .. amount .. " gold", {1, 0.5, 0})
+                PlayerSystem.setGold(PlayerSystem.getGold() + amount)
+                UISystem.showToast("Added " .. amount .. " gold", {1, 0.5, 0})
             else
-                gameState.showToast("Invalid amount: " .. param, {1, 0.3, 0.3})
+                UISystem.showToast("Invalid amount: " .. param, {1, 0.3, 0.3})
             end
         end
         
     elseif command == "setgold" or command == "setmoney" then
         if param == "" then
-            gameState.showToast("Usage: setgold <amount> (e.g. setgold 500)", {1, 1, 0.3})
+            UISystem.showToast("Usage: setgold <amount> (e.g. setgold 500)", {1, 1, 0.3})
         else
             local amount = tonumber(param)
             if amount then
-                gameState.setGold(amount)
-                gameState.showToast("Set gold to " .. amount, {1, 0.5, 0})
+                PlayerSystem.setGold(amount)
+                UISystem.showToast("Set gold to " .. amount, {1, 0.5, 0})
             else
-                gameState.showToast("Invalid amount: " .. param, {1, 0.3, 0.3})
+                UISystem.showToast("Invalid amount: " .. param, {1, 0.3, 0.3})
             end
         end
         
@@ -187,13 +214,13 @@ WM: PondView
 CPU: Feather 6502
 RAM: 4KB DDR0.5
 GPU: GooseForce 128]]
-        gameState.showToast(screenfetch, {0.3, 0.8, 1})
+        UISystem.showToast(screenfetch, {0.3, 0.8, 1})
 
     elseif command == "help" or command == "?" then
-        gameState.showToast("Cheats: noclip, grid, unlock/lock, god, fetch, gold/setgold, screenfetch", {1, 1, 0.3})
+        UISystem.showToast("Cheats: noclip, grid, unlock/lock, god, fetch, gold/setgold, screenfetch", {1, 1, 0.3})
 
     else
-        gameState.showToast("Unknown cheat: " .. code, {1, 0.3, 0.3})
+        UISystem.showToast("Unknown cheat: " .. code, {1, 0.3, 0.3})
     end
 end
 
