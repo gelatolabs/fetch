@@ -52,6 +52,7 @@
  </tile>
  <tile id="180">
   <properties>
+   <property name="collides" type="bool" value="true"/>
    <property name="height" type="float" value="1"/>
   </properties>
  </tile>
