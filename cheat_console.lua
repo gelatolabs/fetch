@@ -383,9 +383,24 @@ function CheatConsole.isNoclipActive()
     return CheatConsole.state.noclip
 end
 
+-- Check if grid is active
+function CheatConsole.isGridActive()
+    return CheatConsole.state.showGrid
+end
+
 -- Check if console is open
 function CheatConsole.isOpen()
     return CheatConsole.state.showPrompt
+end
+
+-- Get console input
+function CheatConsole.getInput()
+    return CheatConsole.state.input
+end
+
+-- Get console history
+function CheatConsole.getHistory()
+    return CheatConsole.state.history
 end
 
 return CheatConsole
