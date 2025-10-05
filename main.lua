@@ -145,7 +145,8 @@ local currentMap = "map"
 -- Camera helper functions
 local function centerCameraOnPlayer()
     camera.x = player.x - UISystem.getGameWidth() / 2
-    camera.y = player.y - UISystem.getGameHeight() / 2
+    -- Reduce effective viewport height by UI top reserve
+    camera.y = player.y - UISystem.getEffectiveHeight() / 2
 end
 
 local function clampCameraToMapBounds()
@@ -155,6 +156,7 @@ local function clampCameraToMapBounds()
     
     local mapWidth = world.maxX - world.minX
     local mapHeight = world.maxY - world.minY
+    local effectiveHeight = UISystem.getEffectiveHeight()
     
     -- Only clamp if map is larger than screen
     if mapWidth > UISystem.getGameWidth() then
@@ -163,10 +165,10 @@ local function clampCameraToMapBounds()
         camera.x = world.minX + (mapWidth - UISystem.getGameWidth()) / 2
     end
     
-    if mapHeight > UISystem.getGameHeight() then
-        camera.y = math.max(world.minY, math.min(camera.y, world.maxY - UISystem.getGameHeight()))
+    if mapHeight > effectiveHeight then
+        camera.y = math.max(world.minY, math.min(camera.y, world.maxY - effectiveHeight))
     else
-        camera.y = world.minY + (mapHeight - UISystem.getGameHeight()) / 2
+        camera.y = world.minY + (mapHeight - effectiveHeight) / 2
     end
 end
 
@@ -999,33 +1001,42 @@ function love.draw()
         -- Draw world (manual camera offset, no translate)
         local camX = camera.x
         local camY = camera.y
+        
+        -- Begin world rendering (sets up scissor)
+        local yOffset = UISystem.beginWorldRender()
 
-        -- Draw the Tiled map
+        -- Draw the Tiled map (offset down by yOffset)
         love.graphics.setColor(1, 1, 1)
-        map:draw(-camX, -camY)
+        map:draw(-camX, -camY + yOffset)
 
         -- Draw NPCs (only on current map)
         for _, npc in ipairs(npcs) do
             if npc.map == currentMap then
                 love.graphics.setColor(1, 1, 1)
-                love.graphics.draw(npc.spriteImage, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+                love.graphics.draw(npc.spriteImage, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY + yOffset)
 
                 -- Draw quest indicator
                 if npc.isQuestGiver then
                     local quest = quests[npc.questId]
                     if not quest.active and not quest.completed then
                         love.graphics.setColor(1, 1, 0)
-                        love.graphics.circle("fill", npc.x - camX, npc.y - 10 - camY, 2)
+                        love.graphics.circle("fill", npc.x - camX, npc.y - 10 - camY + yOffset, 2)
                     elseif quest.active and hasItem(quest.requiredItem) then
                         love.graphics.setColor(0, 1, 0)
-                        love.graphics.circle("fill", npc.x - camX, npc.y - 10 - camY, 2)
+                        love.graphics.circle("fill", npc.x - camX, npc.y - 10 - camY + yOffset, 2)
                     end
                 end
             end
         end
 
         -- Draw player
-        PlayerSystem.draw(camX, camY, abilityManager, MapSystem)
+        PlayerSystem.draw(camX, camY - yOffset, abilityManager, MapSystem)
+        
+        -- Draw tile grid overlay (cheat)
+        UISystem.drawGrid(camX, camY, CheatConsole.isGridActive())
+        
+        -- End world rendering (resets scissor)
+        UISystem.endWorldRender()
 
         -- Draw interaction prompt
         if nearbyDoor and gameState == "playing" then
@@ -1040,9 +1051,6 @@ function love.draw()
             DialogSystem.draw(UISystem.getGameWidth(), UISystem.getGameHeight(), UISystem.drawFancyBorder)
         end
 
-        -- Draw tile grid overlay (cheat)
-        UISystem.drawGrid(camX, camY, CheatConsole.isGridActive())
-
         -- Draw UI hints
         UISystem.drawUIHints()
         
@@ -1056,21 +1064,27 @@ function love.draw()
         -- Draw game world in background
         local camX = camera.x
         local camY = camera.y
+        
+        -- Begin world rendering
+        local yOffset = UISystem.beginWorldRender()
 
         -- Draw the Tiled map
         love.graphics.setColor(1, 1, 1)
-        map:draw(-camX, -camY)
+        map:draw(-camX, -camY + yOffset)
 
         -- Draw NPCs (only on current map)
         for _, npc in ipairs(npcs) do
             if npc.map == currentMap then
                 love.graphics.setColor(1, 1, 1)
-                love.graphics.draw(npc.spriteImage, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+                love.graphics.draw(npc.spriteImage, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY + yOffset)
             end
         end
 
         -- Draw player
-        PlayerSystem.draw(camX, camY, abilityManager, MapSystem)
+        PlayerSystem.draw(camX, camY - yOffset, abilityManager, MapSystem)
+        
+        -- End world rendering
+        UISystem.endWorldRender()
 
         -- Draw pause menu overlay
         UISystem.drawPauseMenu()
@@ -1085,21 +1099,27 @@ function love.draw()
         -- Draw game world in background
         local camX = camera.x
         local camY = camera.y
+        
+        -- Begin world rendering
+        local yOffset = UISystem.beginWorldRender()
 
         -- Draw the Tiled map
         love.graphics.setColor(1, 1, 1)
-        map:draw(-camX, -camY)
+        map:draw(-camX, -camY + yOffset)
 
         -- Draw NPCs (only on current map)
         for _, npc in ipairs(npcs) do
             if npc.map == currentMap then
                 love.graphics.setColor(1, 1, 1)
-                love.graphics.draw(npc.spriteImage, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+                love.graphics.draw(npc.spriteImage, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY + yOffset)
             end
         end
 
         -- Draw player
-        PlayerSystem.draw(camX, camY, abilityManager, MapSystem)
+        PlayerSystem.draw(camX, camY - yOffset, abilityManager, MapSystem)
+        
+        -- End world rendering
+        UISystem.endWorldRender()
 
         -- Update game state references for UISystem
         UISystem.setGameStateRefs({
@@ -1112,21 +1132,27 @@ function love.draw()
         -- Draw game world in background
         local camX = camera.x
         local camY = camera.y
+        
+        -- Begin world rendering
+        local yOffset = UISystem.beginWorldRender()
 
         -- Draw the Tiled map
         love.graphics.setColor(1, 1, 1)
-        map:draw(-camX, -camY)
+        map:draw(-camX, -camY + yOffset)
 
         -- Draw NPCs (only on current map)
         for _, npc in ipairs(npcs) do
             if npc.map == currentMap then
                 love.graphics.setColor(1, 1, 1)
-                love.graphics.draw(npc.spriteImage, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+                love.graphics.draw(npc.spriteImage, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY + yOffset)
             end
         end
 
         -- Draw player
-        PlayerSystem.draw(camX, camY, abilityManager, MapSystem)
+        PlayerSystem.draw(camX, camY - yOffset, abilityManager, MapSystem)
+        
+        -- End world rendering
+        UISystem.endWorldRender()
 
         -- Draw quest offer UI
         UISystem.drawQuestOffer(questOfferData)

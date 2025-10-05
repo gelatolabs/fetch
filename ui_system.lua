@@ -7,6 +7,7 @@ local UISystem = {}
 local GAME_WIDTH = 320
 local GAME_HEIGHT = 240
 local SCALE = 1
+local UI_TOP_RESERVE = 16  -- Reserve one tile height at top for UI
 
 -- Graphics resources
 local canvas = nil
@@ -81,6 +82,27 @@ end
 
 function UISystem.getScale()
     return SCALE
+end
+
+-- Get UI top reserve height
+function UISystem.getTopReserve()
+    return UI_TOP_RESERVE
+end
+
+-- Get effective game height (excluding UI reserve)
+function UISystem.getEffectiveHeight()
+    return GAME_HEIGHT - UI_TOP_RESERVE
+end
+
+-- Begin game world rendering (sets up scissor and returns offset)
+function UISystem.beginWorldRender()
+    love.graphics.setScissor(0, UI_TOP_RESERVE, GAME_WIDTH, GAME_HEIGHT - UI_TOP_RESERVE)
+    return UI_TOP_RESERVE
+end
+
+-- End game world rendering (resets scissor)
+function UISystem.endWorldRender()
+    love.graphics.setScissor()
 end
 
 -- Initialize fonts
@@ -184,6 +206,7 @@ function UISystem.updateToasts(dt)
 end
 
 -- Draw tile grid overlay (for debugging/cheats)
+-- Must be called between beginWorldRender() and endWorldRender()
 function UISystem.drawGrid(camX, camY, showGrid)
     if not showGrid then
         return
@@ -193,10 +216,10 @@ function UISystem.drawGrid(camX, camY, showGrid)
     local startX = math.floor(camX / 16) * 16
     local startY = math.floor(camY / 16) * 16
     for x = startX - 16, camX + GAME_WIDTH + 16, 16 do
-        love.graphics.line(x - camX, 0, x - camX, GAME_HEIGHT)
+        love.graphics.line(x - camX, UI_TOP_RESERVE, x - camX, GAME_HEIGHT)
     end
     for y = startY - 16, camY + GAME_HEIGHT + 16, 16 do
-        love.graphics.line(0, y - camY, GAME_WIDTH, y - camY)
+        love.graphics.line(0, y - camY + UI_TOP_RESERVE, GAME_WIDTH, y - camY + UI_TOP_RESERVE)
     end
 end
 
