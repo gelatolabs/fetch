@@ -504,12 +504,6 @@ function love.keypressed(key)
         table.insert(heldKeys, key)
     end
 
-    -- Progress dialog with Enter key
-    if key == "return" then
-        UISystem.progressDialog()
-        return
-    end
-
     -- Normal game controls
     if key == "space" or key == "e" then
         if gameState == "playing" and nearbyDoor then
