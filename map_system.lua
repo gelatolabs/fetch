@@ -22,7 +22,9 @@ local mapPaths = {
 local doors = {
     {
         map = "map",
-        coords = {{21, 9}},
+        x = 21,
+        y = 9,
+        direction = nil, -- single tile door
         targetMap = "shop",
         targetX = -9,
         targetY = 0,
@@ -30,7 +32,9 @@ local doors = {
     },
     {
         map = "shop",
-        coords = {{-10, -1}, {-10, 0}, {-10, 1}},
+        x = -10,
+        y = 0,
+        direction = "vertical", -- 3-tile vertical door
         targetMap = "map",
         targetX = 21,
         targetY = 9,
@@ -38,7 +42,9 @@ local doors = {
     },
     {
         map = "map",
-        coords = {{2, -16}, {3, -16}, {4, -16}},
+        x = 3,
+        y = -16,
+        direction = "horizontal", -- 3-tile horizontal door
         targetMap = "mapnorth",
         targetX = 3,
         targetY = 30,
@@ -46,7 +52,9 @@ local doors = {
     },
     {
         map = "mapnorth",
-        coords = {{2, 31}, {3, 31}, {4, 31}},
+        x = 3,
+        y = 31,
+        direction = "horizontal", -- 3-tile horizontal door
         targetMap = "map",
         targetX = 3,
         targetY = -15,
@@ -54,34 +62,42 @@ local doors = {
     },
     {
         map = "map",
-        coords = {{15, 30}, {16, 29}},
+        x = 16,
+        y = 31,
+        direction = "horizontal", -- 3-tile horizontal door
         targetMap = "mapsouth",
-        targetX = -3,
+        targetX = 16,
         targetY = -15,
         text = "Travel"
     },
     {
         map = "mapsouth",
-        coords = {{-4, -16}, {-3, -16}},
+        x = 16,
+        y = -16,
+        direction = "horizontal", -- 3-tile horizontal door
         targetMap = "map",
         targetX = 16,
-        targetY = 28,
+        targetY = 30,
         text = "Travel"
     },
     {
         map = "map",
-        coords = {{-7, 5}, {-10, 6}, {-9, 6}, {-8, 6}, {-7, 6}},
+        x = -16,
+        y = 5,
+        direction = "vertical", -- 3-tile vertical door
         targetMap = "mapwest",
         targetX = 30,
-        targetY = 17,
+        targetY = 5,
         text = "Travel"
     },
     {
         map = "mapwest",
-        coords = {{31, 16}, {31, 17}, {31, 18}, {31, 19}},
+        x = 31,
+        y = 5,
+        direction = "vertical", -- 3-tile vertical door
         targetMap = "map",
-        targetX = -6,
-        targetY = 6,
+        targetX = -15,
+        targetY = 5,
         text = "Travel"
     }
 }
@@ -120,14 +136,111 @@ end
 function MapSystem.findDoorAt(gridX, gridY)
     for _, door in ipairs(doors) do
         if door.map == currentMap then
-            for _, coord in ipairs(door.coords) do
-                if coord[1] == gridX and coord[2] == gridY then
-                    return door
+            -- Check center position
+            if door.x == gridX and door.y == gridY then
+                -- Return door with no offset
+                local doorCopy = {}
+                for k, v in pairs(door) do doorCopy[k] = v end
+                doorCopy.offsetX = 0
+                doorCopy.offsetY = 0
+                return doorCopy
+            end
+
+            -- Check adjacent positions based on direction
+            if door.direction == "horizontal" then
+                -- Check left and right
+                if door.y == gridY then
+                    if door.x - 1 == gridX then
+                        -- Entered from left
+                        local doorCopy = {}
+                        for k, v in pairs(door) do doorCopy[k] = v end
+                        doorCopy.offsetX = -1
+                        doorCopy.offsetY = 0
+                        return doorCopy
+                    elseif door.x + 1 == gridX then
+                        -- Entered from right
+                        local doorCopy = {}
+                        for k, v in pairs(door) do doorCopy[k] = v end
+                        doorCopy.offsetX = 1
+                        doorCopy.offsetY = 0
+                        return doorCopy
+                    end
+                end
+            elseif door.direction == "vertical" then
+                -- Check above and below
+                if door.x == gridX then
+                    if door.y - 1 == gridY then
+                        -- Entered from above
+                        local doorCopy = {}
+                        for k, v in pairs(door) do doorCopy[k] = v end
+                        doorCopy.offsetX = 0
+                        doorCopy.offsetY = -1
+                        return doorCopy
+                    elseif door.y + 1 == gridY then
+                        -- Entered from below
+                        local doorCopy = {}
+                        for k, v in pairs(door) do doorCopy[k] = v end
+                        doorCopy.offsetX = 0
+                        doorCopy.offsetY = 1
+                        return doorCopy
+                    end
                 end
             end
         end
     end
     return nil
+end
+
+-- Get map height in pixels
+function MapSystem.getMapHeight(mapObj)
+    local layer = mapObj.layers[1]
+    if layer and layer.chunks then
+        local maxY = -math.huge
+        for _, chunk in ipairs(layer.chunks) do
+            maxY = math.max(maxY, chunk.y + chunk.height)
+        end
+        return maxY * 16 -- tileSize
+    end
+    return 0
+end
+
+-- Get map minimum Y in pixels
+function MapSystem.getMapMinY(mapObj)
+    local layer = mapObj.layers[1]
+    if layer and layer.chunks then
+        local minY = math.huge
+        for _, chunk in ipairs(layer.chunks) do
+            minY = math.min(minY, chunk.y)
+        end
+        return minY * 16 -- tileSize
+    end
+    return 0
+end
+
+-- Get map width in pixels
+function MapSystem.getMapWidth(mapObj)
+    local layer = mapObj.layers[1]
+    if layer and layer.chunks then
+        local maxX = -math.huge
+        for _, chunk in ipairs(layer.chunks) do
+            maxX = math.max(maxX, chunk.x + chunk.width)
+        end
+        return maxX * 16 -- tileSize
+    end
+    return 0
+end
+
+-- Get map minimum X in pixels
+function MapSystem.getMapMinX(mapObj)
+    local layer = mapObj.layers[1]
+    if layer and layer.chunks then
+        local minX = math.huge
+        for _, chunk in ipairs(layer.chunks) do
+            minX = math.min(minX, chunk.x)
+        end
+        return minX * 16 -- tileSize
+    end
+    return 0
 end
 
 -- Calculate map bounds from chunks
