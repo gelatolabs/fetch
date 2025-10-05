@@ -136,8 +136,8 @@ end
 function DialogSystem.draw(GAME_WIDTH, GAME_HEIGHT, drawFancyBorder)
     if not currentDialog then return end
     
-    local boxX, boxY = 20, GAME_HEIGHT - 75
-    local boxW, boxH = GAME_WIDTH - 40, 70
+    local boxX, boxY = 20, GAME_HEIGHT - 81
+    local boxW, boxH = GAME_WIDTH - 40, 76
 
     -- Main dialog background
     love.graphics.setColor(0.05, 0.05, 0.1, 0.95)
