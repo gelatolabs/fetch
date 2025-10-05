@@ -39,6 +39,7 @@ return {
       id = 108,
       properties = {
         ["collides"] = true,
+        ["height"] = -0.1,
         ["is_water"] = true
       }
     },
