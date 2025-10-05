@@ -257,8 +257,26 @@ function love.load()
     end
     
     -- Initialize camera centered on player
-    camera.x = player.x - UISystem.getGameWidth() / 2
-    camera.y = player.y - UISystem.getGameHeight() / 2
+    camera.x = math.floor(player.x - UISystem.getGameWidth() / 2)
+    camera.y = math.floor(player.y - UISystem.getGameHeight() / 2)
+
+    -- Clamp camera to map bounds
+    if world.minX and world.maxX then
+        local mapWidth = world.maxX - world.minX
+        local mapHeight = world.maxY - world.minY
+
+        if mapWidth > UISystem.getGameWidth() then
+            camera.x = math.max(world.minX, math.min(camera.x, world.maxX - UISystem.getGameWidth()))
+        else
+            camera.x = world.minX + (mapWidth - UISystem.getGameWidth()) / 2
+        end
+
+        if mapHeight > UISystem.getGameHeight() then
+            camera.y = math.max(world.minY, math.min(camera.y, world.maxY - UISystem.getGameHeight()))
+        else
+            camera.y = world.minY + (mapHeight - UISystem.getGameHeight()) / 2
+        end
+    end
 end
 
 function loadGameData()
@@ -301,6 +319,9 @@ function love.update(dt)
 
     -- Update toasts
     UISystem.updateToasts(dt)
+
+    -- Update chat animation
+    UISystem.updateChat(dt)
 
     -- Handle win screen timer
     if gameState == "winScreen" then
@@ -777,14 +798,21 @@ function love.keypressed(key)
         getAbilityFromRegistry = getAbilityFromRegistry,
         hasItem = hasItem,
         getGold = function() return playerGold end,
-        setGold = function(amount) playerGold = amount end
+        setGold = function(amount) playerGold = amount end,
+        progressDialog = UISystem.progressDialog
     }
     
     -- Handle cheat console keys
     if CheatConsole.keyPressed(key, gameStateForCheats, gameState) then
         return  -- Key was handled by console
     end
-    
+
+    -- Progress dialog with Enter key
+    if key == "return" then
+        UISystem.progressDialog()
+        return
+    end
+
     -- Normal game controls
     if key == "space" or key == "e" then
         if gameState == "playing" and nearbyDoor then
@@ -1156,40 +1184,47 @@ function love.draw()
     love.graphics.setCanvas(UISystem.getCanvas())
     love.graphics.clear(0.1, 0.1, 0.1)
 
+    -- Draw chat pane (always visible)
+    UISystem.drawChatPane()
+
     if gameState == "mainMenu" then
         UISystem.drawMainMenu()
     elseif gameState == "settings" then
         UISystem.drawSettings(volume)
     elseif gameState == "playing" or gameState == "dialog" then
-        -- Draw world (manual camera offset, no translate)
+        -- Clip rendering to game area only (in canvas coordinates)
+        love.graphics.setScissor(UISystem.getChatPaneWidth(), 0, UISystem.getGameWidth(), UISystem.getGameHeight())
+
+        -- Draw world with chat pane offset
         local camX = camera.x
         local camY = camera.y
+        local chatOffset = UISystem.getChatPaneWidth()
 
-        -- Draw the Tiled map
+        -- Draw the Tiled map (offset by chat pane width)
         love.graphics.setColor(1, 1, 1)
-        map:draw(-camX, -camY)
+        map:draw(chatOffset - camX, -camY)
 
-        -- Draw NPCs (only on current map)
+        -- Draw NPCs (only on current map, offset by chat pane)
         for _, npc in ipairs(npcs) do
             if npc.map == currentMap then
                 love.graphics.setColor(1, 1, 1)
-                love.graphics.draw(npc.spriteImage, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+                love.graphics.draw(npc.spriteImage, chatOffset + npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
 
                 -- Draw quest indicator
                 if npc.isQuestGiver then
                     local quest = quests[npc.questId]
                     if not quest.active and not quest.completed then
                         love.graphics.setColor(1, 1, 0)
-                        love.graphics.circle("fill", npc.x - camX, npc.y - 10 - camY, 2)
+                        love.graphics.circle("fill", chatOffset + npc.x - camX, npc.y - 10 - camY, 2)
                     elseif quest.active and hasItem(quest.requiredItem) then
                         love.graphics.setColor(0, 1, 0)
-                        love.graphics.circle("fill", npc.x - camX, npc.y - 10 - camY, 2)
+                        love.graphics.circle("fill", chatOffset + npc.x - camX, npc.y - 10 - camY, 2)
                     end
                 end
             end
         end
 
-        -- Draw player with appropriate sprite
+        -- Draw player with appropriate sprite (offset by chat pane)
         love.graphics.setColor(1, 1, 1)
         local spriteSet = getPlayerSpriteSet()
         local currentQuad = spriteSet[player.direction][player.moving and (player.walkFrame + 1) or 1]
@@ -1198,56 +1233,78 @@ function love.draw()
         love.graphics.draw(
             playerTileset,
             currentQuad,
-            player.x - player.size/2 - camX + offsetX,
+            chatOffset + player.x - player.size/2 - camX + offsetX,
             player.y - player.size/2 - camY - player.jumpHeight,  -- Apply jump height offset
             0,
             scaleX,
             1
         )
 
-        -- Draw interaction prompt
+        -- Draw interaction prompt (offset by chat pane)
         if nearbyDoor and gameState == "playing" then
             local doorText = nearbyDoor.indoor and "[E] Exit" or "[E] Enter"
-            UISystem.drawTextBox(UISystem.getGameWidth()/2 - 45, UISystem.getGameHeight() - 14, 90, 12, doorText, {1, 1, 1}, true)
+            UISystem.drawTextBox(chatOffset + UISystem.getGameWidth()/2 - 45, UISystem.getGameHeight() - 14, 90, 12, doorText, {1, 1, 1}, true)
         elseif nearbyNPC and gameState == "playing" then
-            UISystem.drawTextBox(UISystem.getGameWidth()/2 - 45, UISystem.getGameHeight() - 14, 90, 12, "[E] Talk", {1, 1, 1}, true)
+            UISystem.drawTextBox(chatOffset + UISystem.getGameWidth()/2 - 45, UISystem.getGameHeight() - 14, 90, 12, "[E] Talk", {1, 1, 1}, true)
         end
 
-        -- Draw dialog
+        -- Draw dialog (offset by chat pane)
         if gameState == "dialog" then
+            love.graphics.push()
+            love.graphics.translate(chatOffset, 0)
             DialogSystem.draw(UISystem.getGameWidth(), UISystem.getGameHeight(), UISystem.drawFancyBorder)
+            love.graphics.pop()
         end
 
-        -- Draw tile grid overlay (cheat)
+        -- Draw tile grid overlay (cheat, offset by chat pane)
+        love.graphics.push()
+        love.graphics.translate(chatOffset, 0)
         UISystem.drawGrid(camX, camY, CheatConsole.isGridActive())
+        love.graphics.pop()
 
-        -- Draw UI hints
+        -- Draw UI hints (offset by chat pane)
+        love.graphics.push()
+        love.graphics.translate(chatOffset, 0)
         UISystem.drawUIHints()
-        
-        -- Draw gold display
+        love.graphics.pop()
+
+        -- Draw gold display (offset by chat pane)
+        love.graphics.push()
+        love.graphics.translate(chatOffset, 0)
         UISystem.drawGoldDisplay(playerGold)
-        
-        -- Draw cheat indicators
+        love.graphics.pop()
+
+        -- Draw cheat indicators (offset by chat pane)
+        love.graphics.push()
+        love.graphics.translate(chatOffset, 0)
         UISystem.drawIndicators(CheatConsole.isNoclipActive(), CheatConsole.isGridActive(), abilityManager)
+        love.graphics.pop()
+
+        -- Reset scissor
+        love.graphics.setScissor()
 
     elseif gameState == "pauseMenu" then
-        -- Draw game world in background
+        -- Clip rendering to game area only
+        love.graphics.setScissor(UISystem.getChatPaneWidth(), 0, UISystem.getGameWidth(), UISystem.getGameHeight())
+
+        -- Draw game world in background with chat pane offset
         local camX = camera.x
         local camY = camera.y
+        local chatOffset = UISystem.getChatPaneWidth()
 
-        -- Draw the Tiled map
+        -- Draw the Tiled map (offset by chat pane width)
         love.graphics.setColor(1, 1, 1)
-        map:draw(-camX, -camY)
+        map:draw(chatOffset - camX, -camY)
 
-        -- Draw NPCs (only on current map)
+        -- Draw NPCs (only on current map, offset by chat pane)
         for _, npc in ipairs(npcs) do
             if npc.map == currentMap then
                 love.graphics.setColor(1, 1, 1)
-                love.graphics.draw(npc.spriteImage, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+                love.graphics.draw(npc.spriteImage, chatOffset + npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
             end
         end
 
-        -- Draw player
+        -- Draw player (offset by chat pane)
         love.graphics.setColor(1, 1, 1)
         local spriteSet = getPlayerSpriteSet()
         local currentQuad = spriteSet[player.direction][player.moving and (player.walkFrame + 1) or 1]
@@ -1256,7 +1313,7 @@ function love.draw()
         love.graphics.draw(
             playerTileset,
             currentQuad,
-            player.x - player.size/2 - camX + offsetX,
+            chatOffset + player.x - player.size/2 - camX + offsetX,
             player.y - player.size/2 - camY - player.jumpHeight,  -- Apply jump height offset
             0,
             scaleX,
@@ -1266,6 +1323,9 @@ function love.draw()
         -- Draw pause menu overlay
         UISystem.drawPauseMenu()
 
+        -- Reset scissor
+        love.graphics.setScissor()
+
     elseif gameState == "questLog" then
         UISystem.drawQuestLog(activeQuests, completedQuests, quests)
     elseif gameState == "inventory" then
@@ -1273,23 +1333,27 @@ function love.draw()
     elseif gameState == "shop" then
         UISystem.drawShop(shopInventory, selectedShopItem, playerGold, inventory, itemRegistry, hasItem)
     elseif gameState == "questTurnIn" then
-        -- Draw game world in background
+        -- Clip rendering to game area only
+        love.graphics.setScissor(UISystem.getChatPaneWidth(), 0, UISystem.getGameWidth(), UISystem.getGameHeight())
+
+        -- Draw game world in background with chat pane offset
         local camX = camera.x
         local camY = camera.y
+        local chatOffset = UISystem.getChatPaneWidth()
 
-        -- Draw the Tiled map
+        -- Draw the Tiled map (offset by chat pane width)
         love.graphics.setColor(1, 1, 1)
-        map:draw(-camX, -camY)
+        map:draw(chatOffset - camX, -camY)
 
-        -- Draw NPCs (only on current map)
+        -- Draw NPCs (only on current map, offset by chat pane)
         for _, npc in ipairs(npcs) do
             if npc.map == currentMap then
                 love.graphics.setColor(1, 1, 1)
-                love.graphics.draw(npc.spriteImage, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+                love.graphics.draw(npc.spriteImage, chatOffset + npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
             end
         end
 
-        -- Draw player
+        -- Draw player (offset by chat pane)
         love.graphics.setColor(1, 1, 1)
         local spriteSet = getPlayerSpriteSet()
         local currentQuad = spriteSet[player.direction][player.moving and (player.walkFrame + 1) or 1]
@@ -1298,7 +1362,7 @@ function love.draw()
         love.graphics.draw(
             playerTileset,
             currentQuad,
-            player.x - player.size/2 - camX + offsetX,
+            chatOffset + player.x - player.size/2 - camX + offsetX,
             player.y - player.size/2 - camY - player.jumpHeight,
             0,
             scaleX,
@@ -1312,24 +1376,32 @@ function love.draw()
             questTurnInData = questTurnInData
         })
         UISystem.drawQuestTurnIn()
+
+        -- Reset scissor
+        love.graphics.setScissor()
+
     elseif gameState == "questOffer" then
-        -- Draw game world in background
+        -- Clip rendering to game area only
+        love.graphics.setScissor(UISystem.getChatPaneWidth(), 0, UISystem.getGameWidth(), UISystem.getGameHeight())
+
+        -- Draw game world in background with chat pane offset
         local camX = camera.x
         local camY = camera.y
+        local chatOffset = UISystem.getChatPaneWidth()
 
-        -- Draw the Tiled map
+        -- Draw the Tiled map (offset by chat pane width)
         love.graphics.setColor(1, 1, 1)
-        map:draw(-camX, -camY)
+        map:draw(chatOffset - camX, -camY)
 
-        -- Draw NPCs (only on current map)
+        -- Draw NPCs (only on current map, offset by chat pane)
         for _, npc in ipairs(npcs) do
             if npc.map == currentMap then
                 love.graphics.setColor(1, 1, 1)
-                love.graphics.draw(npc.spriteImage, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
+                love.graphics.draw(npc.spriteImage, chatOffset + npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
             end
         end
 
-        -- Draw player
+        -- Draw player (offset by chat pane)
         love.graphics.setColor(1, 1, 1)
         local spriteSet = getPlayerSpriteSet()
         local currentQuad = spriteSet[player.direction][player.moving and (player.walkFrame + 1) or 1]
@@ -1338,7 +1410,7 @@ function love.draw()
         love.graphics.draw(
             playerTileset,
             currentQuad,
-            player.x - player.size/2 - camX + offsetX,
+            chatOffset + player.x - player.size/2 - camX + offsetX,
             player.y - player.size/2 - camY - player.jumpHeight,
             0,
             scaleX,
@@ -1347,15 +1419,25 @@ function love.draw()
 
         -- Draw quest offer UI
         UISystem.drawQuestOffer(questOfferData)
+
+        -- Reset scissor
+        love.graphics.setScissor()
+
     elseif gameState == "winScreen" then
         UISystem.drawWinScreen(playerGold, completedQuests)
     end
 
-    -- Draw cheat console (overlay on top of everything)
+    -- Draw cheat console (overlay on top of everything, in game area)
+    love.graphics.push()
+    love.graphics.translate(UISystem.getChatPaneWidth(), 0)
     UISystem.drawCheatConsole(CheatConsole)
+    love.graphics.pop()
 
-    -- Draw toasts (always on top)
+    -- Draw toasts (always on top, in game area)
+    love.graphics.push()
+    love.graphics.translate(UISystem.getChatPaneWidth(), 0)
     UISystem.drawToasts()
+    love.graphics.pop()
 
     -- Draw canvas to screen (centered)
     love.graphics.setCanvas()
@@ -1366,7 +1448,8 @@ function love.draw()
     love.graphics.setColor(1, 1, 1)
     local screenWidth, screenHeight = love.graphics.getDimensions()
     -- Round offset to multiples of UISystem.getScale() to ensure pixel-perfect alignment
-    local offsetX = math.floor((screenWidth - UISystem.getGameWidth() * UISystem.getScale()) / 2 / UISystem.getScale()) * UISystem.getScale()
+    local totalWidth = UISystem.getChatPaneWidth() + UISystem.getGameWidth()
+    local offsetX = math.floor((screenWidth - totalWidth * UISystem.getScale()) / 2 / UISystem.getScale()) * UISystem.getScale()
     local offsetY = math.floor((screenHeight - UISystem.getGameHeight() * UISystem.getScale()) / 2 / UISystem.getScale()) * UISystem.getScale()
     love.graphics.draw(UISystem.getCanvas(), offsetX, offsetY, 0, UISystem.getScale(), UISystem.getScale())
 end

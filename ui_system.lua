@@ -6,6 +6,8 @@ local UISystem = {}
 -- UI constants
 local GAME_WIDTH = 320
 local GAME_HEIGHT = 240
+local CHAT_PANE_WIDTH = 106
+local TOTAL_WIDTH = CHAT_PANE_WIDTH + GAME_WIDTH
 local SCALE = 1
 
 -- Graphics resources
@@ -25,6 +27,13 @@ local draggingSlider = false
 -- Toast system
 local toasts = {}
 local TOAST_DURATION = 3.0 -- seconds
+
+-- Chat UI state
+local dialogScript = require("dialog_script")
+local currentDialogIndex = 0
+local chatMessages = {} -- {speaker, text, displayedText, animTimer}
+local jarfSprite = nil
+local developerSprite = nil
 
 -- Game state references (set by main.lua)
 local gameStateRefs = {
@@ -51,25 +60,31 @@ end
 function UISystem.init()
     -- Get desktop dimensions
     local desktopWidth, desktopHeight = love.window.getDesktopDimensions()
-    
+
     -- Calculate scale factor (highest integer multiple that fits screen)
-    local scaleX = math.floor(desktopWidth / GAME_WIDTH)
+    local scaleX = math.floor(desktopWidth / TOTAL_WIDTH)
     local scaleY = math.floor(desktopHeight / GAME_HEIGHT)
     SCALE = math.min(scaleX, scaleY)
     if SCALE < 1 then SCALE = 1 end
-    
+
     -- Set window mode
-    love.window.setMode(GAME_WIDTH * SCALE, GAME_HEIGHT * SCALE, {fullscreen = true})
-    
+    love.window.setMode(TOTAL_WIDTH * SCALE, GAME_HEIGHT * SCALE, {fullscreen = true})
+
     -- Disable interpolation globally
     love.graphics.setDefaultFilter("nearest", "nearest")
-    
-    -- Create canvas
-    canvas = love.graphics.newCanvas(GAME_WIDTH, GAME_HEIGHT)
+
+    -- Create canvas (now includes chat pane)
+    canvas = love.graphics.newCanvas(TOTAL_WIDTH, GAME_HEIGHT)
     canvas:setFilter("nearest", "nearest")
-    
+
     -- Load fonts
     UISystem.loadFonts()
+
+    -- Load chat sprites
+    jarfSprite = love.graphics.newImage("sprites/jarf.png")
+    jarfSprite:setFilter("nearest", "nearest")
+    developerSprite = love.graphics.newImage("sprites/developer.png")
+    developerSprite:setFilter("nearest", "nearest")
 end
 
 -- Get the canvas
@@ -88,6 +103,10 @@ end
 
 function UISystem.getScale()
     return SCALE
+end
+
+function UISystem.getChatPaneWidth()
+    return CHAT_PANE_WIDTH
 end
 
 -- Initialize fonts
@@ -123,15 +142,15 @@ function UISystem.handleSliderDrag(volume, onVolumeChange)
     if not draggingSlider then
         return volume
     end
-    
+
     -- Convert screen coordinates to canvas coordinates
     local screenWidth, screenHeight = love.graphics.getDimensions()
-    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
+    local offsetX = math.floor((screenWidth - TOTAL_WIDTH * SCALE) / 2 / SCALE) * SCALE
     local canvasX = (mouseX - offsetX) / SCALE
-    
-    local sliderX = GAME_WIDTH / 2 - 50
+
+    local sliderX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - 50
     local sliderWidth = 100
-    
+
     local newVolume = math.max(0, math.min(1, (canvasX - sliderX) / sliderWidth))
     if onVolumeChange then
         onVolumeChange(newVolume)
@@ -142,19 +161,19 @@ end
 -- Start slider dragging
 function UISystem.startSliderDrag(volume, onVolumeChange)
     draggingSlider = true
-    
+
     -- Immediately update volume at click position
     local screenWidth, screenHeight = love.graphics.getDimensions()
-    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
+    local offsetX = math.floor((screenWidth - TOTAL_WIDTH * SCALE) / 2 / SCALE) * SCALE
     local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
     local canvasX = (mouseX - offsetX) / SCALE
     local canvasY = (mouseY - offsetY) / SCALE
-    
-    local sliderX = GAME_WIDTH / 2 - 50
+
+    local sliderX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - 50
     local sliderY = 100
     local sliderWidth = 100
     local sliderHeight = 10
-    
+
     if canvasX >= sliderX and canvasX <= sliderX + sliderWidth and canvasY >= sliderY - 5 and canvasY <= sliderY + sliderHeight + 5 then
         local newVolume = math.max(0, math.min(1, (canvasX - sliderX) / sliderWidth))
         if onVolumeChange then
@@ -162,7 +181,7 @@ function UISystem.startSliderDrag(volume, onVolumeChange)
         end
         return newVolume
     end
-    
+
     return volume
 end
 
@@ -190,12 +209,42 @@ function UISystem.updateToasts(dt)
     end
 end
 
+-- Progress the dialog script
+function UISystem.progressDialog()
+    if currentDialogIndex < #dialogScript then
+        currentDialogIndex = currentDialogIndex + 1
+        local dialog = dialogScript[currentDialogIndex]
+        table.insert(chatMessages, {
+            speaker = dialog.speaker,
+            text = dialog.text,
+            displayedText = "",
+            animTimer = 0
+        })
+        -- Keep only the last 8 messages
+        if #chatMessages > 8 then
+            table.remove(chatMessages, 1)
+        end
+    end
+end
+
+-- Update chat animation
+function UISystem.updateChat(dt)
+    for _, msg in ipairs(chatMessages) do
+        if #msg.displayedText < #msg.text then
+            msg.animTimer = msg.animTimer + dt
+            local charsPerSecond = 30
+            local charsToShow = math.floor(msg.animTimer * charsPerSecond)
+            msg.displayedText = msg.text:sub(1, math.min(charsToShow, #msg.text))
+        end
+    end
+end
+
 -- Draw tile grid overlay (for debugging/cheats)
 function UISystem.drawGrid(camX, camY, showGrid)
     if not showGrid then
         return
     end
-    
+
     love.graphics.setColor(0, 1, 0, 0.3)
     local startX = math.floor(camX / 16) * 16
     local startY = math.floor(camY / 16) * 16
@@ -210,11 +259,11 @@ end
 -- Draw active cheat/ability indicators
 function UISystem.drawIndicators(noclipActive, gridActive, abilityManager)
     local cheatText = ""
-    
-    if noclipActive then 
-        cheatText = cheatText .. " [NOCLIP]" 
+
+    if noclipActive then
+        cheatText = cheatText .. " [NOCLIP]"
     end
-    
+
     -- Show all active abilities
     if abilityManager then
         for _, ability in pairs(abilityManager:getAllAbilities()) do
@@ -225,11 +274,11 @@ function UISystem.drawIndicators(noclipActive, gridActive, abilityManager)
             cheatText = cheatText .. " [" .. displayText .. "]"
         end
     end
-    
-    if gridActive then 
-        cheatText = cheatText .. " [GRID]" 
+
+    if gridActive then
+        cheatText = cheatText .. " [GRID]"
     end
-    
+
     if cheatText ~= "" then
         love.graphics.setColor(1, 0.5, 0, 0.9)
         local textWidth = font:getWidth(cheatText)
@@ -242,7 +291,7 @@ function UISystem.drawCheatConsole(CheatConsole)
     if not CheatConsole.isOpen() then
         return
     end
-    
+
     local boxX, boxY = 10, GAME_HEIGHT - 92
     local boxW, boxH = GAME_WIDTH - 20, 87
 
@@ -341,7 +390,7 @@ end
 function UISystem.isMouseOverButton(btnX, btnY, btnWidth, btnHeight)
     -- Convert screen coordinates to canvas coordinates
     local screenWidth, screenHeight = love.graphics.getDimensions()
-    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
+    local offsetX = math.floor((screenWidth - TOTAL_WIDTH * SCALE) / 2 / SCALE) * SCALE
     local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
     local canvasX = (mouseX - offsetX) / SCALE
     local canvasY = (mouseY - offsetY) / SCALE
@@ -400,16 +449,16 @@ end
 function UISystem.drawPauseMenu()
     -- Semi-transparent background overlay
     love.graphics.setColor(0, 0, 0, 0.7)
-    love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, GAME_HEIGHT)
+    love.graphics.rectangle("fill", CHAT_PANE_WIDTH, 0, GAME_WIDTH, GAME_HEIGHT)
 
     -- Title
     love.graphics.setColor(1, 1, 1)
-    love.graphics.printf("Paused", 0, 60, GAME_WIDTH, "center")
+    love.graphics.printf("Paused", CHAT_PANE_WIDTH, 60, GAME_WIDTH, "center")
 
     -- Buttons
     local btnWidth = 100
     local btnHeight = 20
-    local btnX = GAME_WIDTH / 2 - btnWidth / 2
+    local btnX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - btnWidth / 2
 
     -- Resume button
     local resumeHover = UISystem.isMouseOverButton(btnX, 100, btnWidth, btnHeight)
@@ -434,18 +483,18 @@ end
 function UISystem.drawMainMenu()
     -- Background
     love.graphics.setColor(0.05, 0.05, 0.1)
-    love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, GAME_HEIGHT)
+    love.graphics.rectangle("fill", CHAT_PANE_WIDTH, 0, GAME_WIDTH, GAME_HEIGHT)
 
     -- Title
     love.graphics.setFont(titleFont)
     love.graphics.setColor(0.9, 0.7, 0.3)
-    love.graphics.printf("Go Fetch", 0, 40, GAME_WIDTH, "center")
+    love.graphics.printf("Go Fetch", CHAT_PANE_WIDTH, 40, GAME_WIDTH, "center")
     love.graphics.setFont(font)
 
     -- Buttons
     local btnWidth = 100
     local btnHeight = 20
-    local btnX = GAME_WIDTH / 2 - btnWidth / 2
+    local btnX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - btnWidth / 2
 
     -- Play button
     local playHover = UISystem.isMouseOverButton(btnX, 100, btnWidth, btnHeight)
@@ -479,18 +528,18 @@ end
 function UISystem.drawSettings(volume)
     -- Background
     love.graphics.setColor(0.05, 0.05, 0.1)
-    love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, GAME_HEIGHT)
+    love.graphics.rectangle("fill", CHAT_PANE_WIDTH, 0, GAME_WIDTH, GAME_HEIGHT)
 
     -- Title
     love.graphics.setColor(0.9, 0.7, 0.3)
-    love.graphics.printf("Settings", 0, 40, GAME_WIDTH, "center")
+    love.graphics.printf("Settings", CHAT_PANE_WIDTH, 40, GAME_WIDTH, "center")
 
     -- Volume label
     love.graphics.setColor(1, 1, 1)
-    love.graphics.printf("Volume", 0, 80, GAME_WIDTH, "center")
+    love.graphics.printf("Volume", CHAT_PANE_WIDTH, 80, GAME_WIDTH, "center")
 
     -- Volume slider
-    local sliderX = GAME_WIDTH / 2 - 50
+    local sliderX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - 50
     local sliderY = 100
     local sliderWidth = 100
     local sliderHeight = 10
@@ -509,12 +558,12 @@ function UISystem.drawSettings(volume)
 
     -- Volume percentage
     love.graphics.setColor(1, 1, 1)
-    love.graphics.printf(math.floor(volume * 100) .. "%", 0, 115, GAME_WIDTH, "center")
+    love.graphics.printf(math.floor(volume * 100) .. "%", CHAT_PANE_WIDTH, 115, GAME_WIDTH, "center")
 
     -- Back button
     local btnWidth = 100
     local btnHeight = 20
-    local btnX = GAME_WIDTH / 2 - btnWidth / 2
+    local btnX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - btnWidth / 2
     local backHover = UISystem.isMouseOverButton(btnX, 160, btnWidth, btnHeight)
     love.graphics.setColor(backHover and 0.3 or 0.2, backHover and 0.2 or 0.15, backHover and 0.15 or 0.1)
     love.graphics.rectangle("fill", btnX, 160, btnWidth, btnHeight)
@@ -526,7 +575,7 @@ end
 
 -- Draw quest log
 function UISystem.drawQuestLog(activeQuests, completedQuests, quests)
-    local boxX, boxY = 10, 10
+    local boxX, boxY = CHAT_PANE_WIDTH + 10, 10
     local boxW, boxH = GAME_WIDTH - 20, GAME_HEIGHT - 20
 
     -- Background
@@ -642,7 +691,7 @@ function UISystem.drawQuestTurnIn()
     end
 
     local quest = gameStateRefs.questTurnInData.quest
-    local boxX = GAME_WIDTH / 2 - 75
+    local boxX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - 75
     local boxY = GAME_HEIGHT - 90
     local boxW = 150
     local boxH = 85
@@ -707,7 +756,7 @@ function UISystem.drawQuestOffer(questOfferData)
     local npc = questOfferData.npc
 
     -- Dialog box
-    local boxX = GAME_WIDTH / 2 - 100
+    local boxX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - 100
     local boxY = GAME_HEIGHT / 2 - 60
     local boxW = 200
     local boxH = 120
@@ -768,7 +817,7 @@ end
 
 -- Draw inventory
 function UISystem.drawInventory(inventory, itemRegistry)
-    local boxX, boxY = 10, 10
+    local boxX, boxY = CHAT_PANE_WIDTH + 10, 10
     local boxW, boxH = GAME_WIDTH - 20, GAME_HEIGHT - 20
 
     -- Background
@@ -840,7 +889,7 @@ end
 
 -- Draw shop
 function UISystem.drawShop(shopInventory, selectedShopItem, playerGold, inventory, itemRegistry, hasItem)
-    local boxX, boxY = 10, 10
+    local boxX, boxY = CHAT_PANE_WIDTH + 10, 10
     local boxW, boxH = GAME_WIDTH - 20, GAME_HEIGHT - 20
 
     -- Background
@@ -1003,27 +1052,27 @@ end
 function UISystem.drawWinScreen(playerGold, completedQuests)
     -- Background
     love.graphics.setColor(0, 0, 0, 0.95)
-    love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, GAME_HEIGHT)
+    love.graphics.rectangle("fill", CHAT_PANE_WIDTH, 0, GAME_WIDTH, GAME_HEIGHT)
 
     -- Title
     love.graphics.setFont(titleFont)
     love.graphics.setColor(1, 0.84, 0)
-    love.graphics.printf("QUEST COMPLETE!", 0, 60, GAME_WIDTH, "center")
+    love.graphics.printf("QUEST COMPLETE!", CHAT_PANE_WIDTH, 60, GAME_WIDTH, "center")
     love.graphics.setFont(font)
 
     -- Message
     love.graphics.setColor(1, 1, 1)
-    love.graphics.printf("You have completed the Royal Gift quest!", 0, 110, GAME_WIDTH, "center")
-    love.graphics.printf("The King is very pleased with the Labubu!", 0, 125, GAME_WIDTH, "center")
+    love.graphics.printf("You have completed the Royal Gift quest!", CHAT_PANE_WIDTH, 110, GAME_WIDTH, "center")
+    love.graphics.printf("The King is very pleased with the Labubu!", CHAT_PANE_WIDTH, 125, GAME_WIDTH, "center")
 
     -- Stats
     love.graphics.setColor(0.8, 0.8, 0.8)
-    love.graphics.printf("Final Gold: " .. playerGold, 0, 155, GAME_WIDTH, "center")
-    love.graphics.printf("Quests Completed: " .. #completedQuests, 0, 170, GAME_WIDTH, "center")
+    love.graphics.printf("Final Gold: " .. playerGold, CHAT_PANE_WIDTH, 155, GAME_WIDTH, "center")
+    love.graphics.printf("Quests Completed: " .. #completedQuests, CHAT_PANE_WIDTH, 170, GAME_WIDTH, "center")
 
     -- Footer
     love.graphics.setColor(0.6, 0.6, 0.6)
-    love.graphics.printf("The game will close in a moment...", 0, 200, GAME_WIDTH, "center")
+    love.graphics.printf("The game will close in a moment...", CHAT_PANE_WIDTH, 200, GAME_WIDTH, "center")
 end
 
 -- Draw UI hints bar at top of screen
@@ -1042,10 +1091,100 @@ function UISystem.drawGoldDisplay(playerGold)
     love.graphics.print(goldText, GAME_WIDTH / 2 - goldTextWidth / 2, -1)
 end
 
+-- Draw chat pane
+function UISystem.drawChatPane()
+    -- Dark background for the chat pane
+    love.graphics.setColor(0.1, 0.1, 0.12)
+    love.graphics.rectangle("fill", 0, 0, CHAT_PANE_WIDTH, GAME_HEIGHT)
+
+    -- Border between chat and game
+    love.graphics.setColor(0.2, 0.2, 0.25)
+    love.graphics.setLineWidth(1)
+    love.graphics.line(CHAT_PANE_WIDTH, 0, CHAT_PANE_WIDTH, GAME_HEIGHT)
+
+    -- Draw messages
+    local y = GAME_HEIGHT - 2
+    for i = #chatMessages, 1, -1 do
+        local msg = chatMessages[i]
+        local isJarf = msg.speaker == "J.A.R.F."
+
+        -- Layout: [2px][16px pic][2px margin][bubble][pane edge at 106]
+        -- Available space for bubble: 106 - 20 (pic+margins) = 86px max
+        local maxBubbleWidth = 80
+        local textPaddingLeft = 3
+        local textPaddingRight = 3
+
+        -- Wrap text to fit with padding
+        local maxTextWidth = maxBubbleWidth - textPaddingLeft - textPaddingRight
+        local _, wrappedText = font:getWrap(msg.displayedText, maxTextWidth)
+
+        -- Find the actual widest line
+        local actualMaxLineWidth = 0
+        for _, line in ipairs(wrappedText) do
+            local lineWidth = font:getWidth(line)
+            if lineWidth > actualMaxLineWidth then
+                actualMaxLineWidth = lineWidth
+            end
+        end
+
+        local bubbleWidth = actualMaxLineWidth + textPaddingLeft + textPaddingRight
+        local bubbleHeight = #wrappedText * 10 + 5
+
+        -- Position bubble
+        local bubbleX
+        if isJarf then
+            -- J.A.R.F.: pic at x=2 (16px wide), bubble starts at x=20
+            bubbleX = 20
+        else
+            -- Developer: pic at x=88 (16px wide), bubble ends before it
+            bubbleX = 106 - 20 - bubbleWidth
+        end
+        local bubbleY = y - bubbleHeight - 2
+
+        -- Draw profile picture (16x16)
+        local picX
+        if isJarf then
+            picX = 2
+            if jarfSprite then
+                love.graphics.setColor(1, 1, 1)
+                love.graphics.draw(jarfSprite, picX, bubbleY + bubbleHeight / 2 - 8)
+            end
+        else
+            picX = CHAT_PANE_WIDTH - 18
+            if developerSprite then
+                love.graphics.setColor(1, 1, 1)
+                love.graphics.draw(developerSprite, picX, bubbleY + bubbleHeight / 2 - 8)
+            end
+        end
+
+        -- Draw bubble background
+        if isJarf then
+            love.graphics.setColor(0.2, 0.25, 0.3, 0.9)
+        else
+            love.graphics.setColor(0.25, 0.3, 0.35, 0.9)
+        end
+        love.graphics.rectangle("fill", bubbleX, bubbleY, bubbleWidth, bubbleHeight, 3, 3)
+
+        -- Draw bubble border
+        love.graphics.setColor(0.4, 0.45, 0.5)
+        love.graphics.setLineWidth(1)
+        love.graphics.rectangle("line", bubbleX, bubbleY, bubbleWidth, bubbleHeight, 3, 3)
+
+        -- Draw text (with exact padding)
+        love.graphics.setColor(0.9, 0.9, 0.95)
+        local textX = bubbleX + textPaddingLeft
+        for lineIdx, line in ipairs(wrappedText) do
+            love.graphics.print(line, textX, bubbleY + (lineIdx - 1) * 10)
+        end
+
+        y = bubbleY - 3  -- Reduced from 8 to 3 for tighter spacing
+    end
+end
+
 -- Helper function to convert screen coordinates to canvas coordinates
 local function screenToCanvas(x, y)
     local screenWidth, screenHeight = love.graphics.getDimensions()
-    local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
+    local offsetX = math.floor((screenWidth - TOTAL_WIDTH * SCALE) / 2 / SCALE) * SCALE
     local offsetY = math.floor((screenHeight - GAME_HEIGHT * SCALE) / 2 / SCALE) * SCALE
     local canvasX = (x - offsetX) / SCALE
     local canvasY = (y - offsetY) / SCALE
@@ -1056,10 +1195,10 @@ end
 function UISystem.handleMainMenuClick(x, y, callbacks)
     local canvasX, canvasY = screenToCanvas(x, y)
 
-    -- Button positions
+    -- Button positions (offset by chat pane)
     local btnWidth = 100
     local btnHeight = 20
-    local btnX = GAME_WIDTH / 2 - btnWidth / 2
+    local btnX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - btnWidth / 2
     local playY = 100
     local settingsY = 130
     local quitY = 160
@@ -1095,10 +1234,10 @@ end
 function UISystem.handlePauseMenuClick(x, y, callbacks)
     local canvasX, canvasY = screenToCanvas(x, y)
 
-    -- Button positions
+    -- Button positions (offset by chat pane)
     local btnWidth = 100
     local btnHeight = 20
-    local btnX = GAME_WIDTH / 2 - btnWidth / 2
+    local btnX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - btnWidth / 2
     local resumeY = 100
     local quitY = 130
 
@@ -1125,10 +1264,10 @@ end
 function UISystem.handleSettingsClick(x, y, volume, callbacks)
     local canvasX, canvasY = screenToCanvas(x, y)
 
-    -- Back button
+    -- Back button (offset by chat pane)
     local btnWidth = 100
     local btnHeight = 20
-    local btnX = GAME_WIDTH / 2 - btnWidth / 2
+    local btnX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - btnWidth / 2
     local backY = 160
 
     if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= backY and canvasY <= backY + btnHeight then
@@ -1147,7 +1286,7 @@ end
 function UISystem.handleShopClick(x, y, shopData, callbacks)
     local canvasX, canvasY = screenToCanvas(x, y)
 
-    local boxX, boxY = 10, 10
+    local boxX, boxY = CHAT_PANE_WIDTH + 10, 10
     local boxW = GAME_WIDTH - 20
     local boxH = GAME_HEIGHT - 20
 
@@ -1213,7 +1352,7 @@ function UISystem.handleQuestTurnInClick(x, y, questTurnInData, inventory, callb
     local quest = questTurnInData.quest
 
     -- Calculate item slot positions (must match drawQuestTurnIn)
-    local boxX = GAME_WIDTH / 2 - 75
+    local boxX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - 75
     local boxY = GAME_HEIGHT - 90
     local slotSize = 16
     local padding = 3
@@ -1251,7 +1390,7 @@ function UISystem.handleQuestOfferClick(x, y, questOfferData, callbacks)
 
     local canvasX, canvasY = screenToCanvas(x, y)
 
-    local boxX = GAME_WIDTH / 2 - 100
+    local boxX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - 100
     local boxY = GAME_HEIGHT / 2 - 60
     local boxW = 200
     local boxH = 120
