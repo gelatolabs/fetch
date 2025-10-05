@@ -566,9 +566,6 @@ function love.keypressed(key)
             gameState = "playing"
         elseif gameState == "shop" then
             gameState = "playing"
-        elseif gameState ~= "mainMenu" and gameState ~= "settings" then
-            gameState = "playing"
-            DialogSystem.clearDialog()
         end
     elseif key == "f" then
         love.window.setFullscreen(not love.window.getFullscreen())
