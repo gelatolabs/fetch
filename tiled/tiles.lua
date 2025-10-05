@@ -23,33 +23,11 @@ return {
   },
   properties = {},
   wangsets = {},
-  tilecount = 6,
+  tilecount = 2,
   tiles = {
     {
       id = 1,
       image = "../tiles/brown.png",
-      width = 16,
-      height = 16
-    },
-    {
-      id = 3,
-      image = "../tiles/brown.png",
-      width = 16,
-      height = 16
-    },
-    {
-      id = 4,
-      properties = {
-        ["collides"] = true,
-        ["height"] = 0.5
-      },
-      image = "../tiles/bush.png",
-      width = 16,
-      height = 16
-    },
-    {
-      id = 5,
-      image = "../tiles/dirt.png",
       width = 16,
       height = 16
     },
@@ -60,12 +38,6 @@ return {
         ["height"] = 0.5
       },
       image = "../tiles/rock.png",
-      width = 16,
-      height = 16
-    },
-    {
-      id = 15,
-      image = "../tiles/sand.png",
       width = 16,
       height = 16
     }
