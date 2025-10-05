@@ -459,6 +459,8 @@ end
 -- Draw toasts
 function UISystem.drawToasts()
     local y = 14 -- Start below the top bar (12px height + 2px padding)
+    local maxToastWidth = GAME_WIDTH - 20 -- Maximum width for toast (with some padding)
+    
     for i, toast in ipairs(toasts) do
         -- Calculate fade-out alpha based on remaining time
         local alpha = 1
@@ -466,15 +468,24 @@ function UISystem.drawToasts()
             alpha = toast.timer / 0.5
         end
 
-        -- Split message into lines and measure dimensions
-        local lines = {}
-        for line in toast.message:gmatch("[^\n]+") do
-            table.insert(lines, line)
+        -- Split message by explicit newlines first
+        local paragraphs = {}
+        for paragraph in toast.message:gmatch("[^\n]+") do
+            table.insert(paragraphs, paragraph)
         end
 
-        -- Calculate box dimensions
+        -- Wrap each paragraph to fit within max width
+        local wrappedLines = {}
+        for _, paragraph in ipairs(paragraphs) do
+            local _, wrapped = font:getWrap(paragraph, maxToastWidth - 8) -- Account for padding
+            for _, line in ipairs(wrapped) do
+                table.insert(wrappedLines, line)
+            end
+        end
+
+        -- Calculate box dimensions based on wrapped text
         local maxWidth = 0
-        for _, line in ipairs(lines) do
+        for _, line in ipairs(wrappedLines) do
             local lineWidth = font:getWidth(line)
             if lineWidth > maxWidth then
                 maxWidth = lineWidth
@@ -482,7 +493,7 @@ function UISystem.drawToasts()
         end
 
         local boxW = maxWidth + 8
-        local boxH = #lines * 10 + 2
+        local boxH = #wrappedLines * 10 + 2
         local boxX = GAME_WIDTH - boxW - 2 -- Align to right with 2px padding
 
         -- Background
@@ -495,7 +506,7 @@ function UISystem.drawToasts()
 
         -- Text (line by line)
         love.graphics.setColor(toast.color[1], toast.color[2], toast.color[3], alpha)
-        for lineIdx, line in ipairs(lines) do
+        for lineIdx, line in ipairs(wrappedLines) do
             love.graphics.print(line, boxX + 4, y + (lineIdx - 1) * 10 - 1)
         end
 
