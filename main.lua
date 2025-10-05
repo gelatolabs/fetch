@@ -6,17 +6,12 @@ local AbilitySystem = require "ability_system"
 local DialogSystem = require "dialog_system"
 local UISystem = require "ui_system"
 local MapSystem = require "map_system"
+local PlayerSystem = require "player_system"
 
 -- Game constants (managed by UISystem)
 -- Graphics resources (managed by UISystem)
 
 -- Sprites
-local playerTileset
-local playerQuads = {
-    regular = {},
-    boat = {},
-    swimming = {}
-}
 local npcSprites = {}  -- Table to store loaded NPC sprites
 
 -- Audio
@@ -32,26 +27,8 @@ local volume = 1.0
 -- Input tracking for movement priority
 local heldKeys = {}
 
--- Player (Pokemon-style grid movement)
--- Initial spawn position (will be validated and adjusted if on collision tile)
-local player = {
-    x = -10 * 16 + 8,  -- Current pixel position (grid -10, -10 in upper-left grassy area)
-    y = -10 * 16 + 8,
-    gridX = -10, -- Grid position (in tiles)
-    gridY = -10,
-    size = 16,
-    direction = "down",
-    facing = "right",  -- Add this line: remembers last horizontal direction
-    lastVertical = "down",  -- Add this line: tracks last vertical direction
-    moving = false,
-    moveTimer = 0,
-    moveDuration = 0.15,  -- Time to move one tile (in seconds)
-    walkFrame = 0,  -- 0 or 1 for animation
-    wasOnWater = false,  -- Track if player was on water last frame
-    jumping = false,  -- Track if player is jumping
-    jumpHeight = 0,  -- Current jump height offset for rendering
-    queuedDirection = nil  -- Queued movement direction
-}
+-- Player reference (managed by PlayerSystem)
+local player = nil
 
 -- Camera (Pokemon-style: always centered on player)
 local camera = {
@@ -98,16 +75,14 @@ local itemRegistry = {
 local abilityManager = AbilitySystem.PlayerAbilityManager.new()
 
 -- Local references for convenience
-local AbilityType = AbilitySystem.AbilityType
-local EffectType = AbilitySystem.EffectType
 
 -- Register abilities
 abilityManager:registerAbility({
     id = "swim",
     name = "Swim",
     aliases = {"swim", "swimming"},
-    type = AbilityType.PASSIVE,
-    effects = {EffectType.WATER_TRAVERSAL},
+    type = AbilitySystem.AbilityType.PASSIVE,
+    effects = {AbilitySystem.EffectType.WATER_TRAVERSAL},
     description = "Allows you to swim across water tiles freely",
     color = {0.3, 0.8, 1.0},
     onAcquire = function(context, ability)
@@ -121,8 +96,8 @@ abilityManager:registerAbility({
     id = "boat",
     name = "Boat",
     aliases = {"boat", "raft"},
-    type = AbilityType.CONSUMABLE,
-    effects = {EffectType.WATER_TRAVERSAL},
+    type = AbilitySystem.AbilityType.CONSUMABLE,
+    effects = {AbilitySystem.EffectType.WATER_TRAVERSAL},
     description = "A makeshift boat that breaks after crossing water 3 times",
     maxUses = 3,
     consumeOnUse = true,
@@ -150,8 +125,8 @@ abilityManager:registerAbility({
     id = "jump",
     name = "Jump",
     aliases = {"jump", "jumping", "leap"},
-    type = AbilityType.PASSIVE,
-    effects = {EffectType.JUMP},
+    type = AbilitySystem.AbilityType.PASSIVE,
+    effects = {AbilitySystem.EffectType.JUMP},
     description = "Allows you to jump over low obstacles (height ≤ 0.5)",
     color = {1.0, 0.9, 0.3},
     onAcquire = function(context, ability)
@@ -166,8 +141,6 @@ local playerAbilities = {}
 local boatUses = 0
 local MAX_BOAT_USES = 3
 
--- Player gold
-local playerGold = 0
 
 -- UI state
 local nearbyNPC = nil
@@ -183,50 +156,48 @@ local introShown = false
 -- Door/Map transition system (managed by MapSystem)
 local currentMap = "map"
 
+-- Camera helper functions
+local function centerCameraOnPlayer()
+    camera.x = player.x - UISystem.getGameWidth() / 2
+    camera.y = player.y - UISystem.getGameHeight() / 2
+end
+
+local function clampCameraToMapBounds()
+    if not world.minX or not world.maxX then
+        return
+    end
+    
+    local mapWidth = world.maxX - world.minX
+    local mapHeight = world.maxY - world.minY
+    
+    -- Only clamp if map is larger than screen
+    if mapWidth > UISystem.getGameWidth() then
+        camera.x = math.max(world.minX, math.min(camera.x, world.maxX - UISystem.getGameWidth()))
+    else
+        camera.x = world.minX + (mapWidth - UISystem.getGameWidth()) / 2
+    end
+    
+    if mapHeight > UISystem.getGameHeight() then
+        camera.y = math.max(world.minY, math.min(camera.y, world.maxY - UISystem.getGameHeight()))
+    else
+        camera.y = world.minY + (mapHeight - UISystem.getGameHeight()) / 2
+    end
+end
+
+local function updateCamera()
+    centerCameraOnPlayer()
+    clampCameraToMapBounds()
+end
+
 function love.load()
     love.window.setTitle("Go Fetch")
 
     -- Initialize UI system (sets up window, graphics, canvas, and fonts)
     UISystem.init()
 
-    -- Load sprites
-    playerTileset = love.graphics.newImage("tiles/player-tileset.png")
-    -- Create quads for player animation
-    -- Regular movement quads
-    playerQuads.regular = {
-        down = {
-            love.graphics.newQuad(0, 0, 16, 16, playerTileset:getDimensions()),
-            love.graphics.newQuad(16, 0, 16, 16, playerTileset:getDimensions())
-        },
-        up = {
-            love.graphics.newQuad(32, 0, 16, 16, playerTileset:getDimensions()),
-            love.graphics.newQuad(48, 0, 16, 16, playerTileset:getDimensions())
-        }
-    }
-
-    -- Boat movement quads
-    playerQuads.boat = {
-        down = {
-            love.graphics.newQuad(64, 0, 16, 16, playerTileset:getDimensions()),
-            love.graphics.newQuad(80, 0, 16, 16, playerTileset:getDimensions())
-        },
-        up = {
-            love.graphics.newQuad(96, 0, 16, 16, playerTileset:getDimensions()),
-            love.graphics.newQuad(112, 0, 16, 16, playerTileset:getDimensions())
-        }
-    }
-
-    -- Swimming movement quads
-    playerQuads.swimming = {
-        down = {
-            love.graphics.newQuad(128, 0, 16, 16, playerTileset:getDimensions()),
-            love.graphics.newQuad(144, 0, 16, 16, playerTileset:getDimensions())
-        },
-        up = {
-            love.graphics.newQuad(160, 0, 16, 16, playerTileset:getDimensions()),
-            love.graphics.newQuad(176, 0, 16, 16, playerTileset:getDimensions())
-        }
-    }
+    -- Initialize Player system
+    PlayerSystem.init()
+    player = PlayerSystem.getPlayer()
 
     -- Load audio
     quackSound = love.audio.newSource("audio/quack.wav", "static")
@@ -252,8 +223,7 @@ function love.load()
     end
     
     -- Initialize camera centered on player
-    camera.x = player.x - UISystem.getGameWidth() / 2
-    camera.y = player.y - UISystem.getGameHeight() / 2
+    updateCamera()
 end
 
 function loadGameData()
@@ -426,8 +396,8 @@ function love.update(dt)
                     local targetPixelX = newGridX * 16 + 8
                     local targetPixelY = newGridY * 16 + 8
 
-                    local canCrossWater = abilityManager:hasEffect(EffectType.WATER_TRAVERSAL)
-                    local canJump = abilityManager:hasEffect(EffectType.JUMP)
+                    local canCrossWater = abilityManager:hasEffect(AbilitySystem.EffectType.WATER_TRAVERSAL)
+                    local canJump = abilityManager:hasEffect(AbilitySystem.EffectType.JUMP)
                     local tileBlocked = MapSystem.isColliding(targetPixelX, targetPixelY, canCrossWater)
                     local npcBlocked = MapSystem.isNPCAt(targetPixelX, targetPixelY)
 
@@ -506,8 +476,8 @@ function love.update(dt)
                 local targetPixelX = newGridX * 16 + 8
                 local targetPixelY = newGridY * 16 + 8
                 
-                local canCrossWater = abilityManager:hasEffect(EffectType.WATER_TRAVERSAL)
-                local canJump = abilityManager:hasEffect(EffectType.JUMP)
+                local canCrossWater = abilityManager:hasEffect(AbilitySystem.EffectType.WATER_TRAVERSAL)
+                local canJump = abilityManager:hasEffect(AbilitySystem.EffectType.JUMP)
                 local tileBlocked = MapSystem.isColliding(targetPixelX, targetPixelY, canCrossWater)
                 local npcBlocked = MapSystem.isNPCAt(targetPixelX, targetPixelY)
                 
@@ -544,28 +514,8 @@ function love.update(dt)
             end
         end
         
-        -- Pokemon-style camera: always centered on player, smooth during movement
-        camera.x = player.x - UISystem.getGameWidth() / 2
-        camera.y = player.y - UISystem.getGameHeight() / 2
-        
-        -- Clamp camera to map bounds
-        if world.minX and world.maxX then
-            local mapWidth = world.maxX - world.minX
-            local mapHeight = world.maxY - world.minY
-            
-            -- Only clamp if map is larger than screen
-            if mapWidth > UISystem.getGameWidth() then
-                camera.x = math.max(world.minX, math.min(camera.x, world.maxX - UISystem.getGameWidth()))
-            else
-                camera.x = world.minX + (mapWidth - UISystem.getGameWidth()) / 2
-            end
-            
-            if mapHeight > UISystem.getGameHeight() then
-                camera.y = math.max(world.minY, math.min(camera.y, world.maxY - UISystem.getGameHeight()))
-            else
-                camera.y = world.minY + (mapHeight - UISystem.getGameHeight()) / 2
-            end
-        end
+        -- Update camera to follow player
+        updateCamera()
 
         -- Check for nearby NPCs (only on current map)
         nearbyNPC = nil
@@ -673,14 +623,14 @@ function love.mousepressed(x, y, button)
         UISystem.handleShopClick(x, y, {
             shopInventory = shopInventory,
             selectedShopItem = selectedShopItem,
-            playerGold = playerGold
+            playerGold = PlayerSystem.getGold()
         }, {
             onSelectItem = function(index)
                 selectedShopItem = index
             end,
             hasItem = hasItem,
             onPurchase = function(shopItem)
-                playerGold = playerGold - shopItem.price
+                PlayerSystem.subtractGold(shopItem.price)
                 table.insert(inventory, shopItem.itemId)
                 local itemData = itemRegistry[shopItem.itemId]
                 showToast("Purchased " .. (itemData and itemData.name or shopItem.itemId) .. "!", {0, 1, 0})
@@ -762,25 +712,15 @@ function love.keypressed(key)
         table.insert(heldKeys, key)
     end
 
-    -- Create game state object for cheat console
-    local gameStateForCheats = {
-        showToast = showToast,
+    -- Handle cheat console keys
+    if CheatConsole.keyPressed(key, {
         abilityManager = abilityManager,
         activeQuests = activeQuests,
         completedQuests = completedQuests,
         quests = quests,
         inventory = inventory,
-        getAllItemIds = getAllItemIds,
-        getItemFromRegistry = getItemFromRegistry,
-        getAllAbilityIds = getAllAbilityIds,
-        getAbilityFromRegistry = getAbilityFromRegistry,
-        hasItem = hasItem,
-        getGold = function() return playerGold end,
-        setGold = function(amount) playerGold = amount end
-    }
-    
-    -- Handle cheat console keys
-    if CheatConsole.keyPressed(key, gameStateForCheats, gameState) then
+        itemRegistry = itemRegistry
+    }, gameState) then
         return  -- Key was handled by console
     end
     
@@ -876,33 +816,11 @@ function enterDoor(door)
     MapSystem.calculateMapBounds()
 
     -- Set player position to target door location
-    player.gridX = door.targetX
-    player.gridY = door.targetY
-    player.x = door.targetX * 16 + 8
-    player.y = door.targetY * 16 + 8
+    PlayerSystem.setPosition(door.targetX * 16 + 8, door.targetY * 16 + 8, door.targetX, door.targetY)
     player.moving = false
 
     -- Update camera to follow player
-    camera.x = math.floor(player.x - UISystem.getGameWidth() / 2)
-    camera.y = math.floor(player.y - UISystem.getGameHeight() / 2)
-
-    -- Clamp camera to map bounds
-    if world.minX and world.maxX then
-        local mapWidth = world.maxX - world.minX
-        local mapHeight = world.maxY - world.minY
-
-        if mapWidth > UISystem.getGameWidth() then
-            camera.x = math.max(world.minX, math.min(camera.x, world.maxX - UISystem.getGameWidth()))
-        else
-            camera.x = world.minX + (mapWidth - UISystem.getGameWidth()) / 2
-        end
-
-        if mapHeight > UISystem.getGameHeight() then
-            camera.y = math.max(world.minY, math.min(camera.y, world.maxY - UISystem.getGameHeight()))
-        else
-            camera.y = world.minY + (mapHeight - UISystem.getGameHeight()) / 2
-        end
-    end
+    updateCamera()
 end
 
 function interactWithNPC(npc)
@@ -1028,7 +946,7 @@ function completeQuest(quest)
 
     -- Award gold
     if quest.goldReward and quest.goldReward > 0 then
-        playerGold = playerGold + quest.goldReward
+        PlayerSystem.addGold(quest.goldReward)
         showToast("+" .. quest.goldReward .. " Gold", {1, 0.84, 0})
     end
 
@@ -1128,27 +1046,6 @@ end
 
 
 
--- Helper function to get the current player sprite set based on conditions
-local function getPlayerSpriteSet()
-    -- Don't use water sprites when jumping
-    if player.jumping then
-        return playerQuads.regular
-    end
-    
-    -- Get the tile at player's position
-    local tileX = math.floor(player.x / world.tileSize)
-    local tileY = math.floor(player.y / world.tileSize)
-    local isOnWater = MapSystem.isWaterTile(player.x, player.y)
-
-    if isOnWater then
-        if abilityManager:hasAbility("swim") then
-            return playerQuads.swimming
-        else
-            return playerQuads.boat
-        end
-    end
-    return playerQuads.regular
-end
 
 function love.draw()
     -- Draw to canvas
@@ -1188,21 +1085,8 @@ function love.draw()
             end
         end
 
-        -- Draw player with appropriate sprite
-        love.graphics.setColor(1, 1, 1)
-        local spriteSet = getPlayerSpriteSet()
-        local currentQuad = spriteSet[player.lastVertical][player.moving and (player.walkFrame + 1) or 1]
-        local scaleX = (player.facing == "left") and -1 or 1
-        local offsetX = (player.facing == "left") and player.size or 0
-        love.graphics.draw(
-            playerTileset,
-            currentQuad,
-            player.x - player.size/2 - camX + offsetX,
-            player.y - player.size/2 - camY - player.jumpHeight,  -- Apply jump height offset
-            0,
-            scaleX,
-            1
-        )
+        -- Draw player
+        PlayerSystem.draw(camX, camY, abilityManager, MapSystem)
 
         -- Draw interaction prompt
         if nearbyDoor and gameState == "playing" then
@@ -1224,7 +1108,7 @@ function love.draw()
         UISystem.drawUIHints()
         
         -- Draw gold display
-        UISystem.drawGoldDisplay(playerGold)
+        UISystem.drawGoldDisplay(PlayerSystem.getGold())
         
         -- Draw cheat indicators
         UISystem.drawIndicators(CheatConsole.isNoclipActive(), CheatConsole.isGridActive(), abilityManager)
@@ -1247,20 +1131,7 @@ function love.draw()
         end
 
         -- Draw player
-        love.graphics.setColor(1, 1, 1)
-        local spriteSet = getPlayerSpriteSet()
-        local currentQuad = spriteSet[player.lastVertical][player.moving and (player.walkFrame + 1) or 1]
-        local scaleX = (player.facing == "left") and -1 or 1
-        local offsetX = (player.facing == "left") and player.size or 0
-        love.graphics.draw(
-            playerTileset,
-            currentQuad,
-            player.x - player.size/2 - camX + offsetX,
-            player.y - player.size/2 - camY - player.jumpHeight,  -- Apply jump height offset
-            0,
-            scaleX,
-            1
-        )
+        PlayerSystem.draw(camX, camY, abilityManager, MapSystem)
 
         -- Draw pause menu overlay
         UISystem.drawPauseMenu()
@@ -1270,7 +1141,7 @@ function love.draw()
     elseif gameState == "inventory" then
         UISystem.drawInventory(inventory, itemRegistry)
     elseif gameState == "shop" then
-        UISystem.drawShop(shopInventory, selectedShopItem, playerGold, inventory, itemRegistry, hasItem)
+        UISystem.drawShop(shopInventory, selectedShopItem, PlayerSystem.getGold(), inventory, itemRegistry, hasItem)
     elseif gameState == "questTurnIn" then
         -- Draw game world in background
         local camX = camera.x
@@ -1289,20 +1160,7 @@ function love.draw()
         end
 
         -- Draw player
-        love.graphics.setColor(1, 1, 1)
-        local spriteSet = getPlayerSpriteSet()
-        local currentQuad = spriteSet[player.lastVertical][player.moving and (player.walkFrame + 1) or 1]
-        local scaleX = (player.facing == "left") and -1 or 1
-        local offsetX = (player.facing == "left") and player.size or 0
-        love.graphics.draw(
-            playerTileset,
-            currentQuad,
-            player.x - player.size/2 - camX + offsetX,
-            player.y - player.size/2 - camY - player.jumpHeight,
-            0,
-            scaleX,
-            1
-        )
+        PlayerSystem.draw(camX, camY, abilityManager, MapSystem)
 
         -- Update game state references for UISystem
         UISystem.setGameStateRefs({
@@ -1329,25 +1187,12 @@ function love.draw()
         end
 
         -- Draw player
-        love.graphics.setColor(1, 1, 1)
-        local spriteSet = getPlayerSpriteSet()
-        local currentQuad = spriteSet[player.lastVertical][player.moving and (player.walkFrame + 1) or 1]
-        local scaleX = (player.facing == "left") and -1 or 1
-        local offsetX = (player.facing == "left") and player.size or 0
-        love.graphics.draw(
-            playerTileset,
-            currentQuad,
-            player.x - player.size/2 - camX + offsetX,
-            player.y - player.size/2 - camY - player.jumpHeight,
-            0,
-            scaleX,
-            1
-        )
+        PlayerSystem.draw(camX, camY, abilityManager, MapSystem)
 
         -- Draw quest offer UI
         UISystem.drawQuestOffer(questOfferData)
     elseif gameState == "winScreen" then
-        UISystem.drawWinScreen(playerGold, completedQuests)
+        UISystem.drawWinScreen(PlayerSystem.getGold(), completedQuests)
     end
 
     -- Draw cheat console (overlay on top of everything)
