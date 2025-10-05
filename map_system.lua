@@ -13,45 +13,76 @@ local currentMap = nil
 -- Map paths and door definitions
 local mapPaths = {
     map = "tiled/map.lua",
-    shop = "tiled/shop.lua"
+    shop = "tiled/shop.lua",
+    mapnorth = "tiled/mapnorth.lua",
+    mapsouth = "tiled/mapsouth.lua",
+    mapwest = "tiled/mapwest.lua"
 }
 
 local doors = {
     {
         map = "map",
-        x = 21,
-        y = 9,
+        coords = {{21, 9}},
         targetMap = "shop",
         targetX = -9,
         targetY = 0,
-        indoor = false
+        text = "outside"
     },
     {
         map = "shop",
-        x = -10,
-        y = -1,
+        coords = {{-10, -1}, {-10, 0}, {-10, 1}},
         targetMap = "map",
         targetX = 21,
         targetY = 9,
-        indoor = true
+        text = "inside"
     },
     {
-        map = "shop",
-        x = -10,
-        y = 0,
-        targetMap = "map",
-        targetX = 21,
-        targetY = 9,
-        indoor = true
+        map = "map",
+        coords = {{2, -16}, {3, -16}, {4, -16}},
+        targetMap = "mapnorth",
+        targetX = 3,
+        targetY = 30,
+        text = "Travel"
     },
     {
-        map = "shop",
-        x = -10,
-        y = 1,
+        map = "mapnorth",
+        coords = {{2, 31}, {3, 31}, {4, 31}},
         targetMap = "map",
-        targetX = 21,
-        targetY = 9,
-        indoor = true
+        targetX = 3,
+        targetY = -15,
+        text = "Travel"
+    },
+    {
+        map = "map",
+        coords = {{15, 30}, {16, 29}},
+        targetMap = "mapsouth",
+        targetX = -3,
+        targetY = -15,
+        text = "Travel"
+    },
+    {
+        map = "mapsouth",
+        coords = {{-4, -16}, {-3, -16}},
+        targetMap = "map",
+        targetX = 16,
+        targetY = 28,
+        text = "Travel"
+    },
+    {
+        map = "map",
+        coords = {{-7, 5}, {-10, 6}, {-9, 6}, {-8, 6}, {-7, 6}},
+        targetMap = "mapwest",
+        targetX = 30,
+        targetY = 17,
+        text = "Travel"
+    },
+    {
+        map = "mapwest",
+        coords = {{31, 16}, {31, 17}, {31, 18}, {31, 19}},
+        targetMap = "map",
+        targetX = -6,
+        targetY = 6,
+        text = "Travel"
     }
 }
 
@@ -88,8 +119,12 @@ end
 -- Find a door at the given position on the current map
 function MapSystem.findDoorAt(gridX, gridY)
     for _, door in ipairs(doors) do
-        if door.map == currentMap and door.x == gridX and door.y == gridY then
-            return door
+        if door.map == currentMap then
+            for _, coord in ipairs(door.coords) do
+                if coord[1] == gridX and coord[2] == gridY then
+                    return door
+                end
+            end
         end
     end
     return nil
