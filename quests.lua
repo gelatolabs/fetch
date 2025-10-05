@@ -41,7 +41,6 @@ quests.npcs = {
         name = "Child",
         givesItem = "item_cat",
         requiresQuest = "quest_lost_cat",
-        requiresDialog = true,
         itemGiveText = "I found this cat wandering around! You can have it.",
         noQuestText = "I'm playing with my toys right now!"
     },
@@ -86,7 +85,6 @@ quests.npcs = {
         name = "Reader",
         givesItem = "item_book",
         requiresQuest = "quest_missing_book",
-        requiresDialog = true,
         itemGiveText = "Oh, I'm done with this book. Here you go!",
         noQuestText = "Shh... I'm reading something really interesting!"
     },
@@ -111,7 +109,6 @@ quests.npcs = {
         name = "Courier",
         givesItem = "item_package",
         requiresQuest = "quest_delivery",
-        requiresDialog = true,
         itemGiveText = "This package is ready for pickup. Take it!",
         noQuestText = "I've got deliveries to make. Very busy!"
     },
@@ -136,7 +133,6 @@ quests.npcs = {
         name = "Woodcutter",
         givesItem = "item_wood",
         requiresQuest = "quest_build_boat",
-        requiresDialog = true,
         itemGiveText = "Here's some quality wood for your boat. Take it to the builder!",
         noQuestText = "Just chopping wood. Hard work!"
     },
@@ -161,7 +157,6 @@ quests.npcs = {
         name = "Lifeguard",
         givesItem = "item_floaties",
         requiresQuest = "quest_learn_swim",
-        requiresDialog = true,
         itemGiveText = "Here are some floaties! They'll help you learn to swim. Take them back to the swimmer!",
         noQuestText = "The water is perfect today! Want to learn to swim?"
     },
@@ -186,7 +181,6 @@ quests.npcs = {
         name = "Coach",
         givesItem = "item_shoes",
         requiresQuest = "quest_learn_jump",
-        requiresDialog = true,
         itemGiveText = "These are special jumping shoes! Take them to the athlete and they'll teach you!",
         noQuestText = "I train athletes to be the best they can be!"
     }
