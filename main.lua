@@ -14,6 +14,8 @@ local ShopSystem = require "shop_system"
 
 -- Audio
 local quackSound
+local currentMusic = nil
+local musicTracks = {}
 
 -- Game state
 -- mainMenu, settings, playing, dialog, questLog, inventory, questTurnIn, shop
@@ -131,6 +133,31 @@ function love.load()
 
     -- Load audio
     quackSound = love.audio.newSource("audio/quack.wav", "static")
+    musicTracks.intro = love.audio.newSource("audio/intro.wav", "stream")
+    musicTracks.theme = love.audio.newSource("audio/theme.wav", "stream")
+    musicTracks.themeFunky = love.audio.newSource("audio/theme-funky.wav", "stream")
+    musicTracks.credits = love.audio.newSource("audio/credits.wav", "stream")
+    musicTracks.boss = love.audio.newSource("audio/boss.wav", "stream")
+    musicTracks.glitch = love.audio.newSource("audio/glitch.wav", "stream")
+    musicTracks.lullaby = love.audio.newSource("audio/lullaby.wav", "stream")
+    musicTracks.sailing = love.audio.newSource("audio/sailing.wav", "stream")
+    musicTracks.spooky = love.audio.newSource("audio/spooky.wav", "stream")
+    musicTracks.throneRoom = love.audio.newSource("audio/throne-room.wav", "stream")
+
+    -- Set all music to loop except credits
+    musicTracks.intro:setLooping(true)
+    musicTracks.theme:setLooping(true)
+    musicTracks.themeFunky:setLooping(true)
+    musicTracks.credits:setLooping(false)
+    musicTracks.boss:setLooping(true)
+    musicTracks.glitch:setLooping(true)
+    musicTracks.lullaby:setLooping(true)
+    musicTracks.sailing:setLooping(true)
+    musicTracks.spooky:setLooping(true)
+    musicTracks.throneRoom:setLooping(true)
+
+    -- Start intro music
+    playMusic(musicTracks.intro)
 
     -- Load Tiled map
     map = sti(MapSystem.getMapPath(currentMap))
@@ -241,7 +268,7 @@ function love.update(dt)
     -- Handle win screen timer
     if gameState == "winScreen" then
         winScreenTimer = winScreenTimer + dt
-        if winScreenTimer >= 5 then  -- 5 seconds
+        if winScreenTimer >= 145 then  -- 2 minutes 25 seconds (145 seconds)
             love.event.quit()
         end
         return
@@ -304,6 +331,7 @@ function love.mousepressed(x, y, button)
         UISystem.handleMainMenuClick(x, y, {
             onPlay = function()
                 gameState = "playing"
+                playMusic(musicTracks.theme)
                 -- Show intro dialog if not shown yet
                 if not introShown then
                     introShown = true
@@ -530,7 +558,9 @@ function love.keypressed(key)
             UISystem.questTurnInNextPage()
         end
     elseif key == "escape" then
-        if gameState == "playing" then
+        if gameState == "winScreen" then
+            love.event.quit()
+        elseif gameState == "playing" then
             gameState = "pauseMenu"
         elseif gameState == "pauseMenu" then
             gameState = "playing"
@@ -574,6 +604,13 @@ function enterDoor(door)
     -- Calculate target position with offset
     local targetX = door.targetX + (door.offsetX or 0)
     local targetY = door.targetY + (door.offsetY or 0)
+
+    -- Update music based on target map
+    if door.targetMap == "shop" then
+        playMusic(musicTracks.themeFunky)
+    elseif currentMap == "shop" then
+        playMusic(musicTracks.theme)
+    end
 
     -- For shop (indoor) transitions or no direction, use instant transition
     if not transitionDirection or door.targetMap == "shop" or currentMap == "shop" then
@@ -749,6 +786,7 @@ function completeQuest(quest)
     -- Check if main quest was completed (win condition)
     if quest.isMainQuest then
         gameState = "winScreen"
+        playMusic(musicTracks.credits)
     end
 end
 
@@ -765,6 +803,22 @@ end
 -- Wrapper function for backward compatibility
 function showToast(message, color)
     UISystem.showToast(message, color)
+end
+
+-- Music management
+function playMusic(music)
+    if currentMusic == music and music:isPlaying() then
+        return
+    end
+
+    if currentMusic then
+        currentMusic:stop()
+    end
+
+    currentMusic = music
+    if music then
+        music:play()
+    end
 end
 
 -- Helper function to draw a map with NPCs

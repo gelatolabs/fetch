@@ -993,10 +993,6 @@ function UISystem.drawWinScreen(playerGold, completedQuests)
     love.graphics.setColor(0.8, 0.8, 0.8)
     love.graphics.printf("Final Gold: " .. playerGold, CHAT_PANE_WIDTH, 155, GAME_WIDTH, "center")
     love.graphics.printf("Quests Completed: " .. #completedQuests, CHAT_PANE_WIDTH, 170, GAME_WIDTH, "center")
-
-    -- Footer
-    love.graphics.setColor(0.6, 0.6, 0.6)
-    love.graphics.printf("The game will close in a moment...", CHAT_PANE_WIDTH, 200, GAME_WIDTH, "center")
 end
 
 -- Draw UI hints bar at top of screen
