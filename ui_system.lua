@@ -37,13 +37,6 @@ local developerSprite = nil
 
 -- Game state references (set by main.lua)
 local gameStateRefs = {
-    map = nil,
-    camera = nil,
-    npcs = nil,
-    currentMap = nil,
-    player = nil,
-    playerTileset = nil,
-    getPlayerSpriteSet = nil,
     inventory = nil,
     itemRegistry = nil,
     questTurnInData = nil
