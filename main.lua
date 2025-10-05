@@ -39,8 +39,6 @@ local world = {
 }
 
 -- Quests (state managed by quest module)
-local quests = {}
--- Point to quest module's state
 local activeQuests = questData.activeQuests
 local completedQuests = questData.completedQuests
 
@@ -215,10 +213,6 @@ function loadGameData()
         end
     end
 
-    -- Load quests from quest data
-    for questId, questInfo in pairs(questData.questData) do
-        quests[questId] = questInfo
-    end
 end
 
 
@@ -282,8 +276,8 @@ function love.update(dt)
     end
 
     if gameState == "playing" and not CheatConsole.isOpen() then
-        -- Update player movement (only if not transitioning)
-        if not mapTransition.active then
+        -- Update player movement (only if not transitioning and chat pane is closed)
+        if not mapTransition.active and not UISystem.isChatPaneVisible() then
             PlayerSystem.update(dt, heldKeys)
         end
 
@@ -488,10 +482,9 @@ function love.keypressed(key)
         abilityManager = PlayerSystem.getAbilityManager(),
         activeQuests = activeQuests,
         completedQuests = completedQuests,
-        quests = quests,
+        quests = questData.questData,
         inventory = PlayerSystem.getInventory(),
-        itemRegistry = itemRegistry,
-        progressDialog = UISystem.progressDialog
+        itemRegistry = itemRegistry
     }, gameState) then
         return  -- Key was handled by console
     end
@@ -511,9 +504,9 @@ function love.keypressed(key)
 
     -- Normal game controls
     if key == "space" or key == "e" then
-        if gameState == "playing" and nearbyDoor then
+        if gameState == "playing" and nearbyDoor and not UISystem.isChatPaneVisible() then
             enterDoor(nearbyDoor)
-        elseif gameState == "playing" and nearbyNPC then
+        elseif gameState == "playing" and nearbyNPC and not UISystem.isChatPaneVisible() then
             questData.interactWithNPC(nearbyNPC)
             gameState = questData.gameState
             questTurnInData = questData.questTurnInData
@@ -982,7 +975,7 @@ function love.draw()
         love.graphics.setScissor()
 
     elseif gameState == "questLog" then
-        UISystem.drawQuestLog(activeQuests, completedQuests, quests)
+        UISystem.drawQuestLog(activeQuests, completedQuests, questData.questData)
     elseif gameState == "inventory" then
         UISystem.drawInventory(PlayerSystem.getInventory(), itemRegistry)
     elseif gameState == "shop" then
