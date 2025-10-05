@@ -1155,20 +1155,10 @@ function love.draw()
     local scissorX = math.floor((screenWidth - currentVisibleWidth * scale) / 2)
     love.graphics.setScissor(scissorX, offsetY, currentVisibleWidth * scale, gameHeight * scale)
     
-    -- Apply CRT glitch shader during transition
-    local glitchIntensity = UISystem.getGlitchIntensity()
-    if glitchIntensity > 0 then
-        local shader = UISystem.getShader()
-        love.graphics.setShader(shader)
-        shader:send("time", love.timer.getTime())
-        shader:send("glitchIntensity", glitchIntensity)
-    end
+    -- Draw canvas with shader effects (all shader logic is in UISystem)
+    UISystem.drawCanvasWithShaders(offsetX, offsetY, scale)
     
-    -- Draw the full canvas
-    love.graphics.draw(UISystem.getCanvas(), offsetX, offsetY, 0, scale, scale)
-    
-    -- Reset shader and scissor
-    love.graphics.setShader()
+    -- Clear scissor
     love.graphics.setScissor()
 end
 
