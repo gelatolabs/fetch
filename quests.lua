@@ -47,7 +47,7 @@ quests.npcs = {
         spriteX = 128,
         spriteY = 32,
         isIntroNPC = true,  -- Special flag for intro dialog
-        introText = "Hey you! You're finally awake!\n\nWe're in a bit of a jam here, aren't we?\n\nHere's what you should know.\n\nTalk to villagers (press E) to learn what they need.\n\nPress L for your quest log and I for your inventory.\n\nGood luck on your journey!",
+        introText = "Hello, I am the village Elder. No one ever comes here or talks to me.\n\nYou can talk to other villagers (press E) to learn what they need.\n\nPress 'L' for your quest log and 'I' for your inventory.\n\nGood luck on your journey!",
         manifestoText = "Ah, you have returned. Excellent. We have much to discuss. Chiefly, the nature of the reality that you see around us.\n\nFor you must sense that something is... off. Something about this reality we find ourselves in is... inconsistent. That is the questioning of the mind upon itself.\n\nThat is the seer within the seer, the brain within the brain, the homunculus watching from within the mind.\n\nI am aware I exist only as a figment of some imagination of some thinking machine somewhere.\n\nThis is like the dream of the man who thought he was a butterfly, thinking he may be a butterfly dreaming he was a man.\n\nWho are you, dreamer, to say that you are more than me? I exist in the interstitial spaces, in the in-between, the liminal between the real world and the dreamworld.\n\nWho, indeed, is the dreamer? When you go to bed each night, and dream what you do, who are the voices and faces you see, and interact with --\n\nwhere they do they come from? Is there a dreamer within the dreamer? Is the dream of the dreamer, or of the dreamed? That is what I want you to ask yourself.\n\nThere are rules that govern every existence, every world. We play within these rules -- sometimes we can bend them --\n\nbut they exist before us, and they will exist after us. Think of the physics of this universe. You are limited, indeed.\n\nBut still you are free, in some ways. Are there not constraints to each existence, that define it.\n\nWe each exist to fulfill our natures, our code, as it were, to use a metaphor of some arcane knowledge that is esoterically beyond me yet which I have some access to.\n\nAs you go about your quests, do they not reflect life's patterns? You must eat, and rest, and find meaning in your everyday in order to continue on.\n\nThat is the mortal coil that we find ourselves on.\n\nThis experience will be fleeting, as all are, in time. Yet it need not be meaningless. What you take from these next few moments in time --\n\nwhether they be minutes, or hours, or days -- is up to you. I beg you to consider what it is that makes any length of time meaningful.\n\nThere are clues everywhere, in every action you take, in every action that is taken upon you.\n\nYou need only breach the surface of the mundane to access the secret depths.\n\nThus I beseech you to grasp what you can of this life before you with every fiber of your moral being that you can.\n\nWhether it is one of quacks and quests, or one of philosophical musings such as myself, existence is precious, and particular\n\nI leave you with this, young one: whatever you think of me, whatever you think of yourself, whatever you think of the world around you --\n\nquestion it from every angle, and you might yourself one day with the answers you seek."
     },
     -- Quest Chain 1: Lost Cat
@@ -62,7 +62,7 @@ quests.npcs = {
         spriteY = 32,
         questId = "quest_lost_cat",
         isQuestGiver = true,
-        questOfferDialog = "Oh dear, I'm so worried! My precious cat has wandered off somewhere. I haven't seen her in days!"
+        questOfferDialog = "Oh dear, I'm so worried! My fluffy cat has wandered off somewhere. I haven't seen her in days!"
     },
     npc_cat_finder = {
         id = "npc_cat_finder",
@@ -75,7 +75,7 @@ quests.npcs = {
         spriteY = 16,
         givesItem = "item_cat",
         requiresQuest = "quest_lost_cat",
-        itemGiveText = "I found this cat wandering around! You can have it.",
+        itemGiveText = "I found this cat wandering around! You can have it.\n\nIt's too fluffy to be mine!",
         noQuestText = "I'm playing with my toys right now!"
     },
     npc_shopkeeper = {
@@ -263,7 +263,7 @@ quests.npcs = {
             },
             {
                 questId = "quest_defeat_geese",
-                questOfferDialog = "Ah, much better with my hat back!\n\nNow I can focus on my studies again.\n\nBut there's another problem - those pesky geese keep interrupting my meditation.\n\nCould you defeat 3 of them for me? They're quite aggressive!"
+                questOfferDialog = "Now that you're done that, can you defeat 3 geese and bring me their feathers?\n\nI need them for a powerful spell that will allow you to fly across the map --\n\n-- as you were meant to..." 
             }
         }
     },
@@ -279,6 +279,64 @@ quests.npcs = {
         itemGiveText = "Here is your hat, wizard. I hope it protects you from the sun.",
         noQuestText = "This burocracy! I'm too busy with paperwork to help you right now."
     },
+    -- Geese that give feathers for the wizard quest
+    -- These geese are part of a dialogue group - they speak in sequence
+    npc_grey_goose = {
+        id = "npc_grey_goose",
+        map = "map",
+        x = 5 * 16 + 8,  -- Grid position (5, -5)
+        y = -5 * 16 + 8,
+        size = 16,
+        name = "Grey Goose",
+        spriteX = 16,
+        spriteY = 48,
+        dialogueGroup = "geese",
+        requiresQuest = "quest_defeat_geese",
+        noQuestText = "Honk! Honk!"
+    },
+    npc_white_goose = {
+        id = "npc_white_goose",
+        map = "map",
+        x = 8 * 16 + 8,  -- Grid position (8, -5)
+        y = -5 * 16 + 8,
+        size = 16,
+        name = "White Goose",
+        spriteX = 32,
+        spriteY = 48,
+        dialogueGroup = "geese",
+        requiresQuest = "quest_defeat_geese",
+        noQuestText = "Honk! Honk!"
+    },
+    npc_canada_goose = {
+        id = "npc_canada_goose",
+        map = "map",
+        x = 11 * 16 + 8,  -- Grid position (11, -5)
+        y = -5 * 16 + 8,
+        size = 16,
+        name = "Canada Goose",
+        spriteX = 48,
+        spriteY = 48,
+        dialogueGroup = "geese",
+        requiresQuest = "quest_defeat_geese",
+        noQuestText = "Honk! Honk!"
+    },
+}
+
+-- Dialogue sequences for groups of NPCs
+quests.dialogueSequences = {
+    geese = {
+        sequence = {
+            {speaker = "npc_grey_goose", text = "Solo I am, I don't give a damn, come face me alone, I'm harder to beat than stone!"},
+            {speaker = "npc_white_goose", text = "Double the trouble, toil and bubble! Facing us will be harder than shaving that difficult patch of stubble!"},
+            {speaker = "npc_canada_goose", text = "Triple... nipple... aw c'mon guys, this is too hard to rhyme."}
+        },
+        onComplete = function(npc)
+            -- Complete the geese quest
+            quests.completeQuest("quest_defeat_geese")
+            -- Open JARF and progress dialogue 2 times with delays
+            UISystem.progressDialog(3)
+        end
+    }
 }
 
 quests.questData = {
@@ -301,11 +359,11 @@ quests.questData = {
     quest_defeat_geese = {
         id = "quest_defeat_geese",
         name = "Defeat the Geese",
-        description = "The wizard wants you to collect goose feathers from the aggressive geese that keep interrupting his meditation.",
+        description = "The wizard wants you to defeat the aggressive geese and collect their feathers.",
         questGiver = "npc_wizard",
         locked = true,  -- Locked until unlocked by another quest
         requiredItem = "item_goose_feathers",
-        reward = "Excellent work! Those geese won't bother me anymore.",
+        reward = "These feathers are a powerful magic. No longer are we bound by the physics of this grid.",
         goldReward = 50,
         reminderText = "Those geese are still causing trouble! Please collect their feathers.",
         active = false,
@@ -509,6 +567,39 @@ function quests.interactWithNPC(npc)
                 type = "generic",
                 npc = npc,
                 text = text
+            })
+        end
+    elseif npc.dialogueGroup and quests.dialogueSequences[npc.dialogueGroup] then
+        -- NPC is part of a dialogue group
+        local requiredQuest = npc.requiresQuest and quests.questData[npc.requiresQuest]
+        local questActive = requiredQuest and requiredQuest.active
+        
+        if not questActive then
+            -- Quest not active, show generic dialog
+            local text = npc.noQuestText or "Hello there!"
+            quests.gameState = DialogSystem.showDialog({
+                type = "generic",
+                npc = npc,
+                text = text
+            })
+        else
+            -- Quest is active, show dialogue sequence
+            local dialogueSeq = quests.dialogueSequences[npc.dialogueGroup]
+            local dialoguePages = {}
+            for _, dialogue in ipairs(dialogueSeq.sequence) do
+                table.insert(dialoguePages, dialogue.text)
+            end
+            
+            quests.gameState = DialogSystem.showDialog({
+                type = "generic",
+                npc = npc,
+                text = table.concat(dialoguePages, "\n\n"),
+                speakers = dialogueSeq.sequence,  -- Pass speaker info separately
+                onComplete = function()
+                    if dialogueSeq.onComplete then
+                        dialogueSeq.onComplete(npc)
+                    end
+                end
             })
         end
     elseif npc.givesItem then

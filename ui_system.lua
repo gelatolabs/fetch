@@ -51,6 +51,10 @@ local nextRandomGlitch = 0 -- Time until next random glitch
 local timedGlitchTimer = 0 -- Timer for periodic glitch bursts
 local nextTimedGlitch = 0 -- Time until next timed glitch
 
+-- Delayed dialog progression
+local delayedDialogQueue = {}
+local delayedDialogTimer = 0
+
 -- Game state references (set by main.lua)
 local gameStateRefs = {
     inventory = nil,
@@ -354,35 +358,67 @@ function UISystem.updateToasts(dt)
 end
 
 -- Progress the dialog script
-function UISystem.progressDialog()
-    if currentDialogIndex < #dialogScript then
-        -- Show chat pane on first dialog
-        if not chatPaneVisible then
-            chatPaneVisible = true
-            -- Start transition animation
-            chatPaneTransition.active = true
-            chatPaneTransition.progress = 0
-            -- Trigger scanline glitch effect
-            scanlineGlitchTimer = 0.4 -- Glitch for 0.4 seconds when scanlines appear
+function UISystem.progressDialog(steps)
+    steps = steps or 1
+    
+    if steps == 1 then
+        -- Immediate progression for single step
+        if currentDialogIndex < #dialogScript then
+            -- Show chat pane on first dialog
+            if not chatPaneVisible then
+                chatPaneVisible = true
+                -- Start transition animation
+                chatPaneTransition.active = true
+                chatPaneTransition.progress = 0
+                -- Trigger scanline glitch effect
+                scanlineGlitchTimer = 0.4 -- Glitch for 0.4 seconds when scanlines appear
+            end
+            
+            currentDialogIndex = currentDialogIndex + 1
+            local dialog = dialogScript[currentDialogIndex]
+            table.insert(chatMessages, {
+                speaker = dialog.speaker,
+                text = dialog.text,
+                displayedText = "",
+                animTimer = 0
+            })
+            -- Keep only the last 8 messages
+            if #chatMessages > 8 then
+                table.remove(chatMessages, 1)
+            end
         end
-        
-        currentDialogIndex = currentDialogIndex + 1
-        local dialog = dialogScript[currentDialogIndex]
-        table.insert(chatMessages, {
-            speaker = dialog.speaker,
-            text = dialog.text,
-            displayedText = "",
-            animTimer = 0
-        })
-        -- Keep only the last 8 messages
-        if #chatMessages > 8 then
-            table.remove(chatMessages, 1)
+    else
+        -- Queue multiple steps with delays
+        for i = 1, steps do
+            table.insert(delayedDialogQueue, {
+                delay = (i - 1) * 2.0  -- 2 second delay between each step
+            })
         end
     end
 end
 
 -- Update chat animation
 function UISystem.updateChat(dt)
+    -- Update delayed dialog queue
+    if #delayedDialogQueue > 0 then
+        delayedDialogTimer = delayedDialogTimer + dt
+        
+        -- Process any queued dialogs whose delay has elapsed
+        for i = #delayedDialogQueue, 1, -1 do
+            local queuedDialog = delayedDialogQueue[i]
+            if delayedDialogTimer >= queuedDialog.delay then
+                -- Progress dialog immediately
+                UISystem.progressDialog(1)
+                table.remove(delayedDialogQueue, i)
+            end
+        end
+        
+        -- Reset timer if queue is empty
+        if #delayedDialogQueue == 0 then
+            delayedDialogTimer = 0
+        end
+    end
+    
     -- Update chat pane transition
     if chatPaneTransition.active then
         chatPaneTransition.progress = chatPaneTransition.progress + dt / chatPaneTransition.duration
@@ -1388,7 +1424,12 @@ function UISystem.drawChatPane()
 
         -- Wrap text to fit with padding
         local maxTextWidth = maxBubbleWidth - textPaddingLeft - textPaddingRight
-        local _, wrappedText = font:getWrap(msg.displayedText, maxTextWidth)
+        local displayText = msg.displayedText or ""
+        -- Safety check for empty or invalid text
+        if displayText == "" then
+            displayText = " "
+        end
+        local _, wrappedText = font:getWrap(displayText, maxTextWidth)
 
         -- Find the actual widest line
         local actualMaxLineWidth = 0
