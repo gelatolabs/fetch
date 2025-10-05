@@ -48,9 +48,6 @@ local quests = {}
 local activeQuests = {}
 local completedQuests = {}
 
--- Inventory
-local inventory = {}
-
 -- Item registry (single source of truth for all items)
 local itemRegistry = {
     item_cat = {id = "item_cat", name = "Fluffy Cat", aliases = {"cat"}},
@@ -313,15 +310,10 @@ function love.mousepressed(x, y, button)
 
     -- Handle shop clicks
     if gameState == "shop" then
-        ShopSystem.handleClick(x, y, hasItem, function(shopItem)
+        ShopSystem.handleClick(x, y, function(shopItem)
             if shopItem then
                 -- Purchase the item
-                local success, message, color = ShopSystem.purchaseItem(
-                    shopItem,
-                    hasItem,
-                    function(itemId) table.insert(inventory, itemId) end,
-                    itemRegistry
-                )
+                local success, message, color = ShopSystem.purchaseItem(shopItem, itemRegistry)
                 showToast(message, color)
             else
                 -- Insufficient funds (nil indicates this)
@@ -361,9 +353,9 @@ function love.mousepressed(x, y, button)
         local canvasX = (x - offsetX) / UISystem.getScale()
         local canvasY = (y - offsetY) / UISystem.getScale()
 
-        UISystem.handleQuestTurnInClick(canvasX, canvasY, questTurnInData, inventory, {
+        UISystem.handleQuestTurnInClick(canvasX, canvasY, questTurnInData, PlayerSystem.getInventory(), {
             onCorrectItem = function(quest, npc)
-                removeItem(quest.requiredItem)
+                PlayerSystem.removeItem(quest.requiredItem)
                 completeQuest(quest)
                 -- Show reward dialog
                 gameState = DialogSystem.showDialog({
@@ -408,7 +400,7 @@ function love.keypressed(key)
         activeQuests = activeQuests,
         completedQuests = completedQuests,
         quests = quests,
-        inventory = inventory,
+        inventory = PlayerSystem.getInventory(),
         itemRegistry = itemRegistry,
         progressDialog = UISystem.progressDialog
     }, gameState) then
@@ -435,11 +427,11 @@ function love.keypressed(key)
                     showToast("Quest Accepted: " .. quest.name, {1, 1, 0})
                 end,
                 onQuestComplete = function(quest)
-                    removeItem(quest.requiredItem)
+                    PlayerSystem.removeItem(quest.requiredItem)
                     completeQuest(quest)
                 end,
                 onItemReceive = function(itemId)
-                    table.insert(inventory, itemId)
+                    PlayerSystem.addItem(itemId)
                     local itemData = itemRegistry[itemId]
                     local itemName = itemData and itemData.name or itemId
                     showToast("Received: " .. itemName, {0.7, 0.5, 0.9})
@@ -544,7 +536,7 @@ function interactWithNPC(npc)
                 quest = quest,
                 text = dialogText
             })
-        elseif quest.active and quest.requiredItem and hasItem(quest.requiredItem) then
+        elseif quest.active and quest.requiredItem and PlayerSystem.hasItem(quest.requiredItem) then
             -- Turn in quest - show inventory selection UI (not using DialogSystem for this special UI)
             questTurnInData = {npc = npc, quest = quest}
             gameState = "questTurnIn"
@@ -570,7 +562,7 @@ function interactWithNPC(npc)
                 npc = npc,
                 text = text
             })
-        elseif not hasItem(npc.givesItem) then
+        elseif not PlayerSystem.hasItem(npc.givesItem) then
             -- Quest active and don't have item, give it
             local text = npc.itemGiveText or "Here, take this!"
             gameState = DialogSystem.showDialog({
@@ -666,25 +658,6 @@ function completeQuest(quest)
 end
 
 
-function hasItem(itemId)
-    for _, item in ipairs(inventory) do
-        if item == itemId then
-            return true
-        end
-    end
-    return false
-end
-
-
-function removeItem(itemId)
-    for i, item in ipairs(inventory) do
-        if item == itemId then
-            table.remove(inventory, i)
-            return
-        end
-    end
-end
-
 function indexOf(tbl, value)
     for i, v in ipairs(tbl) do
         if v == value then
@@ -728,7 +701,7 @@ local function drawNPCs(camX, camY, chatOffset)
                     if not quest.active and not quest.completed then
                         love.graphics.setColor(1, 1, 0)
                         love.graphics.circle("fill", chatOffset + npc.x - camX, npc.y - 10 - camY, 2)
-                    elseif quest.active and hasItem(quest.requiredItem) then
+                    elseif quest.active and PlayerSystem.hasItem(quest.requiredItem) then
                         love.graphics.setColor(0, 1, 0)
                         love.graphics.circle("fill", chatOffset + npc.x - camX, npc.y - 10 - camY, 2)
                     end
@@ -844,7 +817,7 @@ function love.draw()
     elseif gameState == "questLog" then
         UISystem.drawQuestLog(activeQuests, completedQuests, quests)
     elseif gameState == "inventory" then
-        UISystem.drawInventory(inventory, itemRegistry)
+        UISystem.drawInventory(PlayerSystem.getInventory(), itemRegistry)
     elseif gameState == "shop" then
         -- Draw gold display at top
         love.graphics.push()
@@ -853,7 +826,7 @@ function love.draw()
         love.graphics.pop()
         
         -- Draw shop UI
-        ShopSystem.draw(hasItem, itemRegistry)
+        ShopSystem.draw(itemRegistry)
     elseif gameState == "questTurnIn" then
         -- Clip rendering to game area only
         love.graphics.setScissor(UISystem.getChatPaneWidth(), 0, UISystem.getGameWidth(), UISystem.getGameHeight())
@@ -875,7 +848,7 @@ function love.draw()
 
         -- Update game state references for UISystem
         UISystem.setGameStateRefs({
-            inventory = inventory,
+            inventory = PlayerSystem.getInventory(),
             itemRegistry = itemRegistry,
             questTurnInData = questTurnInData
         })
