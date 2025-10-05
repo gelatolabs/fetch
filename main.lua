@@ -659,23 +659,11 @@ function enterDoor(door)
     local finalCameraY = finalPlayerY - gameHeight / 2
 
     -- Calculate bounds for target map to clamp camera
-    local layer = toMapObj.layers[1]
-    if layer and layer.chunks then
-        local minX, minY = math.huge, math.huge
-        local maxX, maxY = -math.huge, -math.huge
-
-        for _, chunk in ipairs(layer.chunks) do
-            minX = math.min(minX, chunk.x)
-            minY = math.min(minY, chunk.y)
-            maxX = math.max(maxX, chunk.x + chunk.width)
-            maxY = math.max(maxY, chunk.y + chunk.height)
-        end
-
-        -- Convert to pixels
-        local targetMinX = minX * world.tileSize
-        local targetMinY = minY * world.tileSize
-        local targetMaxX = maxX * world.tileSize
-        local targetMaxY = maxY * world.tileSize
+    if toMapObj.width and toMapObj.height then
+        local targetMinX = 0
+        local targetMinY = 0
+        local targetMaxX = toMapObj.width * world.tileSize
+        local targetMaxY = toMapObj.height * world.tileSize
 
         -- Apply camera clamping logic
         local mapWidth = targetMaxX - targetMinX
