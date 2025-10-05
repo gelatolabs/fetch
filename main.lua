@@ -381,20 +381,7 @@ end
 function love.keypressed(key)
     love.mouse.setVisible(false)
 
-    -- Track movement keys for input priority
-    if key == "w" or key == "up" or key == "s" or key == "down" or
-       key == "a" or key == "left" or key == "d" or key == "right" then
-        -- Remove if already in list
-        for i = #heldKeys, 1, -1 do
-            if heldKeys[i] == key then
-                table.remove(heldKeys, i)
-            end
-        end
-        -- Add to end (most recent)
-        table.insert(heldKeys, key)
-    end
-
-    -- Handle cheat console keys
+    -- Handle cheat console keys first
     if CheatConsole.keyPressed(key, {
         abilityManager = PlayerSystem.getAbilityManager(),
         activeQuests = activeQuests,
@@ -405,6 +392,19 @@ function love.keypressed(key)
         progressDialog = UISystem.progressDialog
     }, gameState) then
         return  -- Key was handled by console
+    end
+
+    -- Track movement keys for input priority (only during gameplay)
+    if gameState == "playing" and (key == "w" or key == "up" or key == "s" or key == "down" or
+       key == "a" or key == "left" or key == "d" or key == "right") then
+        -- Remove if already in list
+        for i = #heldKeys, 1, -1 do
+            if heldKeys[i] == key then
+                table.remove(heldKeys, i)
+            end
+        end
+        -- Add to end (most recent)
+        table.insert(heldKeys, key)
     end
 
     -- Progress dialog with Enter key
@@ -469,6 +469,14 @@ function love.keypressed(key)
             gameState = "inventory"
         elseif gameState == "inventory" then
             gameState = "playing"
+        end
+    elseif key == "left" or key == "," or key == "<" then
+        if gameState == "questTurnIn" then
+            UISystem.questTurnInPrevPage()
+        end
+    elseif key == "right" or key == "." or key == ">" then
+        if gameState == "questTurnIn" then
+            UISystem.questTurnInNextPage()
         end
     elseif key == "escape" then
         if gameState == "playing" then

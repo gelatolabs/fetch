@@ -42,10 +42,40 @@ local gameStateRefs = {
     questTurnInData = nil
 }
 
+-- Quest turn-in pagination state
+local questTurnInPage = 0  -- Current page (0-indexed)
+local questTurnInMaxPage = 0  -- Maximum page index
+
 -- Set game state references
 function UISystem.setGameStateRefs(refs)
+    -- Only reset pagination if questTurnInData is NEW (not just being refreshed)
+    local shouldResetPagination = refs.questTurnInData and 
+                                   refs.questTurnInData ~= gameStateRefs.questTurnInData
+    
     for key, value in pairs(refs) do
         gameStateRefs[key] = value
+    end
+    
+    -- Reset pagination only when opening a NEW quest turn-in dialog
+    if shouldResetPagination and refs.inventory then
+        questTurnInPage = 0
+        local itemsPerPage = 5
+        local totalItems = #refs.inventory
+        questTurnInMaxPage = math.max(0, math.ceil(totalItems / itemsPerPage) - 1)
+    end
+end
+
+-- Navigate to previous page in quest turn-in
+function UISystem.questTurnInPrevPage()
+    if questTurnInPage > 0 then
+        questTurnInPage = questTurnInPage - 1
+    end
+end
+
+-- Navigate to next page in quest turn-in
+function UISystem.questTurnInNextPage()
+    if questTurnInPage < questTurnInMaxPage then
+        questTurnInPage = questTurnInPage + 1
     end
 end
 
@@ -684,10 +714,10 @@ function UISystem.drawQuestTurnIn()
     end
 
     local quest = gameStateRefs.questTurnInData.quest
-    local boxX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - 75
-    local boxY = GAME_HEIGHT - 90
-    local boxW = 150
-    local boxH = 85
+    local boxX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - 90
+    local boxY = GAME_HEIGHT / 2 - 80
+    local boxW = 180
+    local boxH = 160
 
     -- Background
     love.graphics.setColor(0.05, 0.05, 0.1, 0.98)
@@ -704,16 +734,24 @@ function UISystem.drawQuestTurnIn()
 
     -- Instruction
     love.graphics.setColor(0.7, 0.7, 0.7)
-    love.graphics.print("Click the item:", boxX + 4, boxY + 14)
+    love.graphics.print("Click the item:", boxX + 4, boxY + 16)
 
-    -- Draw inventory items
-    local slotSize = 16
-    local padding = 3
-    local startY = boxY + 30
+    -- Pagination
+    local itemsPerPage = 5
+    local totalItems = #gameStateRefs.inventory
+    local totalPages = math.max(1, math.ceil(totalItems / itemsPerPage))
+    local startIndex = questTurnInPage * itemsPerPage + 1
+    local endIndex = math.min(startIndex + itemsPerPage - 1, totalItems)
 
-    for i, itemId in ipairs(gameStateRefs.inventory) do
+    -- Draw inventory items (paginated)
+    local slotSize = 18
+    local padding = 4
+    local startY = boxY + 32
+
+    for i = startIndex, endIndex do
+        local itemId = gameStateRefs.inventory[i]
         local slotX = boxX + 6
-        local slotY = startY + (i - 1) * (slotSize + padding)
+        local slotY = startY + (i - startIndex) * (slotSize + padding)
 
         -- Slot background
         love.graphics.setColor(0.1, 0.1, 0.15, 0.8)
@@ -731,12 +769,66 @@ function UISystem.drawQuestTurnIn()
         local itemData = gameStateRefs.itemRegistry[itemId]
         local itemName = itemData and itemData.name or itemId
         love.graphics.setColor(1, 1, 1)
-        love.graphics.print(itemName, slotX + slotSize + 4, slotY + 2)
+        love.graphics.print(itemName, slotX + slotSize + 4, slotY + 3)
     end
 
-    -- Footer hint
-    love.graphics.setColor(0.5, 0.5, 0.5)
-    love.graphics.print("[ESC] Cancel", boxX + 4, boxY + boxH - 17)
+    -- Page indicator and navigation
+    if totalPages > 1 then
+        local navY = boxY + boxH - 32
+        local btnH = 14
+        
+        -- Previous button
+        if questTurnInPage > 0 then
+            local prevText = "< Prev"
+            local prevW = font:getWidth(prevText) + 6
+            local prevX = boxX + 4
+            
+            -- Button background
+            love.graphics.setColor(0.2, 0.15, 0.1, 0.8)
+            love.graphics.rectangle("fill", prevX, navY, prevW, btnH)
+            
+            -- Button border
+            love.graphics.setColor(0.6, 0.5, 0.3)
+            love.graphics.rectangle("line", prevX, navY, prevW, btnH)
+            
+            -- Button text
+            love.graphics.setColor(1, 1, 1)
+            love.graphics.print(prevText, prevX + 3, navY + 1)
+        end
+        
+        -- Page indicator (centered)
+        love.graphics.setColor(0.7, 0.7, 0.7)
+        local pageText = (questTurnInPage + 1) .. "/" .. totalPages
+        local pageTextWidth = font:getWidth(pageText)
+        love.graphics.print(pageText, boxX + boxW/2 - pageTextWidth/2, navY + 2)
+        
+        -- Next button
+        if questTurnInPage < totalPages - 1 then
+            local nextText = "Next >"
+            local nextW = font:getWidth(nextText) + 6
+            local nextX = boxX + boxW - nextW - 4
+            
+            -- Button background
+            love.graphics.setColor(0.2, 0.15, 0.1, 0.8)
+            love.graphics.rectangle("fill", nextX, navY, nextW, btnH)
+            
+            -- Button border
+            love.graphics.setColor(0.6, 0.5, 0.3)
+            love.graphics.rectangle("line", nextX, navY, nextW, btnH)
+            
+            -- Button text
+            love.graphics.setColor(1, 1, 1)
+            love.graphics.print(nextText, nextX + 3, navY + 1)
+        end
+        
+        -- Footer hint with navigation
+        love.graphics.setColor(0.5, 0.5, 0.5)
+        love.graphics.print("[ESC] Cancel  [</>] Page", boxX + 4, boxY + boxH - 15)
+    else
+        -- Footer hint without navigation
+        love.graphics.setColor(0.5, 0.5, 0.5)
+        love.graphics.print("[ESC] Cancel", boxX + 4, boxY + boxH - 15)
+    end
 end
 
 -- Draw quest offer UI
@@ -1124,15 +1216,26 @@ function UISystem.handleQuestTurnInClick(x, y, questTurnInData, inventory, callb
     local quest = questTurnInData.quest
 
     -- Calculate item slot positions (must match drawQuestTurnIn)
-    local boxX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - 75
-    local boxY = GAME_HEIGHT - 90
-    local slotSize = 16
-    local padding = 3
-    local startY = boxY + 30
+    local boxX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - 90
+    local boxY = GAME_HEIGHT / 2 - 80
+    local boxW = 180
+    local boxH = 160
+    local slotSize = 18
+    local padding = 4
+    local startY = boxY + 32
 
-    for i, itemId in ipairs(inventory) do
+    -- Pagination
+    local itemsPerPage = 5
+    local totalItems = #inventory
+    local totalPages = math.max(1, math.ceil(totalItems / itemsPerPage))
+    local startIndex = questTurnInPage * itemsPerPage + 1
+    local endIndex = math.min(startIndex + itemsPerPage - 1, totalItems)
+
+    -- Check item clicks
+    for i = startIndex, endIndex do
+        local itemId = inventory[i]
         local slotX = boxX + 6
-        local slotY = startY + (i - 1) * (slotSize + padding)
+        local slotY = startY + (i - startIndex) * (slotSize + padding)
 
         -- Check if click is within this item slot
         if x >= slotX and x <= slotX + slotSize and y >= slotY and y <= slotY + slotSize then
@@ -1148,6 +1251,34 @@ function UISystem.handleQuestTurnInClick(x, y, questTurnInData, inventory, callb
                 end
             end
             return true
+        end
+    end
+
+    -- Check pagination button clicks
+    if totalPages > 1 then
+        local navY = boxY + boxH - 32
+        local btnH = 14
+        
+        -- Previous button
+        if questTurnInPage > 0 then
+            local prevText = "< Prev"
+            local prevW = font:getWidth(prevText) + 6
+            local prevX = boxX + 4
+            if x >= prevX and x <= prevX + prevW and y >= navY and y <= navY + btnH then
+                questTurnInPage = math.max(0, questTurnInPage - 1)
+                return true
+            end
+        end
+        
+        -- Next button
+        if questTurnInPage < totalPages - 1 then
+            local nextText = "Next >"
+            local nextW = font:getWidth(nextText) + 6
+            local nextX = boxX + boxW - nextW - 4
+            if x >= nextX and x <= nextX + nextW and y >= navY and y <= navY + btnH then
+                questTurnInPage = math.min(totalPages - 1, questTurnInPage + 1)
+                return true
+            end
         end
     end
 
