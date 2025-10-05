@@ -12,10 +12,14 @@ local SCALE = 1
 
 -- Graphics resources
 local canvas = nil
+local tempCanvas = nil -- Temporary canvas for shader compositing
 
 -- Font resources
 local font = nil
 local titleFont = nil
+
+-- CRT glitch shader
+local crtShader = nil
 
 -- Mouse state
 local mouseX = 0
@@ -34,12 +38,18 @@ local currentDialogIndex = 0
 local chatMessages = {} -- {speaker, text, displayedText, animTimer}
 local jarfSprite = nil
 local developerSprite = nil
+local itemTileset = nil -- Tileset containing item sprites
 local chatPaneVisible = false -- Track if chat pane should be visible
 local chatPaneTransition = {
     active = false,
     progress = 0,
     duration = 0.5 -- seconds for the slide animation
 }
+local scanlineGlitchTimer = 0 -- Timer for scanline appearance glitch
+local randomGlitchTimer = 0 -- Timer for random glitches while chat is open
+local nextRandomGlitch = 0 -- Time until next random glitch
+local timedGlitchTimer = 0 -- Timer for periodic glitch bursts
+local nextTimedGlitch = 0 -- Time until next timed glitch
 
 -- Game state references (set by main.lua)
 local gameStateRefs = {
@@ -106,6 +116,10 @@ function UISystem.init()
     -- Create canvas (always full width to support both states)
     canvas = love.graphics.newCanvas(TOTAL_WIDTH, GAME_HEIGHT)
     canvas:setFilter("nearest", "nearest")
+    
+    -- Create temporary canvas for shader compositing
+    tempCanvas = love.graphics.newCanvas(TOTAL_WIDTH, GAME_HEIGHT)
+    tempCanvas:setFilter("nearest", "nearest")
 
     -- Load fonts
     UISystem.loadFonts()
@@ -115,11 +129,93 @@ function UISystem.init()
     jarfSprite:setFilter("nearest", "nearest")
     developerSprite = love.graphics.newImage("sprites/developer.png")
     developerSprite:setFilter("nearest", "nearest")
+    
+    -- Load item tileset
+    itemTileset = love.graphics.newImage("tiles/fetch-tileset.png")
+    itemTileset:setFilter("nearest", "nearest")
+    
+    -- Create CRT glitch shader
+    -- Glitch shader (RGB split, horizontal distortion, noise)
+    glitchShader = love.graphics.newShader([[
+        uniform float time;
+        uniform float glitchIntensity;
+        
+        vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords) {
+            vec4 pixel = Texel(texture, texture_coords);
+            
+            if (glitchIntensity > 0.0) {
+                // Horizontal glitch lines
+                float glitchLine = sin(screen_coords.y * 0.5 + time * 50.0) * 0.5 + 0.5;
+                if (glitchLine > 0.95) {
+                    texture_coords.x += sin(time * 100.0) * 0.05 * glitchIntensity;
+                    pixel = Texel(texture, texture_coords);
+                }
+                
+                // RGB split
+                float offset = 0.003 * glitchIntensity;
+                float r = Texel(texture, texture_coords + vec2(offset, 0.0)).r;
+                float g = Texel(texture, texture_coords).g;
+                float b = Texel(texture, texture_coords - vec2(offset, 0.0)).b;
+                pixel.rgb = vec3(r, g, b);
+                
+                // Scanlines (during glitch)
+                float scanline = sin(screen_coords.y * 2.0) * 0.1 * glitchIntensity;
+                pixel.rgb -= scanline;
+                
+                // Random noise
+                float noise = fract(sin(dot(screen_coords + time * 10.0, vec2(12.9898, 78.233))) * 43758.5453);
+                pixel.rgb += noise * 0.05 * glitchIntensity;
+            }
+            
+            return pixel * color;
+        }
+    ]])
+    
+    -- Scanline shader (persistent CRT effect)
+    scanlineShader = love.graphics.newShader([[
+        uniform float time;
+        uniform float scanlineIntensity;
+        
+        vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords) {
+            vec4 pixel = Texel(texture, texture_coords);
+            
+            if (scanlineIntensity > 0.0) {
+                // Intermittent tracking issues - only happens occasionally
+                float trackingGlitch = sin(time * 0.3) * 0.5 + 0.5; // Slow oscillation
+                float shouldGlitch = step(0.85, trackingGlitch); // Only glitch 15% of the time
+                
+                // Bigger, more visible scanlines with occasional movement
+                float movement = shouldGlitch * sin(time * 2.0) * 3.0; // Quick drift when glitching
+                float scanline = sin((screen_coords.y + movement) * 1.0) * 0.15;
+                pixel.rgb -= scanline * scanlineIntensity;
+                
+                // Rare interference lines that sweep by
+                float interferenceTime = sin(time * 0.8) * 0.5 + 0.5;
+                if (interferenceTime > 0.95) {
+                    float interference = sin((screen_coords.y * 0.1) + (time * 5.0)) * 0.5 + 0.5;
+                    if (interference > 0.97) {
+                        pixel.rgb -= 0.12 * scanlineIntensity;
+                    }
+                }
+                
+                // Subtle CRT curve darkening at edges
+                vec2 uv = screen_coords / love_ScreenSize.xy;
+                float vignette = 1.0 - length(uv - 0.5) * 0.3;
+                pixel.rgb *= mix(1.0, vignette, scanlineIntensity * 0.5);
+            }
+            
+            return pixel * color;
+        }
+    ]])
 end
 
 -- Get the canvas
 function UISystem.getCanvas()
     return canvas
+end
+
+function UISystem.getTempCanvas()
+    return tempCanvas
 end
 
 -- Get UI constants
@@ -133,6 +229,10 @@ end
 
 function UISystem.getScale()
     return SCALE
+end
+
+function UISystem.getItemTileset()
+    return itemTileset
 end
 
 function UISystem.getChatPaneWidth()
@@ -262,6 +362,8 @@ function UISystem.progressDialog()
             -- Start transition animation
             chatPaneTransition.active = true
             chatPaneTransition.progress = 0
+            -- Trigger scanline glitch effect
+            scanlineGlitchTimer = 0.4 -- Glitch for 0.4 seconds when scanlines appear
         end
         
         currentDialogIndex = currentDialogIndex + 1
@@ -289,6 +391,39 @@ function UISystem.updateChat(dt)
             chatPaneTransition.progress = 1
             chatPaneTransition.active = false
         end
+    end
+    
+    -- Update scanline glitch timer
+    if scanlineGlitchTimer > 0 then
+        scanlineGlitchTimer = scanlineGlitchTimer - dt
+        if scanlineGlitchTimer < 0 then
+            scanlineGlitchTimer = 0
+        end
+    end
+    
+    -- Timed glitch bursts while chat is open
+    if chatPaneVisible and not chatPaneTransition.active then
+        -- Countdown to next timed glitch
+        if nextTimedGlitch <= 0 then
+            -- Trigger a timed glitch burst
+            timedGlitchTimer = love.math.random() * 0.3 + 0.2 -- 0.2-0.5 seconds
+            -- Schedule next glitch in 4-10 seconds
+            nextTimedGlitch = love.math.random() * 6 + 4
+        else
+            nextTimedGlitch = nextTimedGlitch - dt
+        end
+        
+        -- Update active timed glitch
+        if timedGlitchTimer > 0 then
+            timedGlitchTimer = timedGlitchTimer - dt
+            if timedGlitchTimer < 0 then
+                timedGlitchTimer = 0
+            end
+        end
+    else
+        -- Reset timers when chat is closed
+        timedGlitchTimer = 0
+        nextTimedGlitch = 0
     end
     
     -- Update message text animation
@@ -459,6 +594,8 @@ end
 -- Draw toasts
 function UISystem.drawToasts()
     local y = 14 -- Start below the top bar (12px height + 2px padding)
+    local maxToastWidth = GAME_WIDTH - 20 -- Maximum width for toast (with some padding)
+    
     for i, toast in ipairs(toasts) do
         -- Calculate fade-out alpha based on remaining time
         local alpha = 1
@@ -466,15 +603,24 @@ function UISystem.drawToasts()
             alpha = toast.timer / 0.5
         end
 
-        -- Split message into lines and measure dimensions
-        local lines = {}
-        for line in toast.message:gmatch("[^\n]+") do
-            table.insert(lines, line)
+        -- Split message by explicit newlines first
+        local paragraphs = {}
+        for paragraph in toast.message:gmatch("[^\n]+") do
+            table.insert(paragraphs, paragraph)
         end
 
-        -- Calculate box dimensions
+        -- Wrap each paragraph to fit within max width
+        local wrappedLines = {}
+        for _, paragraph in ipairs(paragraphs) do
+            local _, wrapped = font:getWrap(paragraph, maxToastWidth - 8) -- Account for padding
+            for _, line in ipairs(wrapped) do
+                table.insert(wrappedLines, line)
+            end
+        end
+
+        -- Calculate box dimensions based on wrapped text
         local maxWidth = 0
-        for _, line in ipairs(lines) do
+        for _, line in ipairs(wrappedLines) do
             local lineWidth = font:getWidth(line)
             if lineWidth > maxWidth then
                 maxWidth = lineWidth
@@ -482,7 +628,7 @@ function UISystem.drawToasts()
         end
 
         local boxW = maxWidth + 8
-        local boxH = #lines * 10 + 2
+        local boxH = #wrappedLines * 10 + 2
         local boxX = GAME_WIDTH - boxW - 2 -- Align to right with 2px padding
 
         -- Background
@@ -495,7 +641,7 @@ function UISystem.drawToasts()
 
         -- Text (line by line)
         love.graphics.setColor(toast.color[1], toast.color[2], toast.color[3], alpha)
-        for lineIdx, line in ipairs(lines) do
+        for lineIdx, line in ipairs(wrappedLines) do
             love.graphics.print(line, boxX + 4, y + (lineIdx - 1) * 10 - 1)
         end
 
@@ -976,10 +1122,22 @@ function UISystem.drawInventory(inventory, itemRegistry)
 
         -- Draw item if present
         if inventory[i+1] then
-            love.graphics.setColor(0.7, 0.5, 0.9)
-            love.graphics.rectangle("fill", slotX+2, slotY+2, slotSize-4, slotSize-4)
-            love.graphics.setColor(0.9, 0.7, 1)
-            love.graphics.rectangle("line", slotX+2, slotY+2, slotSize-4, slotSize-4)
+            local itemId = inventory[i+1]
+            local itemData = itemRegistry[itemId]
+            
+            -- Get icon (with fallback to placeholder at 32, 192)
+            local icon = itemData and itemData.icon
+            local spriteX = icon and icon.x or 32
+            local spriteY = icon and icon.y or 192
+            
+            love.graphics.setColor(1, 1, 1)
+            local quad = love.graphics.newQuad(
+                spriteX, spriteY,
+                16, 16,
+                itemTileset:getDimensions()
+            )
+            -- Center the 16x16 sprite in the 20x20 slot
+            love.graphics.draw(itemTileset, quad, slotX+2, slotY+2)
         end
     end
 
@@ -1062,6 +1220,8 @@ function UISystem.toggleChatPane()
         -- Opening chat pane
         chatPaneTransition.active = true
         chatPaneTransition.progress = 0
+        -- Trigger scanline glitch effect
+        scanlineGlitchTimer = 0.4
     else
         -- Closing chat pane - reverse the transition
         chatPaneTransition.active = true
@@ -1085,6 +1245,117 @@ function UISystem.getChatPaneTransitionProgress()
     else
         return 1
     end
+end
+
+-- Get glitch intensity based on transition
+function UISystem.getGlitchIntensity()
+    local intensity = 0
+    
+    -- Glitch during chat pane transition
+    if chatPaneTransition.active then
+        local progress = chatPaneTransition.progress
+        if chatPaneVisible then
+            -- Opening: strong glitch at start, fades out
+            intensity = math.max(intensity, (1 - progress) * 1.0)
+        else
+            -- Closing: glitch builds up
+            intensity = math.max(intensity, progress * 0.8)
+        end
+    end
+    
+    -- Additional glitch when scanlines first appear
+    if scanlineGlitchTimer > 0 then
+        -- Intense glitch that fades out
+        intensity = math.max(intensity, (scanlineGlitchTimer / 0.4) * 1.2)
+    end
+    
+    -- Timed glitch bursts while chat is open
+    if timedGlitchTimer > 0 then
+        -- Moderate intensity glitch with fade
+        local normalizedTime = timedGlitchTimer / 0.5
+        intensity = math.max(intensity, normalizedTime * 0.7)
+    end
+    
+    return intensity
+end
+
+-- Check if persistent scanlines should be shown
+function UISystem.shouldShowScanlines()
+    return chatPaneVisible
+end
+
+-- Get glitch shader
+function UISystem.getGlitchShader()
+    return glitchShader
+end
+
+-- Get scanline shader
+function UISystem.getScanlineShader()
+    return scanlineShader
+end
+
+-- Draw the canvas with shader effects applied
+-- Call this instead of manually drawing the canvas
+function UISystem.drawCanvasWithShaders(offsetX, offsetY, scale)
+    local glitchIntensity = UISystem.getGlitchIntensity()
+    local showScanlines = UISystem.shouldShowScanlines()
+    local scanlineIntensity = showScanlines and 1.0 or 0.0
+    
+    local hasGlitch = glitchIntensity > 0
+    local hasScanlines = scanlineIntensity > 0
+    
+    -- If we have both effects, composite them using a temp canvas
+    if hasGlitch and hasScanlines then
+        -- Save current scissor state
+        local sx, sy, sw, sh = love.graphics.getScissor()
+        
+        -- Temporarily disable scissor for rendering to temp canvas
+        love.graphics.setScissor()
+        
+        -- First pass: draw main canvas with glitch shader to temp canvas
+        love.graphics.setShader(glitchShader)
+        glitchShader:send("time", love.timer.getTime())
+        glitchShader:send("glitchIntensity", glitchIntensity)
+        
+        love.graphics.setCanvas(tempCanvas)
+        love.graphics.clear()
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.draw(canvas, 0, 0)
+        love.graphics.setCanvas()
+        
+        -- Restore scissor
+        if sx then
+            love.graphics.setScissor(sx, sy, sw, sh)
+        end
+        
+        -- Second pass: draw temp canvas with scanline shader to screen
+        love.graphics.setShader(scanlineShader)
+        scanlineShader:send("time", love.timer.getTime())
+        scanlineShader:send("scanlineIntensity", scanlineIntensity)
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.draw(tempCanvas, offsetX, offsetY, 0, scale, scale)
+        
+    elseif hasGlitch then
+        -- Only glitch shader
+        love.graphics.setShader(glitchShader)
+        glitchShader:send("time", love.timer.getTime())
+        glitchShader:send("glitchIntensity", glitchIntensity)
+        love.graphics.draw(canvas, offsetX, offsetY, 0, scale, scale)
+        
+    elseif hasScanlines then
+        -- Only scanline shader
+        love.graphics.setShader(scanlineShader)
+        scanlineShader:send("time", love.timer.getTime())
+        scanlineShader:send("scanlineIntensity", scanlineIntensity)
+        love.graphics.draw(canvas, offsetX, offsetY, 0, scale, scale)
+        
+    else
+        -- No shaders
+        love.graphics.draw(canvas, offsetX, offsetY, 0, scale, scale)
+    end
+    
+    -- Clear shader
+    love.graphics.setShader()
 end
 
 -- Draw chat pane

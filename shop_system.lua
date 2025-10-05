@@ -11,12 +11,22 @@ local shopInventory = {}
 local selectedShopItem = nil
 
 -- Initialize shop system
-function ShopSystem.init()
-    -- Define shop inventory
-    shopInventory = {
-        {itemId = "item_rubber_duck", price = 10, description = "A cheerful rubber duck. Perfect for bath time or just keeping you company!"},
-        {itemId = "item_labubu", price = 10000, description = "An extremely rare and adorable Labubu collectible. Highly sought after by collectors!"}
-    }
+function ShopSystem.init(itemRegistry)
+    -- Build shop inventory from item registry
+    shopInventory = {}
+    for itemId, itemData in pairs(itemRegistry) do
+        if itemData.shopInfo then
+            table.insert(shopInventory, {
+                itemId = itemId,
+                price = itemData.shopInfo.price,
+                description = itemData.shopInfo.description
+            })
+        end
+    end
+    
+    -- Sort by price for consistent ordering
+    table.sort(shopInventory, function(a, b) return a.price < b.price end)
+    
     selectedShopItem = nil
 end
 
@@ -136,12 +146,27 @@ function ShopSystem.draw(itemRegistry)
         love.graphics.rectangle("fill", slotX, slotY, slotSize, slotSize)
 
         -- Item representation
+        local itemData = itemRegistry[shopItem.itemId]
+        local itemTileset = UISystem.getItemTileset()
+        
+        -- Get icon (with fallback to placeholder at 32, 192)
+        local icon = itemData and itemData.icon
+        local spriteX = icon and icon.x or 32
+        local spriteY = icon and icon.y or 192
+        
         if alreadyOwns then
             love.graphics.setColor(0.4, 0.4, 0.4)
         else
-            love.graphics.setColor(0.9, 0.7, 0.3)
+            love.graphics.setColor(1, 1, 1)
         end
-        love.graphics.rectangle("fill", slotX+2, slotY+2, slotSize-4, slotSize-4)
+        
+        local quad = love.graphics.newQuad(
+            spriteX, spriteY,
+            16, 16,
+            itemTileset:getDimensions()
+        )
+        -- Center the 16x16 sprite in the 20x20 slot
+        love.graphics.draw(itemTileset, quad, slotX+2, slotY+2)
 
         -- Border
         if isSelected then

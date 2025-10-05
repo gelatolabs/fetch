@@ -47,16 +47,24 @@ local quests = {}
 local activeQuests = {}
 local completedQuests = {}
 
+-- Icon registry
+local Icons = {
+    cat = {x = 0, y = 192},
+    book = {x = 16, y = 192},
+    placeholder = {x = 32, y = 192},
+    floaties = {x = 48, y = 192}
+}
+
 -- Item registry (single source of truth for all items)
 local itemRegistry = {
-    item_cat = {id = "item_cat", name = "Fluffy Cat", aliases = {"cat"}},
-    item_book = {id = "item_book", name = "Ancient Tome", aliases = {"book"}},
-    item_package = {id = "item_package", name = "Sealed Package", aliases = {"package"}},
-    item_floaties = {id = "item_floaties", name = "Swimming Floaties", aliases = {"floaties", "floaty"}},
-    item_wood = {id = "item_wood", name = "Wooden Planks", aliases = {"wood", "planks"}},
-    item_shoes = {id = "item_shoes", name = "Jumping Shoes", aliases = {"shoes", "boots", "jumping shoes"}},
-    item_rubber_duck = {id = "item_rubber_duck", name = "Rubber Duck", aliases = {"duck", "rubber duck"}},
-    item_labubu = {id = "item_labubu", name = "Labubu", aliases = {"labubu"}}
+    item_cat = {id = "item_cat", name = "Fluffy Cat", aliases = {"cat"}, icon = Icons.cat},
+    item_book = {id = "item_book", name = "Ancient Tome", aliases = {"book"}, icon = Icons.book},
+    item_package = {id = "item_package", name = "Sealed Package", aliases = {"package"}, icon = Icons.placeholder},
+    item_floaties = {id = "item_floaties", name = "Swimming Floaties", aliases = {"floaties", "floaty"}, icon = Icons.floaties},
+    item_wood = {id = "item_wood", name = "Wooden Planks", aliases = {"wood", "planks"}, icon = Icons.placeholder},
+    item_shoes = {id = "item_shoes", name = "Jumping Shoes", aliases = {"shoes", "boots", "jumping shoes"}, icon = Icons.placeholder},
+    item_rubber_duck = {id = "item_rubber_duck", name = "Rubber Duck", aliases = {"duck", "rubber duck"}, icon = Icons.placeholder, shopInfo = {price = 10, description = "A cheerful rubber duck. Perfect for bath time or just keeping you company!"}},
+    item_labubu = {id = "item_labubu", name = "Labubu", aliases = {"labubu"}, icon = Icons.placeholder, shopInfo = {price = 10000, description = "An extremely rare and adorable Labubu collectible. Highly sought after by collectors!"}}
 }
 
 -- UI state
@@ -133,7 +141,7 @@ function love.load()
     player = PlayerSystem.getPlayer()
 
     -- Initialize Shop system
-    ShopSystem.init()
+    ShopSystem.init(itemRegistry)
 
     -- Load audio
     quackSound = love.audio.newSource("audio/quack.ogg", "static")
@@ -1149,10 +1157,10 @@ function love.draw()
     local scissorX = math.floor((screenWidth - currentVisibleWidth * scale) / 2)
     love.graphics.setScissor(scissorX, offsetY, currentVisibleWidth * scale, gameHeight * scale)
     
-    -- Draw the full canvas
-    love.graphics.draw(UISystem.getCanvas(), offsetX, offsetY, 0, scale, scale)
+    -- Draw canvas with shader effects (all shader logic is in UISystem)
+    UISystem.drawCanvasWithShaders(offsetX, offsetY, scale)
     
-    -- Reset scissor
+    -- Clear scissor
     love.graphics.setScissor()
 end
 
