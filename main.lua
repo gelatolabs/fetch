@@ -1249,7 +1249,7 @@ function love.draw()
         -- Draw player
         love.graphics.setColor(1, 1, 1)
         local spriteSet = getPlayerSpriteSet()
-        local currentQuad = playerQuads[player.lastVertical][player.moving and (player.walkFrame + 1) or 1]
+        local currentQuad = spriteSet[player.lastVertical][player.moving and (player.walkFrame + 1) or 1]
         local scaleX = (player.facing == "left") and -1 or 1
         local offsetX = (player.facing == "left") and player.size or 0
         love.graphics.draw(
