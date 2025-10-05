@@ -291,6 +291,7 @@ quests.npcs = {
         spriteX = 16,
         spriteY = 48,
         dialogueGroup = "geese",
+        givesItem = "item_goose_feathers",
         requiresQuest = "quest_defeat_geese",
         noQuestText = "Honk! Honk!"
     },
@@ -334,7 +335,7 @@ quests.dialogueSequences = {
             -- Complete the geese quest
             quests.completeQuest("quest_defeat_geese")
             -- Open JARF and progress dialogue 2 times with delays
-            UISystem.progressDialog(3)
+            UISystem.progressDialog(6)
         end
     }
 }

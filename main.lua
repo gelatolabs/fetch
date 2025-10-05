@@ -55,7 +55,8 @@ local Icons = {
     rubber_duck = {x = 96, y = 192},
     shoes = {x = 112, y = 192},
     planks = {x = 128, y = 192},
-    hat = {x = 160, y = 192}
+    hat = {x = 160, y = 192},
+    feathers = {x = 240, y = 192}
 
 }
 
@@ -70,6 +71,7 @@ local itemRegistry = {
     item_rubber_duck = {id = "item_rubber_duck", name = "Rubber Duck", aliases = {"duck", "rubber duck"}, icon = Icons.rubber_duck, shopInfo = {price = 10, description = "A cheerful rubber duck. Perfect for bath time or just keeping you company!"}},
     item_labubu = {id = "item_labubu", name = "Labubu", aliases = {"labubu"}, icon = Icons.labubu, shopInfo = {price = 10000, description = "An extremely rare and adorable Labubu collectible. Highly sought after by collectors!"}},
     item_wizard_hat = {id = "item_wizard_hat", name = "Wizard's Hat", aliases = {"hat"}, icon = Icons.hat},
+    item_goose_feathers = {id = "item_goose_feathers", name = "Goose Feathers", aliases = {"feathers", "goose feathers"}, icon = Icons.feathers},
 }
 
 -- UI state
