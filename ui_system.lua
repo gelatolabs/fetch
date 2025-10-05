@@ -357,9 +357,10 @@ function UISystem.updateToasts(dt)
     end
 end
 
--- Progress the dialog script
-function UISystem.progressDialog(steps)
+-- Progress the JARF dialog script
+function UISystem.progressJarfScript(steps, closeAfter)
     steps = steps or 1
+    closeAfter = closeAfter or nil
     
     if steps == 1 then
         -- Immediate progression for single step
@@ -387,11 +388,27 @@ function UISystem.progressDialog(steps)
                 table.remove(chatMessages, 1)
             end
         end
+        
+        -- If closeAfter is specified, schedule chat pane close
+        if closeAfter then
+            table.insert(delayedDialogQueue, {
+                delay = closeAfter,
+                closePane = true
+            })
+        end
     else
         -- Queue multiple steps with delays
         for i = 1, steps do
             table.insert(delayedDialogQueue, {
-                delay = (i - 1) * 2.0  -- 2 second delay between each step
+                delay = (i - 1) * 3.0  -- 3 second delay between each step
+            })
+        end
+        
+        -- If closeAfter is specified, schedule chat pane close after all steps
+        if closeAfter then
+            table.insert(delayedDialogQueue, {
+                delay = (steps - 1) * 3.0 + closeAfter,
+                closePane = true
             })
         end
     end
@@ -407,8 +424,15 @@ function UISystem.updateChat(dt)
         for i = #delayedDialogQueue, 1, -1 do
             local queuedDialog = delayedDialogQueue[i]
             if delayedDialogTimer >= queuedDialog.delay then
-                -- Progress dialog immediately
-                UISystem.progressDialog(1)
+                if queuedDialog.closePane then
+                    -- Close the chat pane
+                    chatPaneVisible = false
+                    chatPaneTransition.active = true
+                    chatPaneTransition.progress = 0
+                else
+                    -- Progress dialog immediately
+                    UISystem.progressJarfScript(1)
+                end
                 table.remove(delayedDialogQueue, i)
             end
         end
