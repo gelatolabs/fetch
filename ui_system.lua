@@ -26,6 +26,27 @@ local draggingSlider = false
 local toasts = {}
 local TOAST_DURATION = 3.0 -- seconds
 
+-- Game state references (set by main.lua)
+local gameStateRefs = {
+    map = nil,
+    camera = nil,
+    npcs = nil,
+    currentMap = nil,
+    player = nil,
+    playerTileset = nil,
+    getPlayerSpriteSet = nil,
+    inventory = nil,
+    itemRegistry = nil,
+    questTurnInData = nil
+}
+
+-- Set game state references
+function UISystem.setGameStateRefs(refs)
+    for key, value in pairs(refs) do
+        gameStateRefs[key] = value
+    end
+end
+
 -- Initialize UI system
 function UISystem.init()
     -- Get desktop dimensions
@@ -317,7 +338,7 @@ function UISystem.drawTextBox(x, y, w, h, text, color, centered)
 end
 
 -- Helper function to check if mouse is over a button
-function UISystem.isMouseOverButton(mouseX, mouseY, btnX, btnY, btnWidth, btnHeight, GAME_WIDTH, GAME_HEIGHT, SCALE)
+function UISystem.isMouseOverButton(btnX, btnY, btnWidth, btnHeight)
     -- Convert screen coordinates to canvas coordinates
     local screenWidth, screenHeight = love.graphics.getDimensions()
     local offsetX = math.floor((screenWidth - GAME_WIDTH * SCALE) / 2 / SCALE) * SCALE
@@ -391,7 +412,7 @@ function UISystem.drawPauseMenu()
     local btnX = GAME_WIDTH / 2 - btnWidth / 2
 
     -- Resume button
-    local resumeHover = UISystem.isMouseOverButton(mouseX, mouseY, btnX, 100, btnWidth, btnHeight, GAME_WIDTH, GAME_HEIGHT, SCALE)
+    local resumeHover = UISystem.isMouseOverButton(btnX, 100, btnWidth, btnHeight)
     love.graphics.setColor(resumeHover and 0.3 or 0.2, resumeHover and 0.2 or 0.15, resumeHover and 0.15 or 0.1)
     love.graphics.rectangle("fill", btnX, 100, btnWidth, btnHeight)
     love.graphics.setColor(resumeHover and 1 or 0.8, resumeHover and 0.8 or 0.6, resumeHover and 0.4 or 0.2)
@@ -400,7 +421,7 @@ function UISystem.drawPauseMenu()
     love.graphics.printf("Resume", btnX, 100 + 3, btnWidth, "center")
 
     -- Quit Game button
-    local quitHover = UISystem.isMouseOverButton(mouseX, mouseY, btnX, 130, btnWidth, btnHeight, GAME_WIDTH, GAME_HEIGHT, SCALE)
+    local quitHover = UISystem.isMouseOverButton(btnX, 130, btnWidth, btnHeight)
     love.graphics.setColor(quitHover and 0.3 or 0.2, quitHover and 0.2 or 0.15, quitHover and 0.15 or 0.1)
     love.graphics.rectangle("fill", btnX, 130, btnWidth, btnHeight)
     love.graphics.setColor(quitHover and 1 or 0.8, quitHover and 0.8 or 0.6, quitHover and 0.4 or 0.2)
@@ -427,7 +448,7 @@ function UISystem.drawMainMenu()
     local btnX = GAME_WIDTH / 2 - btnWidth / 2
 
     -- Play button
-    local playHover = UISystem.isMouseOverButton(mouseX, mouseY, btnX, 100, btnWidth, btnHeight, GAME_WIDTH, GAME_HEIGHT, SCALE)
+    local playHover = UISystem.isMouseOverButton(btnX, 100, btnWidth, btnHeight)
     love.graphics.setColor(playHover and 0.3 or 0.2, playHover and 0.2 or 0.15, playHover and 0.15 or 0.1)
     love.graphics.rectangle("fill", btnX, 100, btnWidth, btnHeight)
     love.graphics.setColor(playHover and 1 or 0.8, playHover and 0.8 or 0.6, playHover and 0.4 or 0.2)
@@ -436,7 +457,7 @@ function UISystem.drawMainMenu()
     love.graphics.printf("Play", btnX, 100 + 3, btnWidth, "center")
 
     -- Settings button
-    local settingsHover = UISystem.isMouseOverButton(mouseX, mouseY, btnX, 130, btnWidth, btnHeight, GAME_WIDTH, GAME_HEIGHT, SCALE)
+    local settingsHover = UISystem.isMouseOverButton(btnX, 130, btnWidth, btnHeight)
     love.graphics.setColor(settingsHover and 0.3 or 0.2, settingsHover and 0.2 or 0.15, settingsHover and 0.15 or 0.1)
     love.graphics.rectangle("fill", btnX, 130, btnWidth, btnHeight)
     love.graphics.setColor(settingsHover and 1 or 0.8, settingsHover and 0.8 or 0.6, settingsHover and 0.4 or 0.2)
@@ -445,7 +466,7 @@ function UISystem.drawMainMenu()
     love.graphics.printf("Settings", btnX, 130 + 3, btnWidth, "center")
 
     -- Quit button
-    local quitHover = UISystem.isMouseOverButton(mouseX, mouseY, btnX, 160, btnWidth, btnHeight, GAME_WIDTH, GAME_HEIGHT, SCALE)
+    local quitHover = UISystem.isMouseOverButton(btnX, 160, btnWidth, btnHeight)
     love.graphics.setColor(quitHover and 0.3 or 0.2, quitHover and 0.2 or 0.15, quitHover and 0.15 or 0.1)
     love.graphics.rectangle("fill", btnX, 160, btnWidth, btnHeight)
     love.graphics.setColor(quitHover and 1 or 0.8, quitHover and 0.8 or 0.6, quitHover and 0.4 or 0.2)
@@ -494,7 +515,7 @@ function UISystem.drawSettings(volume)
     local btnWidth = 100
     local btnHeight = 20
     local btnX = GAME_WIDTH / 2 - btnWidth / 2
-    local backHover = UISystem.isMouseOverButton(mouseX, mouseY, btnX, 160, btnWidth, btnHeight, GAME_WIDTH, GAME_HEIGHT, SCALE)
+    local backHover = UISystem.isMouseOverButton(btnX, 160, btnWidth, btnHeight)
     love.graphics.setColor(backHover and 0.3 or 0.2, backHover and 0.2 or 0.15, backHover and 0.15 or 0.1)
     love.graphics.rectangle("fill", btnX, 160, btnWidth, btnHeight)
     love.graphics.setColor(backHover and 1 or 0.8, backHover and 0.8 or 0.6, backHover and 0.4 or 0.2)
@@ -614,46 +635,13 @@ function UISystem.drawQuestLog(activeQuests, completedQuests, quests)
     love.graphics.print("[L] Close", boxX+4, boxY+boxH-15)
 end
 
--- Draw quest turn-in UI
-function UISystem.drawQuestTurnIn(questTurnInData, inventory, itemRegistry, map, camera, npcs, currentMap, player, playerTileset, getPlayerSpriteSet)
-    if not questTurnInData then
+-- Draw quest turn-in UI (dialog box only)
+function UISystem.drawQuestTurnIn()
+    if not gameStateRefs.questTurnInData then
         return
     end
 
-    -- Draw the game world in the background
-    local camX = camera.x
-    local camY = camera.y
-
-    -- Draw the Tiled map
-    love.graphics.setColor(1, 1, 1)
-    map:draw(-camX, -camY)
-
-    -- Draw NPCs (only on current map)
-    for _, npc in ipairs(npcs) do
-        if npc.map == currentMap then
-            love.graphics.setColor(1, 1, 1)
-            love.graphics.draw(npc.spriteImage, npc.x - npc.size/2 - camX, npc.y - npc.size/2 - camY)
-        end
-    end
-
-    -- Draw player
-    love.graphics.setColor(1, 1, 1)
-    local spriteSet = getPlayerSpriteSet()
-    local currentQuad = spriteSet[player.direction][player.moving and (player.walkFrame + 1) or 1]
-    local scaleX = (player.facing == "left") and -1 or 1
-    local offsetX = (player.facing == "left") and player.size or 0
-    love.graphics.draw(
-        playerTileset,
-        currentQuad,
-        player.x - player.size/2 - camX + offsetX,
-        player.y - player.size/2 - camY - player.jumpHeight,
-        0,
-        scaleX,
-        1
-    )
-
-    -- Draw dialog box
-    local quest = questTurnInData.quest
+    local quest = gameStateRefs.questTurnInData.quest
     local boxX = GAME_WIDTH / 2 - 75
     local boxY = GAME_HEIGHT - 90
     local boxW = 150
@@ -681,7 +669,7 @@ function UISystem.drawQuestTurnIn(questTurnInData, inventory, itemRegistry, map,
     local padding = 3
     local startY = boxY + 30
 
-    for i, itemId in ipairs(inventory) do
+    for i, itemId in ipairs(gameStateRefs.inventory) do
         local slotX = boxX + 6
         local slotY = startY + (i - 1) * (slotSize + padding)
 
@@ -698,7 +686,7 @@ function UISystem.drawQuestTurnIn(questTurnInData, inventory, itemRegistry, map,
         love.graphics.rectangle("fill", slotX + 2, slotY + 2, slotSize - 4, slotSize - 4)
 
         -- Item name from registry
-        local itemData = itemRegistry[itemId]
+        local itemData = gameStateRefs.itemRegistry[itemId]
         local itemName = itemData and itemData.name or itemId
         love.graphics.setColor(1, 1, 1)
         love.graphics.print(itemName, slotX + slotSize + 4, slotY + 2)
@@ -760,7 +748,7 @@ function UISystem.drawQuestOffer(questOfferData)
     local rejectX = boxX + boxW/2 + 4
 
     -- Accept button
-    local acceptHover = UISystem.isMouseOverButton(mouseX, mouseY, acceptX, btnY, btnW, btnH, GAME_WIDTH, GAME_HEIGHT, SCALE)
+    local acceptHover = UISystem.isMouseOverButton(acceptX, btnY, btnW, btnH)
     love.graphics.setColor(acceptHover and 0.2 or 0.15, acceptHover and 0.35 or 0.25, acceptHover and 0.15 or 0.1)
     love.graphics.rectangle("fill", acceptX, btnY, btnW, btnH)
     love.graphics.setColor(acceptHover and 0.4 or 0.2, acceptHover and 0.8 or 0.6, acceptHover and 0.3 or 0.2)
@@ -769,7 +757,7 @@ function UISystem.drawQuestOffer(questOfferData)
     love.graphics.printf("Accept", acceptX, btnY + 2, btnW, "center")
 
     -- Reject button
-    local rejectHover = UISystem.isMouseOverButton(mouseX, mouseY, rejectX, btnY, btnW, btnH, GAME_WIDTH, GAME_HEIGHT, SCALE)
+    local rejectHover = UISystem.isMouseOverButton(rejectX, btnY, btnW, btnH)
     love.graphics.setColor(rejectHover and 0.35 or 0.25, rejectHover and 0.2 or 0.15, rejectHover and 0.15 or 0.1)
     love.graphics.rectangle("fill", rejectX, btnY, btnW, btnH)
     love.graphics.setColor(rejectHover and 0.9 or 0.7, rejectHover and 0.4 or 0.3, rejectHover and 0.3 or 0.2)
@@ -973,7 +961,7 @@ function UISystem.drawShop(shopInventory, selectedShopItem, playerGold, inventor
                 local btnH = 20
                 local btnX = detailX + (detailW - btnW) / 2
 
-                local isHovered = UISystem.isMouseOverButton(mouseX, mouseY, btnX, btnY, btnW, btnH, GAME_WIDTH, GAME_HEIGHT, SCALE)
+                local isHovered = UISystem.isMouseOverButton(btnX, btnY, btnW, btnH)
 
                 -- Button background
                 if not canAfford then
