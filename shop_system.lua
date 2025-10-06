@@ -197,12 +197,25 @@ function ShopSystem.draw(itemRegistry)
             love.graphics.setColor(0.1, 0.1, 0.15, 0.8)
             love.graphics.rectangle("fill", detailX, detailY, displaySize, displaySize)
 
+            -- Draw item sprite at 2x scale
+            local itemTileset = UISystem.getItemTileset()
+            local icon = itemData and itemData.icon
+            local spriteX = icon and icon.x or 32
+            local spriteY = icon and icon.y or 192
+
             if alreadyOwns then
                 love.graphics.setColor(0.4, 0.4, 0.4)
             else
-                love.graphics.setColor(0.9, 0.7, 0.3)
+                love.graphics.setColor(1, 1, 1)
             end
-            love.graphics.rectangle("fill", detailX+4, detailY+4, displaySize-8, displaySize-8)
+
+            local quad = love.graphics.newQuad(
+                spriteX, spriteY,
+                16, 16,
+                itemTileset:getDimensions()
+            )
+            -- Center the 32x32 sprite (16x16 at 2x scale) in the 40x40 display box
+            love.graphics.draw(itemTileset, quad, detailX + 4, detailY + 4, 0, 2, 2)
 
             love.graphics.setColor(0.8, 0.6, 0.2)
             love.graphics.rectangle("line", detailX, detailY, displaySize, displaySize)

@@ -592,7 +592,9 @@ function love.keypressed(key)
             UISystem.questTurnInNextPage()
         end
     elseif key == "escape" then
-        if gameState == "playing" then
+        if gameState == "winScreen" then
+            love.event.quit()
+        elseif gameState == "playing" then
             gameState = "pauseMenu"
         elseif gameState == "pauseMenu" then
             gameState = "playing"

@@ -467,7 +467,7 @@ quests.questData = {
     },
     quest_royal_gift = {
         id = "quest_royal_gift",
-        name = "Royal Gift",
+        name = "Untitled Labubu Quest",
         description = "The king seeks a rare Labubu for his collection!",
         questGiver = "npc_king",
         requiredItem = "item_labubu",

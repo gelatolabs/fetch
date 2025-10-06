@@ -1241,22 +1241,20 @@ function UISystem.drawWinScreen(playerGold, completedQuests)
     -- Title
     love.graphics.setFont(titleFont)
     love.graphics.setColor(1, 0.84, 0)
-    love.graphics.printf("QUEST COMPLETE!", CHAT_PANE_WIDTH, 60, GAME_WIDTH, "center")
+    love.graphics.printf("LEVEL UP", CHAT_PANE_WIDTH, 45, GAME_WIDTH, "center")
     love.graphics.setFont(font)
 
     -- Message
     love.graphics.setColor(1, 1, 1)
-    love.graphics.printf("You have completed the Royal Gift quest!", CHAT_PANE_WIDTH, 110, GAME_WIDTH, "center")
-    love.graphics.printf("The King is very pleased with the Labubu!", CHAT_PANE_WIDTH, 125, GAME_WIDTH, "center")
+    love.graphics.printf("You are now Level 2", CHAT_PANE_WIDTH, 95, GAME_WIDTH, "center")
+    love.graphics.printf("You have escaped Tutorial Island", CHAT_PANE_WIDTH, 110, GAME_WIDTH, "center")
+    love.graphics.printf("The end", CHAT_PANE_WIDTH, 125, GAME_WIDTH, "center")
 
     -- Stats
     love.graphics.setColor(0.8, 0.8, 0.8)
     love.graphics.printf("Final Gold: " .. playerGold, CHAT_PANE_WIDTH, 155, GAME_WIDTH, "center")
     love.graphics.printf("Quests Completed: " .. #completedQuests, CHAT_PANE_WIDTH, 170, GAME_WIDTH, "center")
-
-    -- Footer
-    love.graphics.setColor(0.6, 0.6, 0.6)
-    love.graphics.printf("The game will close in a moment...", CHAT_PANE_WIDTH, 200, GAME_WIDTH, "center")
+    love.graphics.printf("Labubus Collected: 1", CHAT_PANE_WIDTH, 185, GAME_WIDTH, "center")
 end
 
 -- Draw UI hints bar at top of screen
