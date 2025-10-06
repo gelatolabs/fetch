@@ -1089,54 +1089,51 @@ function drawNPCs(mapName, camX, camY, chatOffset, offsetX, offsetY)
     for _, npc in pairs(questData.npcs) do
         if npc.map == mapName then
             -- Check if NPC requires an ability to be visible
-            if npc.requiresAbility and not PlayerSystem.hasAbility(npc.requiresAbility) then
-                goto continue
-            end
+            if not npc.requiresAbility or PlayerSystem.hasAbility(npc.requiresAbility) then
+                love.graphics.setColor(1, 1, 1)
+                if npc.sprite.quad then
+                    -- Draw from tileset using quad
+                    local scaleX = npc.flippedX and -1 or 1
+                    local facingOffsetX = npc.flippedX and npc.size or 0
 
-            love.graphics.setColor(1, 1, 1)
-            if npc.sprite.quad then
-                -- Draw from tileset using quad
-                local scaleX = npc.flippedX and -1 or 1
-                local facingOffsetX = npc.flippedX and npc.size or 0
+                    love.graphics.draw(
+                        npc.sprite.tileset,
+                        npc.sprite.quad,
+                        chatOffset + npc.x - npc.size/2 - camX + offsetX + facingOffsetX,
+                        npc.y - npc.size/2 - camY + offsetY,
+                        0,
+                        scaleX,
+                        1
+                    )
+                else
+                    -- Draw fallback sprite
+                    love.graphics.draw(
+                        npc.sprite.image,
+                        chatOffset + npc.x - npc.size/2 - camX + offsetX,
+                        npc.y - npc.size/2 - camY + offsetY
+                    )
+                end
 
-                love.graphics.draw(
-                    npc.sprite.tileset,
-                    npc.sprite.quad,
-                    chatOffset + npc.x - npc.size/2 - camX + offsetX + facingOffsetX,
-                    npc.y - npc.size/2 - camY + offsetY,
-                    0,
-                    scaleX,
-                    1
-                )
-            else
-                -- Draw fallback sprite
-                love.graphics.draw(
-                    npc.sprite.image,
-                    chatOffset + npc.x - npc.size/2 - camX + offsetX,
-                    npc.y - npc.size/2 - camY + offsetY
-                )
-            end
-
-            -- Draw quest indicator
-            if npc.isQuestGiver then
-                local quest, questConfig = questData.getAvailableQuestForNPC(npc.id)
-                if quest then
-                    if not quest.active and not quest.completed then
-                        -- Yellow indicator for available quest
-                        love.graphics.setColor(1, 1, 0)
-                        love.graphics.circle("fill", chatOffset + npc.x - camX + offsetX, npc.y - 10 - camY + offsetY, 2)
-                    elseif quest.active and quest.requiredItem then
-                        local requiredQty = quest.requiredQuantity or 1
-                        if PlayerSystem.hasItem(quest.requiredItem, requiredQty) then
-                            -- Green indicator for quest ready to turn in
-                            love.graphics.setColor(0, 1, 0)
+                -- Draw quest indicator
+                if npc.isQuestGiver then
+                    local quest, questConfig = questData.getAvailableQuestForNPC(npc.id)
+                    if quest then
+                        if not quest.active and not quest.completed then
+                            -- Yellow indicator for available quest
+                            love.graphics.setColor(1, 1, 0)
                             love.graphics.circle("fill", chatOffset + npc.x - camX + offsetX, npc.y - 10 - camY + offsetY, 2)
+                        elseif quest.active and quest.requiredItem then
+                            local requiredQty = quest.requiredQuantity or 1
+                            if PlayerSystem.hasItem(quest.requiredItem, requiredQty) then
+                                -- Green indicator for quest ready to turn in
+                                love.graphics.setColor(0, 1, 0)
+                                love.graphics.circle("fill", chatOffset + npc.x - camX + offsetX, npc.y - 10 - camY + offsetY, 2)
+                            end
                         end
                     end
                 end
             end
         end
-        ::continue::
     end
 end
 
