@@ -259,18 +259,13 @@ GPU: GooseForce 128]]
         UISystem.showToast(screenfetch, {0.3, 0.8, 1})
 
     elseif command == "jarf" then
-        -- Open chat pane if it's closed
-        local wasHidden = not UISystem.isChatPaneVisible()
-        if wasHidden then
-            UISystem.toggleChatPane()
-        end
-        
-        -- Progress dialog
-        UISystem.progressJarfScript()
-        if wasHidden then
-            UISystem.showToast("Chat opened & dialog progressed", {0.5, 1, 0.5})
+        -- Trigger a dialog event by name
+        if param == "" then
+            UISystem.showToast("Usage: jarf <event_name>\nExamples: jarf geese_combat, jarf swimming_mechanics, jarf debug_intro", {1, 1, 0.3})
         else
-            UISystem.showToast("Dialog progressed", {0.5, 1, 0.5})
+            UISystem.triggerDialogEvent(param, function()
+                UISystem.showToast("Dialog event '" .. param .. "' completed", {0.5, 1, 0.5})
+            end)
         end
 
     elseif command == "nojarf" then
@@ -331,7 +326,7 @@ GPU: GooseForce 128]]
         end
         
     elseif command == "help" or command == "?" then
-        UISystem.showToast("Cheats: noclip, grid, unlock/lock, god, fetch, toss, gold/setgold, teleport, jarf, nojarf, screenfetch", {1, 1, 0.3})
+        UISystem.showToast("Cheats: noclip, grid, unlock/lock, god, fetch, toss, gold/setgold, teleport, jarf <event>, nojarf, screenfetch", {1, 1, 0.3})
 
     else
         UISystem.showToast("Unknown cheat: " .. code, {1, 0.3, 0.3})

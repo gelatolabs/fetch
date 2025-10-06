@@ -33,8 +33,7 @@ local toasts = {}
 local TOAST_DURATION = 3.0 -- seconds
 
 -- Chat UI state
-local dialogScript = require("dialog_script")
-local currentDialogIndex = 0
+local dialogSections = require("dialog_script")  -- Event-driven dialog sections
 local chatMessages = {} -- {speaker, text, displayedText, animTimer}
 local jarfSprite = nil
 local developerSprite = nil
@@ -51,9 +50,12 @@ local nextRandomGlitch = 0 -- Time until next random glitch
 local timedGlitchTimer = 0 -- Timer for periodic glitch bursts
 local nextTimedGlitch = 0 -- Time until next timed glitch
 
--- Delayed dialog progression
-local delayedDialogQueue = {}
-local delayedDialogTimer = 0
+-- Event-driven dialog system
+local activeDialogSection = nil  -- Currently playing dialog section
+local dialogSectionIndex = 0  -- Current message index in the section
+local dialogSectionQueue = {}  -- Queue of messages to display
+local dialogSectionTimer = 0  -- Timer for auto-playing messages
+local dialogCloseCallback = nil  -- Callback when dialog section completes
 
 -- Game state references (set by main.lua)
 local gameStateRefs = {
@@ -387,96 +389,118 @@ function UISystem.updateToasts(dt)
     end
 end
 
--- Progress the JARF dialog script
-function UISystem.progressJarfScript(steps, closeAfter, onCloseCallback)
-    steps = steps or 1
-    closeAfter = closeAfter or nil
-    onCloseCallback = onCloseCallback or nil
+-- Trigger a dialog event (NEW EVENT-DRIVEN SYSTEM)
+function UISystem.triggerDialogEvent(eventName, onCompleteCallback)
+    -- Find the dialog section for this event
+    local section = nil
+    for key, dialogSection in pairs(dialogSections) do
+        if dialogSection.event == eventName then
+            section = dialogSection
+            break
+        end
+    end
     
-    if steps == 1 then
-        -- Immediate progression for single step
-        if currentDialogIndex < #dialogScript then
-            -- Show chat pane on first dialog
-            if not chatPaneVisible then
-                chatPaneVisible = true
-                -- Start transition animation
-                chatPaneTransition.active = true
-                chatPaneTransition.progress = 0
-                -- Trigger scanline glitch effect
-                scanlineGlitchTimer = 0.4 -- Glitch for 0.4 seconds when scanlines appear
-            end
-            
-            currentDialogIndex = currentDialogIndex + 1
-            local dialog = dialogScript[currentDialogIndex]
-            table.insert(chatMessages, {
-                speaker = dialog.speaker,
-                text = dialog.text,
-                displayedText = "",
-                animTimer = 0
-            })
-            -- Keep only the last 8 messages
-            if #chatMessages > 8 then
-                table.remove(chatMessages, 1)
-            end
+    if not section then
+        print("Warning: Dialog event '" .. eventName .. "' not found")
+        if onCompleteCallback then
+            onCompleteCallback()
         end
-        
-        -- If closeAfter is specified, schedule chat pane close
-        if closeAfter then
-            table.insert(delayedDialogQueue, {
-                delay = closeAfter,
-                closePane = true,
-                callback = onCloseCallback
-            })
+        return
+    end
+    
+    -- Show chat pane if hidden
+    if not chatPaneVisible then
+        chatPaneVisible = true
+        chatPaneTransition.active = true
+        chatPaneTransition.progress = 0
+        scanlineGlitchTimer = 0.4
+    end
+    
+    -- Set up the dialog section
+    activeDialogSection = section
+    dialogSectionIndex = 0
+    dialogCloseCallback = onCompleteCallback
+    dialogSectionTimer = 0
+    
+    -- Build the queue of messages
+    dialogSectionQueue = {}
+    for _, msg in ipairs(section.messages) do
+        table.insert(dialogSectionQueue, msg)
+    end
+    
+    -- If autoPlay, immediately show first message
+    if section.autoPlay and #dialogSectionQueue > 0 then
+        local firstMsg = table.remove(dialogSectionQueue, 1)
+        table.insert(chatMessages, {
+            speaker = firstMsg.speaker,
+            text = firstMsg.text,
+            displayedText = "",
+            animTimer = 0
+        })
+        if #chatMessages > 8 then
+            table.remove(chatMessages, 1)
         end
-    else
-        -- Queue multiple steps with delays
-        for i = 1, steps do
-            table.insert(delayedDialogQueue, {
-                delay = (i - 1) * 3.0  -- 3 second delay between each step
-            })
-        end
-        
-        -- If closeAfter is specified, schedule chat pane close after all steps
-        if closeAfter then
-            table.insert(delayedDialogQueue, {
-                delay = (steps - 1) * 3.0 + closeAfter,
-                closePane = true,
-                callback = onCloseCallback
-            })
-        end
+        dialogSectionIndex = 1
     end
 end
 
+
 -- Update chat animation
 function UISystem.updateChat(dt)
-    -- Update delayed dialog queue
-    if #delayedDialogQueue > 0 then
-        delayedDialogTimer = delayedDialogTimer + dt
+    -- Update event-driven dialog section auto-play
+    if activeDialogSection and activeDialogSection.autoPlay and #dialogSectionQueue > 0 then
+        dialogSectionTimer = dialogSectionTimer + dt
         
-        -- Process any queued dialogs whose delay has elapsed
-        for i = #delayedDialogQueue, 1, -1 do
-            local queuedDialog = delayedDialogQueue[i]
-            if delayedDialogTimer >= queuedDialog.delay then
-                if queuedDialog.closePane then
-                    -- Close the chat pane
-                    chatPaneVisible = false
-                    chatPaneTransition.active = true
-                    chatPaneTransition.progress = 0
-                    -- Call callback after closing if provided
-                    if queuedDialog.callback then
-                        queuedDialog.callback()
-                    end
-                else
-                    -- Progress dialog immediately
-                    UISystem.progressJarfScript(1)
-                end
-                table.remove(delayedDialogQueue, i)
+        -- Show next message every 3 seconds
+        if dialogSectionTimer >= 3.0 then
+            dialogSectionTimer = 0
+            local nextMsg = table.remove(dialogSectionQueue, 1)
+            table.insert(chatMessages, {
+                speaker = nextMsg.speaker,
+                text = nextMsg.text,
+                displayedText = "",
+                animTimer = 0
+            })
+            if #chatMessages > 8 then
+                table.remove(chatMessages, 1)
             end
+            dialogSectionIndex = dialogSectionIndex + 1
         end
-        
-        -- Reset timer if queue is empty
-        if #delayedDialogQueue == 0 then
-            delayedDialogTimer = 0
+    end
+    
+    -- Check if dialog section is complete
+    if activeDialogSection and #dialogSectionQueue == 0 and activeDialogSection.autoPlay then
+        -- All messages shown, check if we should close
+        if activeDialogSection.closeAfter then
+            dialogSectionTimer = dialogSectionTimer + dt
+            local totalDuration = (dialogSectionIndex * 3.0) + activeDialogSection.closeAfter
+            
+            if dialogSectionTimer >= 3.0 + activeDialogSection.closeAfter then
+                -- Close chat pane
+                chatPaneVisible = false
+                chatPaneTransition.active = true
+                chatPaneTransition.progress = 0
+                
+                -- Call completion callback
+                if dialogCloseCallback then
+                    dialogCloseCallback()
+                    dialogCloseCallback = nil
+                end
+                
+                -- Clear active section
+                activeDialogSection = nil
+                dialogSectionIndex = 0
+                dialogSectionTimer = 0
+            end
+        else
+            -- No auto-close, just clear the active section
+            if dialogCloseCallback then
+                dialogCloseCallback()
+                dialogCloseCallback = nil
+            end
+            activeDialogSection = nil
+            dialogSectionIndex = 0
+            dialogSectionTimer = 0
         end
     end
     
