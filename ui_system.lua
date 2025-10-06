@@ -187,7 +187,7 @@ function UISystem.init()
     UISystem.loadFonts()
 
     -- Load chat sprites
-    jarfSprite = love.graphics.newImage("sprites/jarf.png")
+    jarfSprite = love.graphics.newImage("sprites/robot.png")
     jarfSprite:setFilter("nearest", "nearest")
     developerSprite = love.graphics.newImage("sprites/developer.png")
     developerSprite:setFilter("nearest", "nearest")
