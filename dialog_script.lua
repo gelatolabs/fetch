@@ -19,6 +19,21 @@ local dialogSections = {
             { speaker = "Developer", text = "Fine, we'll add combat in the next update."},
         }
     },
+
+    quest_deps = {
+        event = "quest_deps",
+        autoPlay = true,
+        closeAfter = 5.0,
+        messages = {
+            { speaker = "Developer", text = "The player just accepted a set of quests which are impossible." },
+            { speaker = "J.A.R.F.", text = "You're right! Every quest needs the player to fetch an item, but the chef, farmer, and plumber all have items they can't give!" },
+            { speaker = "Developer", text = "You created a circular dependency..."},
+            { speaker = "J.A.R.F.", text = "You're absolutely right! Would you like me to fix it?"},
+            { speaker = "Developer", text = "Yes, please!"},
+            { speaker = "J.A.R.F.", text = "I gave the player a TODO item to fix the quests."},
+            { speaker = "Developer", text = "..."},
+        }
+    },
     
     swimming_mechanics = {
         event = "swimming_mechanics",  -- Triggered when learning to swim

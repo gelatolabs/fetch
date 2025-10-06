@@ -552,11 +552,63 @@ function quests.getAvailableQuestForNPC(npcId)
     return nil, nil
 end
 
--- Activate a quest
-function quests.activateQuest(questId)
+-- Accept a quest (adds to active quests and checks for circular dependencies)
+-- This is the single, canonical way to accept quests - it handles all the logic
+function quests.acceptQuest(questId)
     local quest = quests.questData[questId]
-    if quest then
-        quest.active = true
+    if not quest then
+        return false, "Quest not found"
+    end
+    
+    if quest.active then
+        return false, "Quest already active"
+    end
+    
+    if quest.completed then
+        return false, "Quest already completed"
+    end
+    
+    -- Activate the quest
+    quest.active = true
+    table.insert(quests.activeQuests, questId)
+    
+    -- Check for circular dependency (chef + plumber + farmer all active)
+    quests.checkCircularDependency()
+    
+    return true, quest.name
+end
+
+-- Check if circular dependency quests are all active
+local circularDependencyTriggered = false
+function quests.checkCircularDependency()
+    if circularDependencyTriggered then
+        return  -- Already triggered once
+    end
+    
+    -- Check if all three quests are active
+    local hasChef = false
+    local hasPlumber = false
+    local hasFarmer = false
+    
+    for _, questId in ipairs(quests.activeQuests) do
+        if questId == "quest_chef" then
+            hasChef = true
+        elseif questId == "quest_plumber" then
+            hasPlumber = true
+        elseif questId == "quest_farmer" then
+            hasFarmer = true
+        end
+    end
+    
+    if hasChef and hasPlumber and hasFarmer then
+        -- All three quests are active - trigger the dialog
+        circularDependencyTriggered = true
+        local UISystem = require("ui_system")
+        local PlayerSystem = require("player_system")
+        UISystem.triggerDialogEvent("quest_deps", function()
+            UISystem.showToast("J.A.R.F. gave you item_TODO", {0.7, 0.5, 0.9})
+            PlayerSystem.addItem("item_TODO") -- this is intentionally not a real item, so it appeared glitched in the inventory with the placeholder icon
+        end)
     end
 end
 
