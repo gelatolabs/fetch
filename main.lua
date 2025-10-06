@@ -536,8 +536,8 @@ function love.update(dt)
     end
 
     if gameState == "playing" and not CheatConsole.isOpen() then
-        -- Update player movement (only if not transitioning)
-        if not mapTransition.active then
+        -- Update player movement (only if not transitioning and chat pane is closed)
+        if not mapTransition.active and not UISystem.isChatPaneVisible() then
             PlayerSystem.update(dt, heldKeys)
         end
 
