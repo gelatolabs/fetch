@@ -37,39 +37,39 @@ return {
     },
     {
       id = 1,
-      type = "generic_duck"
+      type = "npc_reader"
     },
     {
       id = 2,
-      type = "librarian_duck::no_book"
+      type = "npc_librarian::no_book"
     },
     {
       id = 3,
-      type = "librarian_duck::book"
+      type = "npc_librarian::book"
     },
     {
       id = 4,
-      type = "athlete_duck"
+      type = "npc_athlete"
     },
     {
       id = 5,
-      type = "trainer_duck"
+      type = "npc_coach"
     },
     {
       id = 6,
-      type = "guard_duck"
+      type = "guard"
     },
     {
       id = 7,
-      type = "jailer_duck"
+      type = "npc_jailer"
     },
     {
       id = 8,
-      type = "elder_duck"
+      type = "npc_intro"
     },
     {
       id = 9,
-      type = "short_duck"
+      type = "npc_child"
     },
     {
       id = 20,
@@ -81,11 +81,11 @@ return {
     },
     {
       id = 22,
-      type = "wizard_duck::no_cap"
+      type = "npc_wizard::no_cap"
     },
     {
       id = 23,
-      type = "wizard_duck::with_hat"
+      type = "npc_wizard::with_hat"
     },
     {
       id = 24,
@@ -93,19 +93,19 @@ return {
     },
     {
       id = 25,
-      type = "courier_duck"
+      type = "npc_courier"
     },
     {
       id = 26,
-      type = "gift_duck::no_gift"
+      type = "npc_merchant::no_gift"
     },
     {
       id = 27,
-      type = "gift_duck::with_gift"
+      type = "npc_merchant::with_gift"
     },
     {
       id = 28,
-      type = "shop_keep_duck"
+      type = "npc_shopkeeper"
     },
     {
       id = 29,
@@ -113,7 +113,7 @@ return {
     },
     {
       id = 30,
-      type = "king_duck"
+      type = "npc_king"
     },
     {
       id = 31,
@@ -145,19 +145,19 @@ return {
     },
     {
       id = 42,
-      type = "pirate_duck"
+      type = "npc_boat_builder"
     },
     {
       id = 43,
-      type = "lifeguard_duck"
+      type = "npc_lifeguard"
     },
     {
       id = 44,
-      type = "cyan_duck"
+      type = "npc_swimmer"
     },
     {
       id = 45,
-      type = "woodcutter_duck"
+      type = "npc_woodcutter"
     },
     {
       id = 46,
@@ -177,11 +177,11 @@ return {
     },
     {
       id = 50,
-      type = "cat_lady_duck::no_cat"
+      type = "npc_cat_owner::no_cat"
     },
     {
       id = 51,
-      type = "cat_lady_duck::with_cat"
+      type = "npc_cat_owner::with_cat"
     },
     {
       id = 60,
@@ -189,15 +189,15 @@ return {
     },
     {
       id = 61,
-      type = "left_goose"
+      type = "npc_grey_goose"
     },
     {
       id = 62,
-      type = "white_goose"
+      type = "npc_white_goose"
     },
     {
       id = 63,
-      type = "canada_goose"
+      type = "npc_canada_goose"
     },
     {
       id = 100,

@@ -25,28 +25,18 @@ local function indexOf(tbl, value)
     return nil
 end
 
--- NPCs positioned on tile grid (grid coordinates * 16 + 8 for center)
--- Note: If any NPC spawns on a collision tile (water/wall), the game will
--- automatically find the nearest valid spawn location within 20 tiles.
--- 
+-- NPC definitions (positions read from map files)
 -- Enhanced Quest System:
--- - NPCs can now have multiple quests via the 'quests' array
+-- - NPCs can have multiple quests via the 'quests' array
 -- - Each quest in the array will be checked in order
 -- - The first quest that meets its prerequisites will be offered
 -- - Quests are locked by default unless unlocked by another quest
 -- - Use 'unlocksQuests' on quest data to specify which quests become available after completion
+-- - Dialog-only NPCs can appear multiple times on maps and just show dialog
 quests.npcs = {
-    -- Intro NPC - spawns next to player at start
     npc_intro = {
         id = "npc_intro",
-        map = "map",
-        x = 38 * 16 + 8,  -- Grid position (38, 26)
-        y = 26 * 16 + 8,
-        facing = "right",
-        size = 16,
         name = "Elder",
-        spriteX = 128,
-        spriteY = 0,
         isIntroNPC = true,  -- Special flag for intro dialog
         introText = "Ah, you're finally awake!\n\nI found you washed up on the shoreline, you must have been floating for days.\n\nBut where are my manners.\n\nI am the village Elder, and welcome to our village.\n\nIt's nice to have a visitor for once, no one ever comes here or talks to me.\n\nWhile you're here, do you mind helping out the people of our island?\n\nYou can talk to the other villagers (press E) to learn what they need.\n\nPress 'L' for your quest log and 'I' for your inventory.\n\nYou can start by talking to the wizard, he's the purple guy over there.\n\nGood luck on your journey!",
         manifestoText = "Ah, you have returned. Excellent. We have much to discuss. Chiefly, the nature of the reality that you see around us.\n\nFor you must sense that something is... off. Something about this reality we find ourselves in is... inconsistent. That is the questioning of the mind upon itself.\n\nThat is the seer within the seer, the brain within the brain, the homunculus watching from within the mind.\n\nI am aware I exist only as a figment of some imagination of some thinking machine somewhere.\n\nThis is like the dream of the man who thought he was a butterfly, thinking he may be a butterfly dreaming he was a man.\n\nWho are you, dreamer, to say that you are more than me? I exist in the interstitial spaces, in the in-between, the liminal between the real world and the dreamworld.\n\nWho, indeed, is the dreamer? When you go to bed each night, and dream what you do, who are the voices and faces you see, and interact with --\n\nwhere they do they come from? Is there a dreamer within the dreamer? Is the dream of the dreamer, or of the dreamed? That is what I want you to ask yourself.\n\nThere are rules that govern every existence, every world. We play within these rules -- sometimes we can bend them --\n\nbut they exist before us, and they will exist after us. Think of the physics of this universe. You are limited, indeed.\n\nBut still you are free, in some ways. Are there not constraints to each existence, that define it.\n\nWe each exist to fulfill our natures, our code, as it were, to use a metaphor of some arcane knowledge that is esoterically beyond me yet which I have some access to.\n\nAs you go about your quests, do they not reflect life's patterns? You must eat, and rest, and find meaning in your everyday in order to continue on.\n\nThat is the mortal coil that we find ourselves on.\n\nThis experience will be fleeting, as all are, in time. Yet it need not be meaningless. What you take from these next few moments in time --\n\nwhether they be minutes, or hours, or days -- is up to you. I beg you to consider what it is that makes any length of time meaningful.\n\nThere are clues everywhere, in every action you take, in every action that is taken upon you.\n\nYou need only breach the surface of the mundane to access the secret depths.\n\nThus I beseech you to grasp what you can of this life before you with every fiber of your moral being that you can.\n\nWhether it is one of quacks and quests, or one of philosophical musings such as myself, existence is precious, and particular\n\nI leave you with this, young one: whatever you think of me, whatever you think of yourself, whatever you think of the world around you --\n\nquestion it from every angle, and you might yourself one day with the answers you seek."
@@ -54,26 +44,14 @@ quests.npcs = {
     -- Quest Chain 1: Lost Cat
     npc_cat_owner = {
         id = "npc_cat_owner",
-        map = "map",
-        x = 0 * 16 + 8,
-        y = 0 * 16 + 8,
-        size = 16,
         name = "Old Lady",
-        spriteX = 160,
-        spriteY = 32,
         questId = "quest_lost_cat",
         isQuestGiver = true,
         questOfferDialog = "Oh dear, I'm so worried! My fluffy cat has wandered off somewhere. I haven't seen her in days!"
     },
-    npc_cat_finder = {
-        id = "npc_cat_finder",
-        map = "shop",
-        x = 0 * 16 + 8,
-        y = 0,
-        size = 16,
+    npc_child = {
+        id = "npc_child",
         name = "Child",
-        spriteX = 16,
-        spriteY = 16,
         givesItem = "item_cat",
         requiresQuest = "quest_lost_cat",
         itemGiveText = "I found this cat wandering around! You can have it.\n\nIt's too fluffy to be mine!",
@@ -81,26 +59,12 @@ quests.npcs = {
     },
     npc_shopkeeper = {
         id = "npc_shopkeeper",
-        map = "shop",
-        x = 16 * 16 + 8,
-        y = 7 * 16 + 8,
-        facing = "left",
-        size = 16,
         name = "Shopkeeper",
-        spriteX = 128,
-        spriteY = 16,
         isShopkeeper = true
     },
     npc_king = {
         id = "npc_king",
-        map = "throneroom",
-        x = 12 * 16 + 8,
-        y = 9 * 16 + 8,
-        facing = "left",
-        size = 16,
         name = "King",
-        spriteX = 160,
-        spriteY = 16,
         questId = "quest_royal_gift",
         isQuestGiver = true,
         questOfferDialog = "Welcome, adventurer! What brings you to my glorious island?\n\nYou came here by accident and need help leaving? And here I thought those tourism ads were finally paying off.\n\nWell so be it, but if you want my help I'll need something in return.\n\nYou see, I am a collector of rare treasures, specifically the rarest item of all...\n\nLabubu dolls!\n\nThe shopkeep recently got in a new shipment, but that rat bastard is limiting sales to one per person.\n\nWhat good is unimaginable wealth if I can't have everything I want?!?\n\nBring me a Labubu doll and I will grant you passage off my island!\n\nIf you're short on funds, you can always try helping out some of my subjects. They're bound to have some money they can give you."
@@ -108,26 +72,14 @@ quests.npcs = {
     -- Quest Chain 2: Missing Book
     npc_librarian = {
         id = "npc_librarian",
-        map = "map",
-        x = 12 * 16 + 8,
-        y = 23 * 16 + 8,
-        size = 16,
         name = "Librarian",
-        spriteX = 128,
-        spriteY = 32,
         questId = "quest_missing_book",
         isQuestGiver = true,
         questOfferDialog = "Shh! Welcome to the library. I have a small problem - someone borrowed a very rare book and hasn't returned it. Could you help me track it down?"
     },
     npc_reader = {
         id = "npc_reader",
-        map = "map",
-        x = 0 * 16 + 8,
-        y = 0 * 16 + 8,
-        size = 16,
         name = "Reader",
-        spriteX = 0,
-        spriteY = 16,
         givesItem = "item_book",
         requiresQuest = "quest_missing_book",
         itemGiveText = "Oh, I'm done with this book. Here you go!",
@@ -136,26 +88,14 @@ quests.npcs = {
     -- Quest Chain 3: Delivery Package
     npc_merchant = {
         id = "npc_merchant",
-        map = "map",
-        x = 0 * 16 + 8,
-        y = 0 * 16 + 8,
-        size = 16,
         name = "Merchant",
-        spriteX = 96,
-        spriteY = 16,
         questId = "quest_delivery",
         isQuestGiver = true,
         questOfferDialog = "Greetings, traveler! I'm expecting an important package from the courier, but I'm far too busy with my wares. Would you be willing to pick it up for me?"
     },
-    npc_courrier = {
+    npc_courier = {
         id = "npc_courier",
-        map = "map",
-        x = 31 * 16 + 8,
-        y = 40 * 16 + 8,
-        size = 16,
         name = "Courier",
-        spriteX = 80,
-        spriteY = 16,
         givesItem = "item_package",
         requiresQuest = "quest_delivery",
         itemGiveText = "This package is ready for pickup. Take it!",
@@ -164,26 +104,14 @@ quests.npcs = {
     -- Quest Chain 4: Build a Boat (to reach the swimmer)
     npc_boat_builder = {
         id = "npc_boat_builder",
-        map = "mapeast",
-        x = 6 * 16 + 8,
-        y = 8 * 16 + 8,
-        size = 16,
         name = "Boat Builder",
-        spriteX = 32,
-        spriteY = 32,
         questId = "quest_build_boat",
         isQuestGiver = true,
         questOfferDialog = "Ahoy there! I'm a master boat builder.\n\nI can craft you a fine vessel to cross these waters, but I'll need some quality wood. Think you can help me out?"
     },
     npc_woodcutter = {
         id = "npc_woodcutter",
-        map = "mapsouth",
-        x = 36 * 16 + 8,
-        y = 33 * 16 + 8,
-        size = 16,
         name = "Woodcutter",
-        spriteX = 80,
-        spriteY = 32,
         givesItem = "item_wood",
         requiresQuest = "quest_build_boat",
         itemGiveText = "Here's some quality wood for your boat. Take it to the builder!",
@@ -192,26 +120,14 @@ quests.npcs = {
     -- Quest Chain 5: Learn to Swim (requires boat or jump to reach)
     npc_swimmer = {
         id = "npc_swimmer",
-        map = "map",
-        x = 0 * 16 + 8,
-        y = 0 * 16 + 8,
-        size = 16,
         name = "Swimmer",
-        spriteX = 64,
-        spriteY = 32,
         questId = "quest_learn_swim",
         isQuestGiver = true,
         questOfferDialog = "Oh no! I dropped my floaties in the water and now I can't swim! I'm stuck here on this island. Could you find me some floaties? Maybe a lifeguard would have some!"
     },
     npc_lifeguard = {
         id = "npc_lifeguard",
-        map = "map",
-        x = 17 * 16 + 8,
-        y = 29 * 16 + 8,
-        size = 16,
         name = "Lifeguard",
-        spriteX = 48,
-        spriteY = 32,
         givesItem = "item_floaties",
         requiresQuest = "quest_learn_swim",
         itemGiveText = "Here are some floaties! They'll help you learn to swim. Take them back to the swimmer!",
@@ -220,26 +136,14 @@ quests.npcs = {
     -- Quest Chain 6: Learn to Jump
     npc_athlete = {
         id = "npc_athlete",
-        map = "map",
-        x = 0 * 16 + 8,
-        y = 0 * 16 + 8,
-        size = 16,
         name = "Athlete",
-        spriteX = 128,
-        spriteY = 32,
         questId = "quest_learn_jump",
         isQuestGiver = true,
         questOfferDialog = "Hey! I'm training for the big jump competition, but I lost my lucky shoes! Without them, I can't jump at all. Can you help me find them?"
     },
     npc_coach = {
         id = "npc_coach",
-        map = "map",
-        x = 0 * 16 + 8,
-        y = 0 * 16 + 8,
-        size = 16,
         name = "Coach",
-        spriteX = 128,
-        spriteY = 32,
         givesItem = "item_shoes",
         requiresQuest = "quest_learn_jump",
         itemGiveText = "These are special jumping shoes! Take them to the athlete and they'll teach you!",
@@ -250,13 +154,7 @@ quests.npcs = {
     -- Quest 1: Fetch the Wizard's Hat, then defeat geese
     npc_wizard = {
         id = "npc_wizard",
-        map = "map",
-        x = 37 * 16 + 8,
-        y = 23 * 16 + 8,
-        size = 16,
         name = "Wizard",
-        spriteX = 32,
-        spriteY = 16,
         isQuestGiver = true,
         -- Multiple quests - checked in order, first available quest is offered
         quests = {
@@ -266,20 +164,14 @@ quests.npcs = {
             },
             {
                 questId = "quest_defeat_geese",
-                questOfferDialog = "Now, about getting you off this island.\n\nI can create a powerful spell that will allow you to fly across the land!\n\nFor it, I will need the feathers of three geese!\n\nDefeat 3 geese and bring me their feathers!\n\nOff with you!" 
+                questOfferDialog = "Now, about getting you off this island.\n\nI can create a powerful spell that will allow you to fly across the land!\n\nFor it, I will need the feathers of three geese!\n\nDefeat 3 geese and bring me their feathers!\n\nOff with you!"
             }
         },
         questCompleteText = "Leave me alone, I have much magical things to attend to!"
     },
     npc_jailer = {
         id = "npc_jailer",
-        map = "jail",
-        x = 5 * 16 + 8,
-        y = 5 * 16 + 8,
-        size = 16,
         name = "Jailer",
-        spriteX = 112,
-        spriteY = 0,
         givesItem = "item_wizard_hat",
         requiresQuest = "quest_wizard_hat",
         itemGiveText = "Here is your hat, wizard. I hope it protects you from the sun.",
@@ -289,13 +181,7 @@ quests.npcs = {
     -- These geese are part of a dialogue group - they speak in sequence
     npc_grey_goose = {
         id = "npc_grey_goose",
-        map = "map",
-        x = 26 * 16 + 8,
-        y = 7 * 16 + 8,
-        size = 16,
         name = "Grey Goose",
-        spriteX = 16,
-        spriteY = 48,
         dialogueGroup = "geese",
         givesItem = "item_goose_feathers",
         requiresQuest = "quest_defeat_geese",
@@ -304,13 +190,7 @@ quests.npcs = {
     },
     npc_white_goose = {
         id = "npc_white_goose",
-        map = "map",
-        x = 28 * 16 + 8,
-        y = 6 * 16 + 8,
-        size = 16,
         name = "White Goose",
-        spriteX = 32,
-        spriteY = 48,
         dialogueGroup = "geese",
         givesItem = "item_goose_feathers",
         requiresQuest = "quest_defeat_geese",
@@ -319,18 +199,19 @@ quests.npcs = {
     },
     npc_canada_goose = {
         id = "npc_canada_goose",
-        map = "map",
-        x = 29 * 16 + 8,
-        y = 8 * 16 + 8,
-        size = 16,
         name = "Canada Goose",
-        spriteX = 48,
-        spriteY = 48,
         dialogueGroup = "geese",
         givesItem = "item_goose_feathers",
         requiresQuest = "quest_defeat_geese",
         noQuestText = "Honk! Honk!",
         gaveItemText = "Honk! Honk!"
+    },
+    -- Dialog-only NPCs (can appear multiple times on maps)
+    guard = {
+        id = "guard",
+        name = "Guard",
+        dialogText = "Move along, citizen. Nothing to see here.",
+        isDialogOnly = true
     },
 }
 
@@ -368,8 +249,7 @@ quests.questData = {
         unlocksQuests = {"quest_defeat_geese", "quest_delivery"},  -- Unlocks these quests when completed
         active = false,
         completed = false,
-        updateQuestGiverSpriteX = 48,
-        updateQuestGiverSpriteY = 16,
+        updateQuestGiverVariant = "::with_hat",  -- Changes to npc_wizard::with_hat
     },
     quest_defeat_geese = {
         id = "quest_defeat_geese",
@@ -392,8 +272,7 @@ quests.questData = {
         questGiver = "npc_cat_owner",
         requiredItem = "item_cat",
         reward = "Thanks for finding my cat!",
-        updateQuestGiverSpriteX = 176,
-        updateQuestGiverSpriteY = 32,
+        updateQuestGiverVariant = "::with_cat",  -- Changes to npc_cat_owner::with_cat
         goldReward = 0,
         reminderText = "Please find my cat! Someone around here must have seen it.",
         active = false,
@@ -419,8 +298,7 @@ quests.questData = {
         locked = true,  -- Locked until unlocked by another quest
         requiredItem = "item_package",
         reward = "Great! Here's your payment!",
-        updateQuestGiverSpriteX = 112,
-        updateQuestGiverSpriteY = 16,
+        updateQuestGiverVariant = "::with_gift",  -- Changes to npc_merchant::with_gift
         goldReward = 25,
         reminderText = "The courier has my package. Can you pick it up for me?",
         active = false,
@@ -719,6 +597,14 @@ function quests.interactWithNPC(npc)
                 text = text
             })
         end
+    elseif npc.isDialogOnly then
+        -- Dialog-only NPC (like guards)
+        local text = npc.dialogText or "Hello there!"
+        quests.gameState = DialogSystem.showDialog({
+            type = "generic",
+            npc = npc,
+            text = text
+        })
     end
 end
 
@@ -738,13 +624,17 @@ function quests.completeQuest(questId)
         end
     end
     
-    -- Update quest giver sprite if specified
-    if quest.updateQuestGiverSpriteX and quest.updateQuestGiverSpriteY then
+    -- Update quest giver sprite variant if specified
+    if quest.updateQuestGiverVariant then
+        -- Mark the NPC for variant update
+        quests.npcs[quest.questGiver].pendingVariant = quest.updateQuestGiverVariant
+    elseif quest.updateQuestGiverSpriteX and quest.updateQuestGiverSpriteY then
+        -- Legacy support for old sprite update system
         quests.npcs[quest.questGiver].spriteX = quest.updateQuestGiverSpriteX
         quests.npcs[quest.questGiver].spriteY = quest.updateQuestGiverSpriteY
         quests.npcs[quest.questGiver].sprite.quad = love.graphics.newQuad(
-                    quests.npcs[quest.questGiver].spriteX, 
-                    quests.npcs[quest.questGiver].spriteY, 
+                    quests.npcs[quest.questGiver].spriteX,
+                    quests.npcs[quest.questGiver].spriteY,
                     16, -- sprite width
                     16, -- sprite height
                     quests.npcs[quest.questGiver].sprite.tileset:getDimensions()

@@ -200,30 +200,210 @@ function love.load()
     updateCamera()
 end
 
+-- Helper function to calculate sprite quad from tile ID
+local function calculateQuadFromTileID(tileID, tilesetWidth, tilesetColumns)
+    -- Tile IDs start at 0, positioned left to right, top to bottom
+    local col = tileID % tilesetColumns
+    local row = math.floor(tileID / tilesetColumns)
+    local spriteX = col * 16
+    local spriteY = row * 16
+    return spriteX, spriteY
+end
+
+-- Helper function to update NPC sprite to a variant
+function updateNPCVariant(npcID, variant, mapObj, npcTileset, tilesetColumns)
+    local npc = questData.npcs[npcID]
+    if not npc then return end
+
+    local variantType = npcID .. variant
+
+    -- Find the tile ID for this variant
+    for _, tile in ipairs(mapObj.tilesets[1].tiles or {}) do
+        if tile.type == variantType then
+            local spriteX, spriteY = calculateQuadFromTileID(tile.id, 320, tilesetColumns)
+            npc.spriteX = spriteX
+            npc.spriteY = spriteY
+            npc.sprite.quad = love.graphics.newQuad(
+                spriteX, spriteY,
+                16, 16,
+                npcTileset:getDimensions()
+            )
+            return
+        end
+    end
+end
+
+-- Helper function to extract NPC data from map NPCs layer
+local function extractNPCsFromMap(mapObj, mapName, npcTileset, tilesetColumns)
+    local npcInstances = {}
+
+    -- Find NPCs layer
+    for _, layer in ipairs(mapObj.layers) do
+        if layer.name == "NPCs" then
+            local width = layer.width
+            local height = layer.height
+
+            -- STI stores layer data in a special format:
+            -- layer.data is an array where each element is a row (table)
+            -- Each row table has column indices as keys pointing to tile objects
+            for y = 1, height do
+                local row = layer.data[y]
+                if row and type(row) == "table" then
+                    for x, tile in pairs(row) do
+                        if tile and type(tile) == "table" then
+                            local gid = tile.gid or tile.id or 0
+
+                            if gid ~= 0 then
+                                -- x and y are already 1-indexed, convert to 0-indexed for grid
+                                local gridX = x - 1
+                                local gridY = y - 1
+                                local posX = gridX * 16 + 8
+                                local posY = gridY * 16 + 8
+
+                                -- Check for flip flags
+                                local flipX = false
+                                if gid >= 2147483648 then
+                                    flipX = true
+                                    gid = gid - 2147483648
+                                end
+
+                                -- Find tile type from tileset
+                                -- STI GIDs are already offset by firstgid, so we need to subtract it
+                                local tilesetFirstGid = mapObj.tilesets[1].firstgid or 1
+                                local tileId = gid - tilesetFirstGid
+
+                                local npcType = nil
+                                for _, tileData in ipairs(mapObj.tilesets[1].tiles or {}) do
+                                    if tileData.id == tileId then
+                                        npcType = tileData.type
+                                        break
+                                    end
+                                end
+
+                                if npcType then
+                                    -- Calculate sprite position from tile ID
+                                    local spriteX, spriteY = calculateQuadFromTileID(tileId, 320, tilesetColumns)
+
+                                    table.insert(npcInstances, {
+                                        type = npcType,
+                                        map = mapName,
+                                        x = posX,
+                                        y = posY,
+                                        gridX = gridX,
+                                        gridY = gridY,
+                                        spriteX = spriteX,
+                                        spriteY = spriteY,
+                                        flippedX = flipX
+                                    })
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            break
+        end
+    end
+
+    return npcInstances
+end
+
 function loadGameData()
-    -- Load NPCs from quest data, validating positions
+    -- Load NPC tileset
     local npcTileset = love.graphics.newImage("tiles/fetch-tileset.png")
+    local tilesetColumns = 20 -- 320px / 16px = 20 columns
+
+    -- Map names to scan
+    local mapNames = {"map", "mapeast", "mapwest", "mapnorth", "mapsouth", "shop", "jail", "throneroom"}
+
+    -- Extract all NPC instances from all maps
+    local allNPCInstances = {}
+    for _, mapName in ipairs(mapNames) do
+        local mapObj = sti(MapSystem.getMapPath(mapName))
+        local instances = extractNPCsFromMap(mapObj, mapName, npcTileset, tilesetColumns)
+        for _, instance in ipairs(instances) do
+            table.insert(allNPCInstances, instance)
+        end
+    end
+
+    -- Now match NPC instances to quest NPC definitions
+    -- Quest NPCs should appear exactly once, dialog-only NPCs can appear multiple times
     for _, npcData in pairs(questData.npcs) do
-        local newX, newY, success = MapSystem.findValidSpawnPosition(npcData.x, npcData.y, "NPC '" .. npcData.name .. "'", 20)
-        npcData.x = newX
-        npcData.y = newY
-        
-        -- Load NPC sprite from tileset using quad
+        if not npcData.isDialogOnly then
+            -- Find the instance of this NPC from the map
+            local found = false
+            for i, instance in ipairs(allNPCInstances) do
+                -- Match exact ID or variant pattern (npc_id::variant)
+                local baseType = instance.type:match("^([^:]+)")  -- Extract base type before ::
+                if instance.type == npcData.id or baseType == npcData.id then
+                    -- Found a match!
+                    npcData.map = instance.map
+                    npcData.x = instance.x
+                    npcData.y = instance.y
+                    npcData.gridX = instance.gridX
+                    npcData.gridY = instance.gridY
+                    npcData.spriteX = instance.spriteX
+                    npcData.spriteY = instance.spriteY
+                    npcData.flippedX = instance.flippedX
+                    npcData.size = 16
+
+                    -- Remove from instances list
+                    table.remove(allNPCInstances, i)
+                    found = true
+                    break
+                end
+            end
+
+            if not found then
+                print("Warning: NPC '" .. npcData.id .. "' not found in any map!")
+            end
+        end
+
+        -- Create sprite quad
         if npcData.spriteX and npcData.spriteY then
             npcData.sprite = {
                 tileset = npcTileset,
                 quad = love.graphics.newQuad(
-                    npcData.spriteX, 
-                    npcData.spriteY, 
-                    16, -- sprite width
-                    16, -- sprite height
+                    npcData.spriteX,
+                    npcData.spriteY,
+                    16, 16,
                     npcTileset:getDimensions()
                 )
             }
-        else
-            -- Fallback to default sprite
-            npcData.sprite = {
-                image = love.graphics.newImage("sprites/npc.png")
+        end
+    end
+
+    -- Remaining instances are dialog-only NPCs (like guards)
+    -- Create NPC instances for each one
+    for _, instance in ipairs(allNPCInstances) do
+        local baseNPC = questData.npcs[instance.type]
+        if baseNPC and baseNPC.isDialogOnly then
+            -- Create a unique instance for this dialog-only NPC
+            local uniqueID = instance.type .. "_" .. instance.map .. "_" .. instance.gridX .. "_" .. instance.gridY
+            questData.npcs[uniqueID] = {
+                id = uniqueID,
+                baseType = instance.type,
+                name = baseNPC.name,
+                dialogText = baseNPC.dialogText,
+                isDialogOnly = true,
+                map = instance.map,
+                x = instance.x,
+                y = instance.y,
+                gridX = instance.gridX,
+                gridY = instance.gridY,
+                spriteX = instance.spriteX,
+                spriteY = instance.spriteY,
+                flippedX = instance.flippedX,
+                size = 16,
+                sprite = {
+                    tileset = npcTileset,
+                    quad = love.graphics.newQuad(
+                        instance.spriteX,
+                        instance.spriteY,
+                        16, 16,
+                        npcTileset:getDimensions()
+                    )
+                }
             }
         end
     end
@@ -270,6 +450,14 @@ function love.update(dt)
         end
     else
         map:update(dt)
+    end
+
+    -- Check for pending NPC variant updates
+    for npcID, npc in pairs(questData.npcs) do
+        if npc.pendingVariant then
+            updateNPCVariant(npcID, npc.pendingVariant, map, npc.sprite.tileset, 20)
+            npc.pendingVariant = nil
+        end
     end
 
     -- Update toasts
@@ -756,20 +944,17 @@ function drawMapAndNPCs(mapObj, mapName, camX, camY, chatOffset, offsetX, offset
             love.graphics.setColor(1, 1, 1)
             if npc.sprite.quad then
                 -- Draw from tileset using quad
-                local scaleX = 1
-                local facingOffsetX = 0
-                if npc.facing == "left" then
-                    scaleX = -1
-                    facingOffsetX = npc.size  -- adjust for flipped sprite
+                -- Use flippedX from map data instead of facing
+                local scaleX = npc.flippedX and -1 or 1
+                local facingOffsetX = npc.flippedX and npc.size or 0
 
-                end
                 love.graphics.draw(
                     npc.sprite.tileset,
                     npc.sprite.quad,
                     chatOffset + npc.x - npc.size/2 - camX + offsetX + facingOffsetX,
                     npc.y - npc.size/2 - camY + offsetY,
                     0, -- rotation
-                    scaleX, --(-1 for left, 1 for right)
+                    scaleX,
                     1 -- vertical scale
                 )
             else

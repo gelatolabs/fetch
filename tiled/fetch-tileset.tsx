@@ -10,26 +10,26 @@
    <property name="is_water" type="bool" value="true"/>
   </properties>
  </tile>
- <tile id="1" type="generic_duck"/>
- <tile id="2" type="librarian_duck::no_book"/>
- <tile id="3" type="librarian_duck::book"/>
- <tile id="4" type="athlete_duck"/>
- <tile id="5" type="trainer_duck"/>
- <tile id="6" type="guard_duck"/>
- <tile id="7" type="jailer_duck"/>
- <tile id="8" type="elder_duck"/>
- <tile id="9" type="short_duck"/>
+ <tile id="1" type="npc_reader"/>
+ <tile id="2" type="npc_librarian::no_book"/>
+ <tile id="3" type="npc_librarian::book"/>
+ <tile id="4" type="npc_athlete"/>
+ <tile id="5" type="npc_coach"/>
+ <tile id="6" type="guard"/>
+ <tile id="7" type="npc_jailer"/>
+ <tile id="8" type="npc_intro"/>
+ <tile id="9" type="npc_child"/>
  <tile id="20" type="blue_duck"/>
  <tile id="21" type="pink_duck"/>
- <tile id="22" type="wizard_duck::no_cap"/>
- <tile id="23" type="wizard_duck::with_hat"/>
+ <tile id="22" type="npc_wizard::no_cap"/>
+ <tile id="23" type="npc_wizard::with_hat"/>
  <tile id="24" type="money_bags_duck"/>
- <tile id="25" type="courier_duck"/>
- <tile id="26" type="gift_duck::no_gift"/>
- <tile id="27" type="gift_duck::with_gift"/>
- <tile id="28" type="shop_keep_duck"/>
+ <tile id="25" type="npc_courier"/>
+ <tile id="26" type="npc_merchant::no_gift"/>
+ <tile id="27" type="npc_merchant::with_gift"/>
+ <tile id="28" type="npc_shopkeeper"/>
  <tile id="29" type="chef_duck"/>
- <tile id="30" type="king_duck"/>
+ <tile id="30" type="npc_king"/>
  <tile id="31" type="doomsday_prepper_duck::no_tp"/>
  <tile id="32" type="doomsday_prepper_duck::with_tp"/>
  <tile id="33" type="sock_duck::no_sock"/>
@@ -37,20 +37,20 @@
  <tile id="35" type="sock_duck::with_sock2"/>
  <tile id="40" type="farmer_duck"/>
  <tile id="41" type="cartographer_duck"/>
- <tile id="42" type="pirate_duck"/>
- <tile id="43" type="lifeguard_duck"/>
- <tile id="44" type="cyan_duck"/>
- <tile id="45" type="woodcutter_duck"/>
+ <tile id="42" type="npc_boat_builder"/>
+ <tile id="43" type="npc_lifeguard"/>
+ <tile id="44" type="npc_swimmer"/>
+ <tile id="45" type="npc_woodcutter"/>
  <tile id="46" type="glitch_duck_1"/>
  <tile id="47" type="glitch_duck_2"/>
  <tile id="48" type="grey_duck"/>
  <tile id="49" type="plumber_duck"/>
- <tile id="50" type="cat_lady_duck::no_cat"/>
- <tile id="51" type="cat_lady_duck::with_cat"/>
+ <tile id="50" type="npc_cat_owner::no_cat"/>
+ <tile id="51" type="npc_cat_owner::with_cat"/>
  <tile id="60" type="right_goose"/>
- <tile id="61" type="left_goose"/>
- <tile id="62" type="white_goose"/>
- <tile id="63" type="canada_goose"/>
+ <tile id="61" type="npc_grey_goose"/>
+ <tile id="62" type="npc_white_goose"/>
+ <tile id="63" type="npc_canada_goose"/>
  <tile id="100" type="ground::grass"/>
  <tile id="102" type="ground::dirt"/>
  <tile id="104" type="ground::sand"/>
