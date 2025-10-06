@@ -252,6 +252,12 @@ quests.npcs = {
         dialogText = "Move along, citizen. Nothing to see here.",
         isDialogOnly = true
     },
+    npc_short_duck = {
+        id = "npc_short_duck",
+        name = "Short Duck",
+        dialogText = "Wow, look at all that gold! Too bad there's no way I could ever reach it...",
+        isDialogOnly = true
+    },
 }
 
 -- Dialogue sequences for groups of NPCs
@@ -551,12 +557,11 @@ function quests.interactWithNPC(npc)
                     text = text
                 })
             end
-        elseif quest and quest.completed then
-            local text = quest.questCompleteText or "Thanks again!"
+        elseif npc.questCompleteText then
             quests.gameState = DialogSystem.showDialog({
                 type = "generic",
                 npc = npc,
-                text = text
+                text = npc.questCompleteText
             })
         else
             -- No available quests or all quests completed
