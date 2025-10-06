@@ -450,7 +450,11 @@ return {
     },
     {
       id = 201,
-      type = "decor::books"
+      type = "decor::books",
+      properties = {
+        ["collides"] = true,
+        ["height"] = 0.5
+      }
     },
     {
       id = 203,

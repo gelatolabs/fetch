@@ -194,7 +194,12 @@
    <property name="height" type="float" value="1"/>
   </properties>
  </tile>
- <tile id="201" type="decor::books"/>
+ <tile id="201" type="decor::books">
+  <properties>
+   <property name="collides" type="bool" value="true"/>
+   <property name="height" type="float" value="0.5"/>
+  </properties>
+ </tile>
  <tile id="203" type="gold1"/>
  <tile id="204" type="gold2"/>
  <tile id="205" type="gold3"/>

@@ -140,25 +140,25 @@ local doors = {
         text = "Leave"
     },
     {
-        map = "map",
+        map = "mapnorth",
         direction = nil,
-        positions = {{x = 37, y = 25}},
+        positions = {{x = 19, y = 28}},
         targetMap = "shop",
-        targetX = 1,
-        targetY = 7,
+        targetX = 10,
+        targetY = 13,
         text = "Enter"
     },
     {
         map = "shop",
         direction = nil,
         positions = {
-            {x = 0, y = 6},
-            {x = 0, y = 7},
-            {x = 0, y = 8}
+            {x = 9, y = 14},
+            {x = 10, y = 14},
+            {x = 11, y = 14}
         },
-        targetMap = "map",
-        targetX = 37,
-        targetY = 25,
+        targetMap = "mapnorth",
+        targetX = 19,
+        targetY = 29,
         text = "Leave"
     }
 }
