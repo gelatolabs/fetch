@@ -34,6 +34,7 @@ end
 -- - Quests are locked by default unless unlocked by another quest
 -- - Use 'unlocksQuests' on quest data to specify which quests become available after completion
 -- - Dialog-only NPCs can appear multiple times on maps and just show dialog
+-- - Quest entries can have optional 'afterQuestOffer' callback that triggers when quest offer is shown
 quests.npcs = {
     npc_intro = {
         id = "npc_intro",
@@ -240,7 +241,10 @@ quests.npcs = {
         quests = {
             {
                 questId = "quest_glitch",
-                questOfferDialog = "Hey you. Yes you. I knew you would come here. I can teach you something... special. But first, you must help me find the paradox.\n\nYes, the thing that should not exist in this world but does. Bring it to me, and I will show you power beyond measure."
+                questOfferDialog = "Hey you. Yes you. I knew you would come here. I can teach you something... special. But first, you must help me find the paradox.\n\nYes, the thing that should not exist in this world but does. Bring it to me, and I will show you power beyond measure.",
+                afterQuestOffer = function()
+                    UISystem.triggerDialogEvent("talk_to_glitch", nil)
+                end
             }
         },
         questCompleteText = "..."
@@ -298,6 +302,7 @@ quests.dialogueSequences = {
             end)
         end
     }
+    
 }
 
 quests.questData = {
@@ -643,6 +648,7 @@ function quests.interactWithNPC(npc)
                 type = "questOfferDialog",
                 npc = npc,
                 quest = quest,
+                questConfig = questConfig,  -- Pass questConfig for afterQuestOffer callback
                 text = dialogText
             })
         elseif quest and quest.active then

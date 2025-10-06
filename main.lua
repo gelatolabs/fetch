@@ -858,7 +858,16 @@ function love.keypressed(key)
                 -- If transitioning to quest offer, store the quest data
                 if newState == "questOffer" then
                     local currentDialog = DialogSystem.getCurrentDialog()
-                    questOfferData = {npc = currentDialog.npc, quest = currentDialog.quest}
+                    questOfferData = {
+                        npc = currentDialog.npc, 
+                        quest = currentDialog.quest,
+                        questConfig = currentDialog.questConfig  -- Store questConfig for callback
+                    }
+                    
+                    -- Call afterQuestOffer callback if it exists
+                    if questOfferData.questConfig and questOfferData.questConfig.afterQuestOffer then
+                        questOfferData.questConfig.afterQuestOffer()
+                    end
                 end
             end
             if shouldClear then
