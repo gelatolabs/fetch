@@ -151,6 +151,19 @@ function PlayerSystem.init(UISystem)
             UISystem.showToast("You feel lightning fast!", {1.0, 0.3, 0.3})
         end
     })
+
+    abilityManager:registerAbility({
+        id = "noclip",
+        name = "Noclip",
+        aliases = {"noclip", "ghost"},
+        type = AbilitySystem.AbilityType.PASSIVE,
+        effects = {AbilitySystem.EffectType.NOCLIP},
+        description = "Walk through all walls and water (cheat)",
+        color = {1.0, 0.5, 0.0},
+        onAcquire = function(ability)
+            -- Silent activation for cheats
+        end
+    })
 end
 
 -- Get player state
@@ -305,6 +318,24 @@ local function areOppositeDirections(dir1, dir2)
     return false
 end
 
+-- Helper function to check if a position is blocked for the player
+-- This considers player abilities like noclip
+local function isPositionBlocked(x, y)
+    -- Noclip bypasses all collision
+    if abilityManager:hasEffect(AbilitySystem.EffectType.NOCLIP) then
+        return false
+    end
+    
+    -- Check tile collision (with water traversal ability)
+    local canCrossWater = abilityManager:hasEffect(AbilitySystem.EffectType.WATER_TRAVERSAL)
+    local tileBlocked = MapSystem.isColliding(x, y, canCrossWater)
+    
+    -- Check NPC collision
+    local npcBlocked = MapSystem.isNPCAt(x, y)
+    
+    return tileBlocked or npcBlocked
+end
+
 -- Update player movement
 function PlayerSystem.update(dt, heldKeys)
     -- Pokemon-style grid-based movement
@@ -424,14 +455,11 @@ function PlayerSystem.update(dt, heldKeys)
                 -- Check collision for queued movement
                 local targetPixelX = newGridX * 16 + 8
                 local targetPixelY = newGridY * 16 + 8
-
-                local canCrossWater = abilityManager:hasEffect(AbilitySystem.EffectType.WATER_TRAVERSAL)
-                local canJump = abilityManager:hasEffect(AbilitySystem.EffectType.JUMP)
-                local tileBlocked = MapSystem.isColliding(targetPixelX, targetPixelY, canCrossWater)
-                local npcBlocked = MapSystem.isNPCAt(targetPixelX, targetPixelY)
+                local targetBlocked = isPositionBlocked(targetPixelX, targetPixelY)
 
                 -- Check if we should jump over an obstacle
-                if tileBlocked and canJump and MapSystem.isJumpableObstacle(targetPixelX, targetPixelY) then
+                local canJump = abilityManager:hasEffect(AbilitySystem.EffectType.JUMP)
+                if targetBlocked and canJump and MapSystem.isJumpableObstacle(targetPixelX, targetPixelY) then
                     -- Try to jump OVER the obstacle (2 tiles total)
                     local jumpLandingX = newGridX + (newGridX - player.gridX)
                     local jumpLandingY = newGridY + (newGridY - player.gridY)
@@ -439,10 +467,9 @@ function PlayerSystem.update(dt, heldKeys)
                     local landingPixelY = jumpLandingY * 16 + 8
 
                     -- Check if landing spot is valid
-                    local landingBlocked = MapSystem.isColliding(landingPixelX, landingPixelY, canCrossWater)
-                    local landingNpcBlocked = MapSystem.isNPCAt(landingPixelX, landingPixelY)
+                    local landingBlocked = isPositionBlocked(landingPixelX, landingPixelY)
 
-                    if not landingBlocked and not landingNpcBlocked then
+                    if not landingBlocked then
                         -- Perform jump over the obstacle
                         player.direction = queuedDir
                         player.targetGridX = jumpLandingX
@@ -452,7 +479,7 @@ function PlayerSystem.update(dt, heldKeys)
                         player.moveTimer = 0
                         player.moveDuration = abilityManager:hasEffect(AbilitySystem.EffectType.SPEED) and 0.25 / 4 or 0.25
                     end
-                elseif not tileBlocked and not npcBlocked then
+                elseif not targetBlocked then
                     -- Normal movement
                     player.direction = queuedDir
                     player.targetGridX = newGridX
@@ -504,25 +531,21 @@ function PlayerSystem.update(dt, heldKeys)
             -- Check collision at target grid position (with abilities)
             local targetPixelX = newGridX * 16 + 8
             local targetPixelY = newGridY * 16 + 8
-            
-            local canCrossWater = abilityManager:hasEffect(AbilitySystem.EffectType.WATER_TRAVERSAL)
-            local canJump = abilityManager:hasEffect(AbilitySystem.EffectType.JUMP)
-            local tileBlocked = MapSystem.isColliding(targetPixelX, targetPixelY, canCrossWater)
-            local npcBlocked = MapSystem.isNPCAt(targetPixelX, targetPixelY)
+            local targetBlocked = isPositionBlocked(targetPixelX, targetPixelY)
             
             -- Check if we should jump over an obstacle
-            if tileBlocked and canJump and MapSystem.isJumpableObstacle(targetPixelX, targetPixelY) then
+            local canJump = abilityManager:hasEffect(AbilitySystem.EffectType.JUMP)
+            if targetBlocked and canJump and MapSystem.isJumpableObstacle(targetPixelX, targetPixelY) then
                 -- Try to jump OVER the obstacle (2 tiles total)
                 local jumpLandingX = newGridX + (newGridX - player.gridX)
                 local jumpLandingY = newGridY + (newGridY - player.gridY)
                 local landingPixelX = jumpLandingX * 16 + 8
                 local landingPixelY = jumpLandingY * 16 + 8
                 
-                -- Check if landing spot is valid (not blocked and not an NPC there)
-                local landingBlocked = MapSystem.isColliding(landingPixelX, landingPixelY, canCrossWater)
-                local landingNpcBlocked = MapSystem.isNPCAt(landingPixelX, landingPixelY)
+                -- Check if landing spot is valid
+                local landingBlocked = isPositionBlocked(landingPixelX, landingPixelY)
                 
-                if not landingBlocked and not landingNpcBlocked then
+                if not landingBlocked then
                     -- Perform jump over the obstacle
                     player.targetGridX = jumpLandingX
                     player.targetGridY = jumpLandingY
@@ -531,7 +554,7 @@ function PlayerSystem.update(dt, heldKeys)
                     player.moveTimer = 0
                     player.moveDuration = abilityManager:hasEffect(AbilitySystem.EffectType.SPEED) and 0.25 / 4 or 0.25  -- Jumps take a bit longer
                 end
-            elseif not tileBlocked and not npcBlocked then
+            elseif not targetBlocked then
                 -- Normal movement
                 player.targetGridX = newGridX
                 player.targetGridY = newGridY

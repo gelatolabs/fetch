@@ -522,12 +522,8 @@ function UISystem.drawGrid(camX, camY, showGrid)
 end
 
 -- Draw active cheat/ability indicators
-function UISystem.drawIndicators(noclipActive, gridActive, abilityManager)
+function UISystem.drawIndicators(gridActive, abilityManager)
     local cheatText = ""
-
-    if noclipActive then
-        cheatText = cheatText .. " [NOCLIP]"
-    end
 
     -- Show all active abilities
     if abilityManager then
