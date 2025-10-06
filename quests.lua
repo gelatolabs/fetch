@@ -608,6 +608,7 @@ function quests.checkCircularDependency()
         UISystem.triggerDialogEvent("quest_deps", function()
             UISystem.showToast("J.A.R.F. gave you item_TODO", {0.7, 0.5, 0.9})
             PlayerSystem.addItem("item_TODO") -- this is intentionally not a real item, so it appeared glitched in the inventory with the placeholder icon
+            PlayerSystem.addGold(5000)
         end)
     end
 end
