@@ -122,7 +122,7 @@ function PlayerSystem.init(UISystem)
         aliases = {"speed", "speedboost", "fast"},
         type = AbilitySystem.AbilityType.PASSIVE,
         effects = {AbilitySystem.EffectType.SPEED},
-        description = "Move 4x faster",
+        description = "Move 2.5x faster",
         color = {1.0, 0.3, 0.3},
         onAcquire = function(ability)
             UISystem.showToast("You feel lightning fast!", {1.0, 0.3, 0.3})
@@ -447,7 +447,7 @@ function PlayerSystem.update(dt, heldKeys)
                         player.moving = true
                         player.jumping = true
                         player.moveTimer = 0
-                        player.moveDuration = abilityManager:hasEffect(AbilitySystem.EffectType.SPEED) and 0.25 / 4 or 0.25
+                        player.moveDuration = abilityManager:hasEffect(AbilitySystem.EffectType.SPEED) and 0.25 / 2.5 or 0.25
                     end
                 elseif not targetBlocked then
                     -- Normal movement
@@ -457,7 +457,7 @@ function PlayerSystem.update(dt, heldKeys)
                     player.moving = true
                     player.jumping = false
                     player.moveTimer = 0
-                    player.moveDuration = abilityManager:hasEffect(AbilitySystem.EffectType.SPEED) and 0.15 / 4 or 0.15
+                    player.moveDuration = abilityManager:hasEffect(AbilitySystem.EffectType.SPEED) and 0.15 / 2.5 or 0.15
                 end
             end
         end
@@ -522,7 +522,7 @@ function PlayerSystem.update(dt, heldKeys)
                     player.moving = true
                     player.jumping = true
                     player.moveTimer = 0
-                    player.moveDuration = abilityManager:hasEffect(AbilitySystem.EffectType.SPEED) and 0.25 / 4 or 0.25  -- Jumps take a bit longer
+                    player.moveDuration = abilityManager:hasEffect(AbilitySystem.EffectType.SPEED) and 0.25 / 2.5 or 0.25  -- Jumps take a bit longer
                 end
             elseif not targetBlocked then
                 -- Normal movement
@@ -531,7 +531,7 @@ function PlayerSystem.update(dt, heldKeys)
                 player.moving = true
                 player.jumping = false
                 player.moveTimer = 0
-                player.moveDuration = abilityManager:hasEffect(AbilitySystem.EffectType.SPEED) and 0.15 / 4 or 0.15  -- Normal walk speed
+                player.moveDuration = abilityManager:hasEffect(AbilitySystem.EffectType.SPEED) and 0.15 / 2.5 or 0.15  -- Normal walk speed
             end
         end
     end
