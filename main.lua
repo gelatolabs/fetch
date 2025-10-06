@@ -326,6 +326,24 @@ local function extractPickupsFromMap(mapObj, mapName, tilesetColumns)
                                         spriteX = spriteX,
                                         spriteY = spriteY
                                     })
+                                elseif itemType and itemType:match("^gold") then
+                                    -- Handle gold pickups (gold1, gold2, gold3)
+                                    local goldAmounts = {gold1 = 250, gold2 = 500, gold3 = 1000}
+                                    local goldAmount = goldAmounts[itemType]
+
+                                    local spriteX, spriteY = calculateQuadFromTileID(tileId, 320, tilesetColumns)
+
+                                    table.insert(pickupInstances, {
+                                        map = mapName,
+                                        x = posX,
+                                        y = posY,
+                                        gridX = gridX,
+                                        gridY = gridY,
+                                        isGold = true,
+                                        goldAmount = goldAmount,
+                                        spriteX = spriteX,
+                                        spriteY = spriteY
+                                    })
                                 end
                             end
                         end
@@ -551,11 +569,17 @@ function love.update(dt)
                 if pickup.map == MapSystem.getCurrentMap() and isPickupVisible(pickup) then
                     local dist = math.sqrt((player.x - pickup.x)^2 + (player.y - pickup.y)^2)
                     if dist < 12 then  -- Pickup radius
-                        -- Add item to inventory
-                        PlayerSystem.addItem(pickup.itemId)
-                        local itemData = itemRegistry[pickup.itemId]
-                        local itemName = itemData and itemData.name or pickup.itemId
-                        showToast("Picked up: " .. itemName, {0.7, 0.9, 1})
+                        if pickup.isGold then
+                            -- Add gold to inventory
+                            PlayerSystem.addGold(pickup.goldAmount)
+                            showToast("Picked up: " .. pickup.goldAmount .. " gold", {1, 0.84, 0})
+                        else
+                            -- Add item to inventory
+                            PlayerSystem.addItem(pickup.itemId)
+                            local itemData = itemRegistry[pickup.itemId]
+                            local itemName = itemData and itemData.name or pickup.itemId
+                            showToast("Picked up: " .. itemName, {0.7, 0.9, 1})
+                        end
                         -- Remove pickup
                         table.remove(pickups, i)
                     end
