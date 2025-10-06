@@ -510,14 +510,6 @@ function love.update(dt)
         end
     end
 
-    -- Check for pending NPC variant updates
-    for npcID, npc in pairs(questData.npcs) do
-        if npc.pendingVariant then
-            updateNPCVariant(npcID, npc.pendingVariant, map, npc.sprite.tileset, 20)
-            npc.pendingVariant = nil
-        end
-    end
-
     -- Update toasts
     UISystem.updateToasts(dt)
 
