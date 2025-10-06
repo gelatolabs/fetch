@@ -122,7 +122,7 @@ return {
         },
         {
           id = 29,
-          type = "npc_baker"
+          type = "npc_chef"
         },
         {
           id = 30,
@@ -463,7 +463,11 @@ return {
         },
         {
           id = 201,
-          type = "decor::books"
+          type = "decor::books",
+          properties = {
+            ["collides"] = true,
+            ["height"] = 0.5
+          }
         },
         {
           id = 203,
@@ -536,6 +540,10 @@ return {
         {
           id = 255,
           type = "item::goose_feathers"
+        },
+        {
+          id = 257,
+          type = "item::underpants"
         },
         {
           id = 271,
