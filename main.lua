@@ -54,7 +54,8 @@ local Icons = {
     feathers = {x = 240, y = 192},
     toilet_paper_piece = {x = 176, y = 208},
     sock = {x = 208, y = 192},
-    glitched_item = {x = 192, y = 192}
+    glitched_item = {x = 192, y = 192},
+    underpants = {x = 272, 192}
 }
 
 -- Item registry (single source of truth for all items)
@@ -71,7 +72,8 @@ local itemRegistry = {
     item_goose_feathers = {id = "item_goose_feathers", name = "Goose Feathers", aliases = {"feathers", "goose feathers"}, icon = Icons.feathers},
     item_toilet_paper_piece = {id = "item_toilet_paper_piece", name = "Toilet Paper", aliases = {"toilet_paper_piece", "tp"}, icon = Icons.toilet_paper_piece, hidden = true},
     item_sock = {id = "item_sock", name = "Socks", aliases = {"socks", "sock"}, icon = Icons.sock},
-    item_glitched_item = {id = "item_glitched_item", name = "Glitched Item", aliases = {"glitched_item"}, icon = Icons.glitched_item}
+    item_glitched_item = {id = "item_glitched_item", name = "Glitched Item", aliases = {"glitched_item"}, icon = Icons.glitched_item},
+    item_underpants = {id = "item_underpants", name = "Underpants", aliases = {"underpants"}, icon = Icons.underpants}
 }
 
 -- UI state
