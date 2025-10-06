@@ -1297,11 +1297,11 @@ function UISystem.drawQuestTurnIn()
         
         -- Footer hint with navigation
         love.graphics.setColor(0.5, 0.5, 0.5)
-        love.graphics.print("[ESC] Cancel  [</>] Page", boxX + 4, boxY + boxH - 15)
+        love.graphics.print("[X] Cancel  [</>] Page", boxX + 4, boxY + boxH - 15)
     else
         -- Footer hint without navigation
         love.graphics.setColor(0.5, 0.5, 0.5)
-        love.graphics.print("[ESC] Cancel", boxX + 4, boxY + boxH - 15)
+        love.graphics.print("[X] Cancel", boxX + 4, boxY + boxH - 15)
     end
 end
 
@@ -1592,7 +1592,7 @@ function UISystem.drawWinScreen(playerGold, completedQuests, winScreenTimer)
         {text = "J.A.R.F.", font = font, color = {1, 1, 1}, spacing = 30},
 
         {text = "Thanks for playing!", font = titleFont, color = {1, 0.84, 0}, spacing = 30},
-        {text = "Press ESC to exit", font = font, color = {0.7, 0.7, 0.7}, spacing = 0},
+        {text = "Press X to exit", font = font, color = {0.7, 0.7, 0.7}, spacing = 0},
     }
 
     -- Set scissor to clip credits to game area

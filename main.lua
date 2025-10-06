@@ -915,7 +915,7 @@ function love.keypressed(key)
         elseif gameState == "questLog" then
             UISystem.questLogNextPage()
         end
-    elseif key == "escape" then
+    elseif key == "escape" or key == "x" then
         if gameState == "winScreen" then
             love.event.quit()
         elseif gameState == "playing" then
