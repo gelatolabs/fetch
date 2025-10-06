@@ -797,7 +797,24 @@ function love.keypressed(key)
     end
 
     -- Normal game controls
-    if key == "space" or key == "e" then
+    if gameState == "questOffer" then
+        if key == "e" then
+            -- Accept quest
+            questData.activateQuest(questOfferData.quest.id)
+            table.insert(activeQuests, questOfferData.quest.id)
+            showToast("Quest Accepted: " .. questOfferData.quest.name, {1, 1, 0})
+            questOfferData = nil
+            DialogSystem.clearDialog()
+            AudioSystem.stopManifestoMusic()
+            gameState = "playing"
+        elseif key == "r" then
+            -- Reject quest
+            questOfferData = nil
+            DialogSystem.clearDialog()
+            AudioSystem.stopManifestoMusic()
+            gameState = "playing"
+        end
+    elseif key == "space" or key == "e" then
         if gameState == "playing" and nearbyDoor and not UISystem.isChatPaneVisible() then
             enterDoor(nearbyDoor)
         elseif gameState == "playing" and nearbyNPC and not UISystem.isChatPaneVisible() then

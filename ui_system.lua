@@ -1208,7 +1208,7 @@ function UISystem.drawQuestOffer(questOfferData)
     love.graphics.setColor(acceptHover and 0.4 or 0.2, acceptHover and 0.8 or 0.6, acceptHover and 0.3 or 0.2)
     love.graphics.rectangle("line", acceptX, btnY, btnW, btnH)
     love.graphics.setColor(1, 1, 1)
-    love.graphics.printf("Accept", acceptX, btnY + 2, btnW, "center")
+    love.graphics.printf("[E] Accept", acceptX, btnY + 1, btnW, "center")
 
     -- Reject button
     local rejectHover = UISystem.isMouseOverButton(rejectX, btnY, btnW, btnH)
@@ -1217,7 +1217,7 @@ function UISystem.drawQuestOffer(questOfferData)
     love.graphics.setColor(rejectHover and 0.9 or 0.7, rejectHover and 0.4 or 0.3, rejectHover and 0.3 or 0.2)
     love.graphics.rectangle("line", rejectX, btnY, btnW, btnH)
     love.graphics.setColor(1, 1, 1)
-    love.graphics.printf("Reject", rejectX, btnY + 2, btnW, "center")
+    love.graphics.printf("[R] Reject", rejectX, btnY + 1, btnW, "center")
 end
 
 -- Draw inventory
