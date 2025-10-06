@@ -291,11 +291,9 @@ quests.dialogueSequences = {
             {speaker = "npc_canada_goose", text = "Triple... nipple... aw c'mon guys, this is too hard to rhyme."}
         },
         onComplete = function(npc)
-            -- Progress JARF dialogue, then show toast after it closes
-            -- (JARF is giving the item, not the geese)
-            -- The geese still need to declare they are giving you this item, otherwise the quest text will just start again.
+            -- Trigger event-driven JARF dialog
             PlayerSystem.addItem("item_goose_feathers")
-            UISystem.progressJarfScript(8, 5.0, function()
+            UISystem.triggerDialogEvent("geese_combat", function()
                 UISystem.showToast("J.A.R.F. gave you item_goose_feathers", {0.7, 0.5, 0.9})
             end)
         end
