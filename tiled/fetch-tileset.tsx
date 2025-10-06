@@ -39,7 +39,7 @@
  <tile id="41" type="cartographer_duck"/>
  <tile id="42" type="npc_boat_builder"/>
  <tile id="43" type="npc_lifeguard"/>
- <tile id="44" type="npc_swimmer"/>
+ <tile id="44" type="npc_swimmer::no_floaty"/>
  <tile id="45" type="npc_woodcutter"/>
  <tile id="46" type="npc_glitch::glitch1"/>
  <tile id="47" type="npc_glitch::glitch2"/>
@@ -51,6 +51,7 @@
  <tile id="61" type="npc_grey_goose"/>
  <tile id="62" type="npc_white_goose"/>
  <tile id="63" type="npc_canada_goose"/>
+ <tile id="64" type="npc_swimmer::with_floaty"/>
  <tile id="100" type="ground::grass"/>
  <tile id="102" type="ground::dirt"/>
  <tile id="104" type="ground::sand"/>

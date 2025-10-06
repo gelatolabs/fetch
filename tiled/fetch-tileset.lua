@@ -153,7 +153,7 @@ return {
     },
     {
       id = 44,
-      type = "npc_swimmer"
+      type = "npc_swimmer::no_floaty"
     },
     {
       id = 45,
@@ -198,6 +198,10 @@ return {
     {
       id = 63,
       type = "npc_canada_goose"
+    },
+    {
+      id = 64,
+      type = "npc_swimmer::with_floaty"
     },
     {
       id = 100,
