@@ -3,6 +3,9 @@
 
 local UISystem = require "ui_system"
 local PlayerSystem = require "player_system"
+local MapSystem = require "map_system"
+local Camera = require "camera"
+local sti = require "sti"
 
 local CheatConsole = {}
 
@@ -278,8 +281,61 @@ GPU: GooseForce 128]]
         UISystem.toggleChatPane()
         UISystem.showToast("Chat pane toggled", {1, 0.5, 0})
         
+    elseif command == "teleport" or command == "tp" then
+        if param == "" then
+            UISystem.showToast("Usage: teleport <map> [x y] (e.g. teleport shop or teleport map 10 20)", {1, 1, 0.3})
+        else
+            local targetMap = param
+            local targetX = tonumber(parts[3])
+            local targetY = tonumber(parts[4])
+            
+            -- First, load the map to check its dimensions (don't update MapSystem yet)
+            local mapPath = MapSystem.getMapPath(targetMap)
+            if not mapPath then
+                UISystem.showToast("Unknown map: " .. targetMap, {1, 0.3, 0.3})
+                return
+            end
+            
+            -- Load the map to get dimensions
+            local testMapObj = sti(mapPath)
+            
+            -- If no coordinates provided, use center of map
+            if not targetX or not targetY then
+                targetX = math.floor(testMapObj.width / 2)
+                targetY = math.floor(testMapObj.height / 2)
+            end
+            
+            -- Validate coordinates are within map bounds
+            if targetX < 0 or targetX >= testMapObj.width or targetY < 0 or targetY >= testMapObj.height then
+                UISystem.showToast("Coordinates out of bounds! Valid: (0-" .. (testMapObj.width-1) .. ", 0-" .. (testMapObj.height-1) .. ")", {1, 0.3, 0.3})
+                return
+            end
+            
+
+            -- All validation passed, now actually teleport
+            -- Load the new map (this updates MapSystem)
+            local loadSuccess, result = MapSystem.loadMap(targetMap)
+            if not loadSuccess then
+                UISystem.showToast(result, {1, 0.3, 0.3})
+                return
+            end
+
+            -- Play music for target map
+            MapSystem.playMusicForMap(targetMap)
+            
+            -- Set player position
+            PlayerSystem.setPosition(targetX * 16 + 8, targetY * 16 + 8, targetX, targetY)
+            local player = PlayerSystem.getPlayer()
+            player.moving = false
+            
+            -- Update camera
+            Camera.update(player.x, player.y)
+            
+            UISystem.showToast("Teleported to " .. targetMap .. " (" .. targetX .. ", " .. targetY .. ")", {1, 0.5, 0})
+        end
+        
     elseif command == "help" or command == "?" then
-        UISystem.showToast("Cheats: noclip, grid, unlock/lock, god, fetch, toss, gold/setgold, jarf, nojarf, screenfetch", {1, 1, 0.3})
+        UISystem.showToast("Cheats: noclip, grid, unlock/lock, god, fetch, toss, gold/setgold, teleport, jarf, nojarf, screenfetch", {1, 1, 0.3})
 
     else
         UISystem.showToast("Unknown cheat: " .. code, {1, 0.3, 0.3})

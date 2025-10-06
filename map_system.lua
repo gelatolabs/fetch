@@ -1,6 +1,11 @@
 -- Map System Module
 -- Handles all map-related operations including collision detection, tile queries, and spawn positioning
 
+local sti = require "sti"
+local AudioSystem = require "audio_system"
+local Camera = require "camera"
+local UISystem = require "ui_system"
+
 local MapSystem = {}
 
 -- Module state (will be initialized by main.lua)
@@ -158,12 +163,38 @@ local doors = {
     }
 }
 
+-- Map music associations
+local mapMusic = {
+    jail = "spooky",
+    throneroom = "throneRoom",
+    shop = "themeFunky",
+    -- All other maps use "theme"
+}
+
+-- Helper function to hide NPC layer on a map
+local function hideNPCLayerInternal(mapObj)
+    for _, layer in ipairs(mapObj.layers) do
+        if layer.name == "NPCs" then
+            layer.visible = false
+        end
+    end
+end
+
 -- Initialize the map system with required references
-function MapSystem.init(mapRef, worldRef, npcsRef, currentMapRef)
-    map = mapRef
+function MapSystem.init(worldRef, npcsRef, initialMapName)
     world = worldRef
     npcs = npcsRef
-    currentMap = currentMapRef
+    currentMap = initialMapName
+    
+    -- Load the initial map
+    local mapPath = mapPaths[initialMapName]
+    if mapPath then
+        map = sti(mapPath)
+        hideNPCLayerInternal(map)
+        MapSystem.calculateMapBounds()
+    else
+        error("Unknown initial map: " .. initialMapName)
+    end
 end
 
 -- Update references when they change (e.g., map transitions)
@@ -172,9 +203,83 @@ function MapSystem.updateReferences(mapRef, currentMapRef)
     if currentMapRef then currentMap = currentMapRef end
 end
 
+-- Public function to hide NPC layer on a map
+function MapSystem.hideNPCLayer(mapObj)
+    hideNPCLayerInternal(mapObj)
+end
+
+-- Get the appropriate music track for a map
+function MapSystem.getMusicForMap(mapName)
+    return mapMusic[mapName] or "theme"
+end
+
+-- Play the appropriate music for a map
+function MapSystem.playMusicForMap(mapName)
+    if AudioSystem then
+        local musicTrack = MapSystem.getMusicForMap(mapName)
+        AudioSystem.playMusic(musicTrack)
+    end
+end
+
+-- Load a new map and update all references
+-- Returns: success (boolean), mapObj or error message (string)
+-- Note: Does NOT change music - call playMusicForMap separately if needed
+function MapSystem.loadMap(mapName)
+    -- Check if the map exists
+    local mapPath = mapPaths[mapName]
+    if not mapPath then
+        return false, "Unknown map: " .. mapName
+    end
+    
+    -- Load the map using sti
+    local success, newMapObj = pcall(sti, mapPath)
+    if not success then
+        return false, "Failed to load map: " .. mapName
+    end
+    
+    -- Hide NPC layer
+    hideNPCLayerInternal(newMapObj)
+    
+    -- Update references
+    map = newMapObj
+    currentMap = mapName
+    
+    -- Calculate new map bounds
+    MapSystem.calculateMapBounds()
+    
+    return true, newMapObj
+end
+
+-- Get the current map object
+function MapSystem.getMap()
+    return map
+end
+
 -- Get the current map name
 function MapSystem.getCurrentMap()
     return currentMap
+end
+
+-- Update the current map
+function MapSystem.update(dt)
+    if map then
+        map:update(dt)
+    end
+end
+
+-- Draw the current map
+function MapSystem.draw()
+    local camX, camY = Camera.getPosition()
+    MapSystem.drawMapObject(map, camX, camY, 0, 0)
+end
+
+-- Draw a specific map object (for transitions)
+function MapSystem.drawMapObject(mapObj, camX, camY, offsetX, offsetY)
+    local chatOffset = UISystem.getChatPaneWidth()
+
+    -- Draw the Tiled map
+    love.graphics.setColor(1, 1, 1)
+    mapObj:draw(chatOffset - camX + offsetX, -camY + offsetY)
 end
 
 -- Get map path by name

@@ -4,7 +4,6 @@
 local Camera = {}
 
 -- Dependencies
-local PlayerSystem = require "player_system"
 local UISystem = require "ui_system"
 
 -- Camera state
@@ -27,11 +26,10 @@ function Camera.getPosition()
 end
 
 -- Center camera on player
-local function centerCameraOnPlayer()
+local function centerCameraOnPlayer(playerX, playerY)
     -- Always center on the game viewport (320x240), regardless of chat pane visibility
-    local player = PlayerSystem.getPlayer()
-    camera.x = player.x - UISystem.getGameWidth() / 2
-    camera.y = player.y - UISystem.getGameHeight() / 2
+    camera.x = playerX - UISystem.getGameWidth() / 2
+    camera.y = playerY - UISystem.getGameHeight() / 2
 end
 
 -- Clamp camera to map bounds
@@ -61,8 +59,8 @@ local function clampCameraToMapBounds()
 end
 
 -- Update the camera (centers on player and clamps to map bounds)
-function Camera.update()
-    centerCameraOnPlayer()
+function Camera.update(playerX, playerY)
+    centerCameraOnPlayer(playerX, playerY)
     clampCameraToMapBounds()
 end
 
