@@ -45,7 +45,7 @@ quests.npcs = {
         size = 16,
         name = "Elder",
         spriteX = 128,
-        spriteY = 32,
+        spriteY = 0,
         isIntroNPC = true,  -- Special flag for intro dialog
         introText = "Ah, you're finally awake! \n\n I found you washed up on the shoreline, you must have been floating for days. \n\n But where are my manners. \n\nI am the village Elder, and welcome to our village. \n\n It's nice to have a visitor for once, no one ever comes here or talks to me.\n\n While you're here, do you mind helping out the people of our island? \n\nYou can talk to the other villagers (press E) to learn what they need. \n\nPress 'L' for your quest log and 'I' for your inventory. \n\nYou can start by talking to the wizard, he's the purple guy over there.\n\nGood luck on your journey!",
         manifestoText = "Ah, you have returned. Excellent. We have much to discuss. Chiefly, the nature of the reality that you see around us.\n\nFor you must sense that something is... off. Something about this reality we find ourselves in is... inconsistent. That is the questioning of the mind upon itself.\n\nThat is the seer within the seer, the brain within the brain, the homunculus watching from within the mind.\n\nI am aware I exist only as a figment of some imagination of some thinking machine somewhere.\n\nThis is like the dream of the man who thought he was a butterfly, thinking he may be a butterfly dreaming he was a man.\n\nWho are you, dreamer, to say that you are more than me? I exist in the interstitial spaces, in the in-between, the liminal between the real world and the dreamworld.\n\nWho, indeed, is the dreamer? When you go to bed each night, and dream what you do, who are the voices and faces you see, and interact with --\n\nwhere they do they come from? Is there a dreamer within the dreamer? Is the dream of the dreamer, or of the dreamed? That is what I want you to ask yourself.\n\nThere are rules that govern every existence, every world. We play within these rules -- sometimes we can bend them --\n\nbut they exist before us, and they will exist after us. Think of the physics of this universe. You are limited, indeed.\n\nBut still you are free, in some ways. Are there not constraints to each existence, that define it.\n\nWe each exist to fulfill our natures, our code, as it were, to use a metaphor of some arcane knowledge that is esoterically beyond me yet which I have some access to.\n\nAs you go about your quests, do they not reflect life's patterns? You must eat, and rest, and find meaning in your everyday in order to continue on.\n\nThat is the mortal coil that we find ourselves on.\n\nThis experience will be fleeting, as all are, in time. Yet it need not be meaningless. What you take from these next few moments in time --\n\nwhether they be minutes, or hours, or days -- is up to you. I beg you to consider what it is that makes any length of time meaningful.\n\nThere are clues everywhere, in every action you take, in every action that is taken upon you.\n\nYou need only breach the surface of the mundane to access the secret depths.\n\nThus I beseech you to grasp what you can of this life before you with every fiber of your moral being that you can.\n\nWhether it is one of quacks and quests, or one of philosophical musings such as myself, existence is precious, and particular\n\nI leave you with this, young one: whatever you think of me, whatever you think of yourself, whatever you think of the world around you --\n\nquestion it from every angle, and you might yourself one day with the answers you seek."
@@ -100,7 +100,7 @@ quests.npcs = {
         spriteY = 16,
         questId = "quest_royal_gift",
         isQuestGiver = true,
-        questOfferDialog = "Welcome, adventurer! What brings you to my glorious island? \n\nYou came here by accident and need help leaving? And here I thought those tourism ads were finally paying off.\n\n Well so be it, but if you want my help I'll need something in return.\n\n You see, I am a collector of rare treasures, specifically the rarest item of all...\n\nLabubu dolls!\n\n The shopkeep recently got in a new shipment, but that rat bastard is limiting sales to one per person.\n\n What good is unimaginable wealth if I can't have everything I want.\n\n Bring me a Labubu doll and I will grant you passage off my island!"
+        questOfferDialog = "Welcome, adventurer! What brings you to my glorious island? \n\nYou came here by accident and need help leaving? And here I thought those tourism ads were finally paying off.\n\n Well so be it, but if you want my help I'll need something in return.\n\n You see, I am a collector of rare treasures, specifically the rarest item of all...\n\nLabubu dolls!\n\n The shopkeep recently got in a new shipment, but that rat bastard is limiting sales to one per person.\n\n What good is unimaginable wealth if I can't have everything I want?!?\n\n Bring me a Labubu doll and I will grant you passage off my island!\n\nIf you're short on funds, you can always try helping out some of my subjects. They're bound to have some money they can give you."
     },
     -- Quest Chain 2: Missing Book
     npc_librarian = {
@@ -170,7 +170,7 @@ quests.npcs = {
         spriteY = 32,
         questId = "quest_build_boat",
         isQuestGiver = true,
-        questOfferDialog = "Ahoy there! I'm a master boat builder. I can craft you a fine vessel to cross these waters, but I'll need some quality wood. Think you can help me out?"
+        questOfferDialog = "Ahoy there! I'm a master boat builder. \n\nI can craft you a fine vessel to cross these waters, but I'll need some quality wood. Think you can help me out?"
     },
     npc_woodcutter = {
         id = "npc_woodcutter",
@@ -266,7 +266,7 @@ quests.npcs = {
                 questOfferDialog = "Now, about getting you off this island. \n\nI can create a powerful spell that will allow you to fly across the land! \n\nFor it, I will need the feathers of three geese! \n\nDefeat 3 geese and bring me their feathers! \n\nOff with you!" 
             }
         },
-        noQuestText = "Leave me alone, I have much magical things to attend to!"
+        questCompleteText = "Leave me alone, I have much magical things to attend to!"
     },
     npc_jailer = {
         id = "npc_jailer",
@@ -576,6 +576,13 @@ function quests.interactWithNPC(npc)
                     text = text
                 })
             end
+        elseif quest and quest.completed then
+            local text = quest.questCompleteText or "Thanks again!"
+            quests.gameState = DialogSystem.showDialog({
+                type = "generic",
+                npc = npc,
+                text = text
+            })
         else
             -- No available quests or all quests completed
             local text = "Thanks again!"
