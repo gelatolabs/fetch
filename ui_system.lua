@@ -49,6 +49,7 @@ local randomGlitchTimer = 0 -- Timer for random glitches while chat is open
 local nextRandomGlitch = 0 -- Time until next random glitch
 local timedGlitchTimer = 0 -- Timer for periodic glitch bursts
 local nextTimedGlitch = 0 -- Time until next timed glitch
+local permanentScanlines = false -- Permanently enable scanlines regardless of chat pane state
 
 -- Event-driven dialog system
 local activeDialogSection = nil  -- Currently playing dialog section
@@ -155,6 +156,11 @@ function UISystem.resetQuestLogPagination()
     questLogPage = 0
     -- questLogMaxPage will be calculated dynamically in drawQuestLog
     -- based on the actual quest state (single source of truth)
+end
+
+-- Enable permanent scanlines (for event triggers)
+function UISystem.enablePermanentScanlines()
+    permanentScanlines = true
 end
 
 -- Initialize UI system
@@ -1702,7 +1708,7 @@ end
 
 -- Check if persistent scanlines should be shown
 function UISystem.shouldShowScanlines()
-    return chatPaneVisible
+    return chatPaneVisible or permanentScanlines
 end
 
 -- Get glitch shader
