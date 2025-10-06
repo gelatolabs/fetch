@@ -700,8 +700,7 @@ function love.mousepressed(x, y, button)
     if gameState == "questOffer" then
         UISystem.handleQuestOfferClick(x, y, questOfferData, {
             onAccept = function(quest)
-                questData.activateQuest(quest.id)
-                table.insert(activeQuests, quest.id)
+                questData.acceptQuest(quest.id)  -- Use encapsulated method
                 showToast("Quest Accepted: " .. quest.name, {1, 1, 0})
                 questOfferData = nil
                 DialogSystem.clearDialog()
@@ -824,8 +823,7 @@ function love.keypressed(key)
         elseif gameState == "dialog" then
             local callbacks = {
                 onQuestAccept = function(quest)
-                    questData.activateQuest(quest.id)
-                    table.insert(activeQuests, quest.id)
+                    questData.acceptQuest(quest.id)  -- Use encapsulated method
                     showToast("Quest Accepted: " .. quest.name, {1, 1, 0})
                 end,
                 onQuestComplete = function(quest)

@@ -146,6 +146,21 @@ function CheatConsole.processCode(code, gameState)
             UISystem.showToast("God Mode Activated!", {1, 0.5, 0})
         end
         
+    elseif command == "accept" then
+        if param == "" then
+            UISystem.showToast("Usage: accept <quest_id>\nExample: accept quest_chef", {1, 1, 0.3})
+        else
+            -- Use the encapsulated acceptQuest method
+            local questModule = require("quests")
+            local success, message = questModule.acceptQuest(param)
+            
+            if success then
+                UISystem.showToast("Quest Accepted: " .. message, {1, 1, 0})
+            else
+                UISystem.showToast(message, {1, 0.5, 0})
+            end
+        end
+        
     elseif command == "questcomplete" or command == "finishquests" then
         local count = 0
         for _, questId in ipairs(gameState.activeQuests) do
@@ -326,7 +341,7 @@ GPU: GooseForce 128]]
         end
         
     elseif command == "help" or command == "?" then
-        UISystem.showToast("Cheats: noclip, grid, unlock/lock, god, fetch, toss, gold/setgold, teleport, jarf <event>, nojarf, screenfetch", {1, 1, 0.3})
+        UISystem.showToast("Cheats: noclip, grid, unlock/lock, god, accept <quest>, fetch, toss, gold/setgold, teleport, jarf <event>, nojarf, screenfetch", {1, 1, 0.3})
 
     else
         UISystem.showToast("Unknown cheat: " .. code, {1, 0.3, 0.3})
