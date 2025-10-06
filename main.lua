@@ -9,6 +9,7 @@ local MapSystem = require "map_system"
 local PlayerSystem = require "player_system"
 local ShopSystem = require "shop_system"
 local AudioSystem = require "audio_system"
+local Camera = require "camera"
 
 -- Game constants (managed by UISystem)
 -- Graphics resources (managed by UISystem)
@@ -26,12 +27,6 @@ local heldKeys = {}
 
 -- Player reference (managed by PlayerSystem)
 local player = nil
-
--- Camera (Pokemon-style: always centered on player)
-local camera = {
-    x = 0,
-    y = 0
-}
 
 -- World map
 local map
@@ -105,43 +100,6 @@ local mapTransition = {
     playerEndScreenY = 0
 }
 
--- Camera helper functions
-local function centerCameraOnPlayer()
-    -- Always center on the game viewport (320x240), regardless of chat pane visibility
-    camera.x = player.x - UISystem.getGameWidth() / 2
-    camera.y = player.y - UISystem.getGameHeight() / 2
-end
-
-local function clampCameraToMapBounds()
-    if not world.minX or not world.maxX then
-        return
-    end
-    
-    local mapWidth = world.maxX - world.minX
-    local mapHeight = world.maxY - world.minY
-    
-    -- Viewport is always GAME_WIDTH x GAME_HEIGHT
-    local viewportWidth = UISystem.getGameWidth()
-    
-    -- Only clamp if map is larger than screen
-    if mapWidth > viewportWidth then
-        camera.x = math.max(world.minX, math.min(camera.x, world.maxX - viewportWidth))
-    else
-        camera.x = world.minX + (mapWidth - viewportWidth) / 2
-    end
-    
-    if mapHeight > UISystem.getGameHeight() then
-        camera.y = math.max(world.minY, math.min(camera.y, world.maxY - UISystem.getGameHeight()))
-    else
-        camera.y = world.minY + (mapHeight - UISystem.getGameHeight()) / 2
-    end
-end
-
-local function updateCamera()
-    centerCameraOnPlayer()
-    clampCameraToMapBounds()
-end
-
 -- Helper function to hide NPC layer on a map
 local function hideNPCLayer(mapObj)
     for _, layer in ipairs(mapObj.layers) do
@@ -196,8 +154,9 @@ function love.load()
         player.gridY = math.floor(newY / 16)
     end
     
-    -- Initialize camera centered on player
-    updateCamera()
+    -- Initialize Camera system
+    Camera.init(world)
+    Camera.update()
 end
 
 -- Helper function to calculate sprite quad from tile ID
@@ -437,7 +396,7 @@ function love.update(dt)
             player.moving = false
 
             -- Update camera
-            updateCamera()
+            Camera.update()
 
             -- Clear transition state
             mapTransition.fromMap = nil
@@ -485,7 +444,7 @@ function love.update(dt)
         end
 
         -- Update camera to follow player
-        updateCamera()
+        Camera.update()
 
         -- Check for nearby NPCs (only on current map, not during transition)
         if not mapTransition.active then
@@ -845,7 +804,7 @@ function enterDoor(door)
         player.moving = false
 
         -- Update camera to follow player
-        updateCamera()
+        Camera.update()
         return
     end
 
@@ -853,8 +812,9 @@ function enterDoor(door)
     -- Start position: where the player currently is on screen (relative to camera)
     local gameWidth = UISystem.getGameWidth()
     local gameHeight = UISystem.getGameHeight()
-    local startScreenX = player.x - camera.x
-    local startScreenY = player.y - camera.y
+    local camX, camY = Camera.getPosition()
+    local startScreenX = player.x - camX
+    local startScreenY = player.y - camY
 
     -- End position: where the player will be on screen after transition
     -- Calculate the final world position where player will be
@@ -1009,8 +969,7 @@ function love.draw()
         UISystem.drawSettings(volume)
     elseif gameState == "playing" or gameState == "dialog" then
         -- Draw world with chat pane offset (always offset by chat pane width in canvas)
-        local camX = camera.x
-        local camY = camera.y
+        local camX, camY = Camera.getPosition()
         local chatOffset = UISystem.getChatPaneWidth()
         
         -- Clip rendering to game area only (always at chat pane offset in canvas)
@@ -1126,8 +1085,7 @@ function love.draw()
 
     elseif gameState == "pauseMenu" then
         -- Draw game world in background with chat pane offset
-        local camX = camera.x
-        local camY = camera.y
+        local camX, camY = Camera.getPosition()
         local chatOffset = UISystem.getChatPaneWidth()
         
         -- Clip rendering to game area only
@@ -1160,8 +1118,7 @@ function love.draw()
         ShopSystem.draw(itemRegistry)
     elseif gameState == "questTurnIn" then
         -- Draw game world in background with chat pane offset
-        local camX = camera.x
-        local camY = camera.y
+        local camX, camY = Camera.getPosition()
         local chatOffset = UISystem.getChatPaneWidth()
         
         -- Clip rendering to game area only
@@ -1186,8 +1143,7 @@ function love.draw()
 
     elseif gameState == "questOffer" then
         -- Draw game world in background with chat pane offset
-        local camX = camera.x
-        local camY = camera.y
+        local camX, camY = Camera.getPosition()
         local chatOffset = UISystem.getChatPaneWidth()
         
         -- Clip rendering to game area only
