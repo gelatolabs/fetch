@@ -466,7 +466,11 @@ return {
     },
     {
       id = 244,
-      type = "item::labubu"
+      type = "item::labubu",
+      properties = {
+        ["collides"] = true,
+        ["height"] = 1
+      }
     },
     {
       id = 245,

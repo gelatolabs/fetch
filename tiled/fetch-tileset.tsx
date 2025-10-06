@@ -198,7 +198,12 @@
  <tile id="241" type="item::book"/>
  <tile id="242" type="item::no_icon"/>
  <tile id="243" type="item::floaties"/>
- <tile id="244" type="item::labubu"/>
+ <tile id="244" type="item::labubu">
+  <properties>
+   <property name="collides" type="bool" value="true"/>
+   <property name="height" type="float" value="1"/>
+  </properties>
+ </tile>
  <tile id="245" type="item::package"/>
  <tile id="246" type="item::duck"/>
  <tile id="247" type="item::shoe"/>
