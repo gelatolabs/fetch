@@ -35,6 +35,19 @@ local dialogSections = {
             { speaker = "J.A.R.F.", text = "That seems like a good idea! I gave the player 3500 gold."},
         }
     },
+
+    talk_to_glitch = {
+        event = "talk_to_glitch",  -- Triggered when learning to jump
+        autoPlay = true,
+        closeAfter = 5.0,
+        messages = {
+            {speaker = "Developer", text = "What happened to Fred?"},
+            { speaker = "J.A.R.F.", text = "The “#%$Hu34”dfhsjidf9 character is functioning at slightly below normal levels." },
+            { speaker = "Developer", text = "I think this is a lot worse than normal."},
+            {speaker = "J.A.R.F.", text="He's not an important character so his parameters for functioning are pretty wide."},
+            { speaker = "Developer", text = "Whatever, as long as he can still give his quest I guess it's good enough."},
+        }
+    },
     
     swimming_mechanics = {
         event = "swimming_mechanics",  -- Triggered when learning to swim
