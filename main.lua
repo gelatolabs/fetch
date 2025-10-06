@@ -9,6 +9,7 @@ local MapSystem = require "map_system"
 local PlayerSystem = require "player_system"
 local ShopSystem = require "shop_system"
 local AudioSystem = require "audio_system"
+local Camera = require "camera"
 
 -- Game constants (managed by UISystem)
 -- Graphics resources (managed by UISystem)
@@ -27,14 +28,7 @@ local heldKeys = {}
 -- Player reference (managed by PlayerSystem)
 local player = nil
 
--- Camera (Pokemon-style: always centered on player)
-local camera = {
-    x = 0,
-    y = 0
-}
-
 -- World map
-local map
 local world = {
     tileSize = 16
 }
@@ -84,9 +78,6 @@ local introShown = false
 
 -- Toast system (managed by UISystem)
 
--- Door/Map transition system (managed by MapSystem)
-local currentMap = "map"
-
 -- Map transition state
 local mapTransition = {
     active = false,
@@ -104,52 +95,6 @@ local mapTransition = {
     playerEndScreenX = 0,
     playerEndScreenY = 0
 }
-
--- Camera helper functions
-local function centerCameraOnPlayer()
-    -- Always center on the game viewport (320x240), regardless of chat pane visibility
-    camera.x = player.x - UISystem.getGameWidth() / 2
-    camera.y = player.y - UISystem.getGameHeight() / 2
-end
-
-local function clampCameraToMapBounds()
-    if not world.minX or not world.maxX then
-        return
-    end
-    
-    local mapWidth = world.maxX - world.minX
-    local mapHeight = world.maxY - world.minY
-    
-    -- Viewport is always GAME_WIDTH x GAME_HEIGHT
-    local viewportWidth = UISystem.getGameWidth()
-    
-    -- Only clamp if map is larger than screen
-    if mapWidth > viewportWidth then
-        camera.x = math.max(world.minX, math.min(camera.x, world.maxX - viewportWidth))
-    else
-        camera.x = world.minX + (mapWidth - viewportWidth) / 2
-    end
-    
-    if mapHeight > UISystem.getGameHeight() then
-        camera.y = math.max(world.minY, math.min(camera.y, world.maxY - UISystem.getGameHeight()))
-    else
-        camera.y = world.minY + (mapHeight - UISystem.getGameHeight()) / 2
-    end
-end
-
-local function updateCamera()
-    centerCameraOnPlayer()
-    clampCameraToMapBounds()
-end
-
--- Helper function to hide NPC layer on a map
-local function hideNPCLayer(mapObj)
-    for _, layer in ipairs(mapObj.layers) do
-        if layer.name == "NPCs" then
-            layer.visible = false
-        end
-    end
-end
 
 function love.load()
     love.window.setTitle("Go Fetch")
@@ -170,11 +115,11 @@ function love.load()
     AudioSystem.playMusic("intro")
 
     -- Load Tiled map
-    map = sti(MapSystem.getMapPath(currentMap))
-    hideNPCLayer(map)
+    local initialMap = sti(MapSystem.getMapPath("map"))
+    MapSystem.hideNPCLayer(initialMap)
 
     -- Initialize MapSystem
-    MapSystem.init(map, world, CheatConsole, questData.npcs, currentMap)
+    MapSystem.init(initialMap, world, CheatConsole, questData.npcs, "map")
     MapSystem.calculateMapBounds()
 
     -- Load game data
@@ -197,7 +142,115 @@ function love.load()
     end
     
     -- Initialize camera centered on player
-    updateCamera()
+    Camera.update()
+end
+
+-- Helper function to calculate sprite quad from tile ID
+local function calculateQuadFromTileID(tileID, tilesetWidth, tilesetColumns)
+    -- Tile IDs start at 0, positioned left to right, top to bottom
+    local col = tileID % tilesetColumns
+    local row = math.floor(tileID / tilesetColumns)
+    local spriteX = col * 16
+    local spriteY = row * 16
+    return spriteX, spriteY
+end
+
+-- Helper function to update NPC sprite to a variant
+function updateNPCVariant(npcID, variant, mapObj, npcTileset, tilesetColumns)
+    local npc = questData.npcs[npcID]
+    if not npc then return end
+
+    local variantType = npcID .. variant
+
+    -- Find the tile ID for this variant
+    for _, tile in ipairs(mapObj.tilesets[1].tiles or {}) do
+        if tile.type == variantType then
+            local spriteX, spriteY = calculateQuadFromTileID(tile.id, 320, tilesetColumns)
+            npc.spriteX = spriteX
+            npc.spriteY = spriteY
+            npc.sprite.quad = love.graphics.newQuad(
+                spriteX, spriteY,
+                16, 16,
+                npcTileset:getDimensions()
+            )
+            return
+        end
+    end
+end
+
+-- Helper function to extract NPC data from map NPCs layer
+local function extractNPCsFromMap(mapObj, mapName, npcTileset, tilesetColumns)
+    local npcInstances = {}
+
+    -- Find NPCs layer
+    for _, layer in ipairs(mapObj.layers) do
+        if layer.name == "NPCs" then
+            local width = layer.width
+            local height = layer.height
+
+            -- STI stores layer data in a special format:
+            -- layer.data is an array where each element is a row (table)
+            -- Each row table has column indices as keys pointing to tile objects
+            for y = 1, height do
+                local row = layer.data[y]
+                if row and type(row) == "table" then
+                    for x, tile in pairs(row) do
+                        if tile and type(tile) == "table" then
+                            local gid = tile.gid or tile.id or 0
+
+                            if gid ~= 0 then
+                                -- x and y are already 1-indexed, convert to 0-indexed for grid
+                                local gridX = x - 1
+                                local gridY = y - 1
+                                local posX = gridX * 16 + 8
+                                local posY = gridY * 16 + 8
+
+                                -- Check for flip flags
+                                local flipX = false
+                                if gid >= 2147483648 then
+                                    flipX = true
+                                    gid = gid - 2147483648
+                                end
+
+                                -- Find tile type from tileset
+                                -- STI GIDs are already offset by firstgid, so we need to subtract it
+                                local tilesetFirstGid = mapObj.tilesets[1].firstgid or 1
+                                local tileId = gid - tilesetFirstGid
+
+                                local npcType = nil
+                                for _, tileData in ipairs(mapObj.tilesets[1].tiles or {}) do
+                                    if tileData.id == tileId then
+                                        npcType = tileData.type
+                                        break
+                                    end
+                                end
+
+                                if npcType then
+                                    -- Calculate sprite position from tile ID
+                                    local spriteX, spriteY = calculateQuadFromTileID(tileId, 320, tilesetColumns)
+
+                                    table.insert(npcInstances, {
+                                        type = npcType,
+                                        map = mapName,
+                                        x = posX,
+                                        y = posY,
+                                        gridX = gridX,
+                                        gridY = gridY,
+                                        spriteX = spriteX,
+                                        spriteY = spriteY,
+                                        flippedX = flipX
+                                    })
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            break
+        end
+    end
+
+    return npcInstances
 end
 
 -- Helper function to calculate sprite quad from tile ID
@@ -414,7 +467,7 @@ end
 function love.update(dt)
     -- Update map(s)
     if mapTransition.active then
-        map:update(dt)
+        MapSystem.getMapObject():update(dt)
         if mapTransition.toMapObj then
             mapTransition.toMapObj:update(dt)
         end
@@ -425,11 +478,8 @@ function love.update(dt)
         if mapTransition.progress >= 1 then
             -- Transition complete
             mapTransition.active = false
-            currentMap = mapTransition.toMap
-            map = mapTransition.toMapObj
-
-            -- Update MapSystem references
-            MapSystem.updateReferences(map, currentMap)
+            MapSystem.setCurrentMap(mapTransition.toMap)
+            MapSystem.setMapObject(mapTransition.toMapObj)
             MapSystem.calculateMapBounds()
 
             -- Set player position to target door location with offset
@@ -437,7 +487,7 @@ function love.update(dt)
             player.moving = false
 
             -- Update camera
-            updateCamera()
+            Camera.update()
 
             -- Clear transition state
             mapTransition.fromMap = nil
@@ -449,7 +499,15 @@ function love.update(dt)
             mapTransition.targetY = nil
         end
     else
-        map:update(dt)
+        MapSystem.getMapObject():update(dt)
+    end
+
+    -- Check for pending NPC variant updates
+    for npcID, npc in pairs(questData.npcs) do
+        if npc.pendingVariant then
+            updateNPCVariant(npcID, npc.pendingVariant, MapSystem.getMapObject(), npc.sprite.tileset, 20)
+            npc.pendingVariant = nil
+        end
     end
 
     -- Check for pending NPC variant updates
@@ -485,13 +543,13 @@ function love.update(dt)
         end
 
         -- Update camera to follow player
-        updateCamera()
+        Camera.update()
 
         -- Check for nearby NPCs (only on current map, not during transition)
         if not mapTransition.active then
             nearbyNPC = nil
             for _, npc in pairs(questData.npcs) do
-                if npc.map == currentMap then
+                if npc.map == MapSystem.getCurrentMap() then
                     local dist = math.sqrt((player.x - npc.x)^2 + (player.y - npc.y)^2)
                     if dist < 20 then
                         nearbyNPC = npc
@@ -817,27 +875,15 @@ function enterDoor(door)
     local targetY = door.targetY + (door.offsetY or 0)
 
     -- Update music based on target map
-    -- Track music for indoor rooms (shop, throne room)
-    if door.targetMap == "jail" then
-        AudioSystem.playMusic("spooky")
-    elseif door.targetMap == "throneroom" then
-        AudioSystem.playMusic("throneRoom")
-    elseif door.targetMap == "shop" then
-        AudioSystem.playMusic("themeFunky")
-    elseif currentMap == "jail" or currentMap == "throneroom" or currentMap == "shop" then
-        -- Leaving an indoor room - return to normal theme
-        AudioSystem.playMusic("theme")
-    end
+    MapSystem.updateMusicForMap(door.targetMap)
 
     -- If no direction, use instant transition
     if not transitionDirection then
         -- Load the new map
-        currentMap = door.targetMap
-        map = sti(MapSystem.getMapPath(currentMap))
-        hideNPCLayer(map)
-
-        -- Update MapSystem references
-        MapSystem.updateReferences(map, currentMap)
+        MapSystem.setCurrentMap(door.targetMap)
+        local newMap = sti(MapSystem.getMapPath(door.targetMap))
+        MapSystem.hideNPCLayer(newMap)
+        MapSystem.setMapObject(newMap)
         MapSystem.calculateMapBounds()
 
         -- Set player position to target door location with offset
@@ -845,7 +891,7 @@ function enterDoor(door)
         player.moving = false
 
         -- Update camera to follow player
-        updateCamera()
+        Camera.update()
         return
     end
 
@@ -853,8 +899,9 @@ function enterDoor(door)
     -- Start position: where the player currently is on screen (relative to camera)
     local gameWidth = UISystem.getGameWidth()
     local gameHeight = UISystem.getGameHeight()
-    local startScreenX = player.x - camera.x
-    local startScreenY = player.y - camera.y
+    local camX, camY = Camera.getPosition()
+    local startScreenX = player.x - camX
+    local startScreenY = player.y - camY
 
     -- End position: where the player will be on screen after transition
     -- Calculate the final world position where player will be
@@ -864,7 +911,7 @@ function enterDoor(door)
     -- Calculate what the camera position will be after transition
     -- The camera centers on the player and gets clamped to map bounds
     local toMapObj = sti(MapSystem.getMapPath(door.targetMap))
-    hideNPCLayer(toMapObj)
+    MapSystem.hideNPCLayer(toMapObj)
     local finalCameraX = finalPlayerX - gameWidth / 2
     local finalCameraY = finalPlayerY - gameHeight / 2
 
@@ -898,11 +945,11 @@ function enterDoor(door)
 
     -- Start sliding transition for outdoor maps
     mapTransition.active = true
-    mapTransition.fromMap = currentMap
+    mapTransition.fromMap = MapSystem.getCurrentMap()
     mapTransition.toMap = door.targetMap
-    mapTransition.fromMapObj = map
+    mapTransition.fromMapObj = MapSystem.getMapObject()
     mapTransition.toMapObj = sti(MapSystem.getMapPath(door.targetMap))
-    hideNPCLayer(mapTransition.toMapObj)
+    MapSystem.hideNPCLayer(mapTransition.toMapObj)
     mapTransition.direction = transitionDirection
     mapTransition.progress = 0
     mapTransition.targetDoor = door
@@ -1009,8 +1056,7 @@ function love.draw()
         UISystem.drawSettings(volume)
     elseif gameState == "playing" or gameState == "dialog" then
         -- Draw world with chat pane offset (always offset by chat pane width in canvas)
-        local camX = camera.x
-        local camY = camera.y
+        local camX, camY = Camera.getPosition()
         local chatOffset = UISystem.getChatPaneWidth()
         
         -- Clip rendering to game area only (always at chat pane offset in canvas)
@@ -1057,7 +1103,7 @@ function love.draw()
             end
         else
             -- Normal rendering (no transition)
-            drawMapAndNPCs(map, currentMap, camX, camY, chatOffset)
+            drawMapAndNPCs(MapSystem.getMapObject(), MapSystem.getCurrentMap(), camX, camY, chatOffset)
         end
 
         -- Draw player
@@ -1126,15 +1172,14 @@ function love.draw()
 
     elseif gameState == "pauseMenu" then
         -- Draw game world in background with chat pane offset
-        local camX = camera.x
-        local camY = camera.y
+        local camX, camY = Camera.getPosition()
         local chatOffset = UISystem.getChatPaneWidth()
         
         -- Clip rendering to game area only
         love.graphics.setScissor(UISystem.getChatPaneWidth(), 0, UISystem.getGameWidth(), UISystem.getGameHeight())
 
         -- Draw the map and NPCs
-        drawMapAndNPCs(map, currentMap, camX, camY, chatOffset)
+        drawMapAndNPCs(MapSystem.getMapObject(), MapSystem.getCurrentMap(), camX, camY, chatOffset)
 
         -- Draw player
         PlayerSystem.draw(camX, camY, chatOffset)
@@ -1160,15 +1205,14 @@ function love.draw()
         ShopSystem.draw(itemRegistry)
     elseif gameState == "questTurnIn" then
         -- Draw game world in background with chat pane offset
-        local camX = camera.x
-        local camY = camera.y
+        local camX, camY = Camera.getPosition()
         local chatOffset = UISystem.getChatPaneWidth()
         
         -- Clip rendering to game area only
         love.graphics.setScissor(UISystem.getChatPaneWidth(), 0, UISystem.getGameWidth(), UISystem.getGameHeight())
 
         -- Draw the map and NPCs
-        drawMapAndNPCs(map, currentMap, camX, camY, chatOffset)
+        drawMapAndNPCs(MapSystem.getMapObject(), MapSystem.getCurrentMap(), camX, camY, chatOffset)
 
         -- Draw player
         PlayerSystem.draw(camX, camY, chatOffset)
@@ -1186,15 +1230,14 @@ function love.draw()
 
     elseif gameState == "questOffer" then
         -- Draw game world in background with chat pane offset
-        local camX = camera.x
-        local camY = camera.y
+        local camX, camY = Camera.getPosition()
         local chatOffset = UISystem.getChatPaneWidth()
         
         -- Clip rendering to game area only
         love.graphics.setScissor(UISystem.getChatPaneWidth(), 0, UISystem.getGameWidth(), UISystem.getGameHeight())
 
         -- Draw the map and NPCs
-        drawMapAndNPCs(map, currentMap, camX, camY, chatOffset)
+        drawMapAndNPCs(MapSystem.getMapObject(), MapSystem.getCurrentMap(), camX, camY, chatOffset)
 
         -- Draw player
         PlayerSystem.draw(camX, camY, chatOffset)
