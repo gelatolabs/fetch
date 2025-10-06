@@ -746,11 +746,21 @@ function drawMapAndNPCs(mapObj, mapName, camX, camY, chatOffset, offsetX, offset
             love.graphics.setColor(1, 1, 1)
             if npc.sprite.quad then
                 -- Draw from tileset using quad
+                local scaleX = 1
+                local facingOffsetX = 0
+                if npc.facing == "left" then
+                    scaleX = -1
+                    facingOffsetX = npc.size  -- adjust for flipped sprite
+
+                end
                 love.graphics.draw(
                     npc.sprite.tileset,
                     npc.sprite.quad,
-                    chatOffset + npc.x - npc.size/2 - camX + offsetX,
-                    npc.y - npc.size/2 - camY + offsetY
+                    chatOffset + npc.x - npc.size/2 - camX + offsetX + facingOffsetX,
+                    npc.y - npc.size/2 - camY + offsetY,
+                    0, -- rotation
+                    scaleX, --(-1 for left, 1 for right)
+                    1 -- vertical scale
                 )
             else
                 -- Draw fallback sprite
