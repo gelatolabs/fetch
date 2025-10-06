@@ -164,6 +164,19 @@ function PlayerSystem.init(UISystem)
             -- Silent activation for cheats
         end
     })
+
+    abilityManager:registerAbility({
+        id = "knowledge",
+        name = "Knowledge",
+        aliases = {"knowledge", "mysterious"},
+        type = AbilitySystem.AbilityType.PASSIVE,
+        effects = {AbilitySystem.EffectType.KNOWLEDGE},
+        description = "???",
+        color = {0.7, 0.3, 0.9},
+        onAcquire = function(ability)
+            UISystem.showToast("You feel enlightened... someone new has appeared.", {0.7, 0.3, 0.9})
+        end
+    })
 end
 
 -- Get player state
@@ -196,38 +209,44 @@ function PlayerSystem.getInventory()
     return inventory
 end
 
--- Check if player has an item
-function PlayerSystem.hasItem(itemId)
-    for _, item in ipairs(inventory) do
-        if item == itemId then
-            return true
-        end
-    end
-    return false
+-- Check if player has an item (optionally check for specific quantity)
+function PlayerSystem.hasItem(itemId, quantity)
+    quantity = quantity or 1
+    return (inventory[itemId] or 0) >= quantity
 end
 
--- Add item to player inventory
-function PlayerSystem.addItem(itemId)
-    table.insert(inventory, itemId)
+-- Get item quantity
+function PlayerSystem.getItemQuantity(itemId)
+    return inventory[itemId] or 0
 end
 
--- Remove item from player inventory
-function PlayerSystem.removeItem(itemId)
-    for i, item in ipairs(inventory) do
-        if item == itemId then
-            table.remove(inventory, i)
-            return true
-        end
+-- Add item to player inventory (optionally specify quantity)
+function PlayerSystem.addItem(itemId, quantity)
+    quantity = quantity or 1
+    inventory[itemId] = (inventory[itemId] or 0) + quantity
+end
+
+-- Remove item from player inventory (optionally specify quantity)
+function PlayerSystem.removeItem(itemId, quantity)
+    quantity = quantity or 1
+    if not inventory[itemId] or inventory[itemId] < quantity then
+        return false
     end
-    return false
+
+    inventory[itemId] = inventory[itemId] - quantity
+    if inventory[itemId] <= 0 then
+        inventory[itemId] = nil
+    end
+    return true
 end
 
 -- Clear all items from inventory
 function PlayerSystem.clearInventory()
-    local count = #inventory
-    for i = #inventory, 1, -1 do
-        table.remove(inventory, i)
+    local count = 0
+    for itemId, qty in pairs(inventory) do
+        count = count + qty
     end
+    inventory = {}
     return count
 end
 

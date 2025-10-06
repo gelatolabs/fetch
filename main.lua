@@ -53,6 +53,7 @@ local Icons = {
     hat = {x = 160, y = 192},
     feathers = {x = 240, y = 192},
     toilet_paper_piece = {x = 176, y = 208},
+    sock = {x = 208, y = 192},
     glitched_item = {x = 192, y = 192}
 }
 
@@ -68,7 +69,8 @@ local itemRegistry = {
     item_labubu = {id = "item_labubu", name = "Labubu", aliases = {"labubu"}, icon = Icons.labubu, shopInfo = {price = 10000, description = "An extremely rare and adorable Labubu collectible. Highly sought after by collectors!"}},
     item_wizard_hat = {id = "item_wizard_hat", name = "Wizard's Hat", aliases = {"hat"}, icon = Icons.hat},
     item_goose_feathers = {id = "item_goose_feathers", name = "Goose Feathers", aliases = {"feathers", "goose feathers"}, icon = Icons.feathers},
-    item_toilet_paper_piece = {id = "item_toilet_paper_piece", name = "Toilet Paper", aliases = {"toilet_paper_piece"}, icon = Icons.toilet_paper_piece},
+    item_toilet_paper_piece = {id = "item_toilet_paper_piece", name = "Toilet Paper", aliases = {"toilet_paper_piece", "tp"}, icon = Icons.toilet_paper_piece, hidden = true},
+    item_sock = {id = "item_sock", name = "Socks", aliases = {"socks", "sock"}, icon = Icons.sock},
     item_glitched_item = {id = "item_glitched_item", name = "Glitched Item", aliases = {"glitched_item"}, icon = Icons.glitched_item}
 }
 
@@ -104,6 +106,26 @@ local mapTransition = {
     playerEndScreenY = 0
 }
 
+-- Helper function to check if a pickup should be visible
+local function isPickupVisible(pickup)
+    local itemData = itemRegistry[pickup.itemId]
+    if not itemData then return true end
+
+    -- If item is not marked as hidden, it's always visible
+    if not itemData.hidden then return true end
+
+    -- Item is hidden, check if any active quest shows it
+    for _, questId in ipairs(activeQuests) do
+        local quest = questData.questData[questId]
+        if quest and quest.showsPickup == pickup.itemId then
+            return true
+        end
+    end
+
+    -- Hidden and no quest shows it
+    return false
+end
+
 function love.load()
     love.window.setTitle("Go Fetch")
 
@@ -116,6 +138,9 @@ function love.load()
 
     -- Initialize Shop system
     ShopSystem.init(itemRegistry)
+
+    -- Set itemRegistry reference for quest system
+    questData.itemRegistry = itemRegistry
 
     -- Initialize Audio system
     AudioSystem.init()
@@ -506,10 +531,13 @@ function love.update(dt)
             nearbyNPC = nil
             for _, npc in pairs(questData.npcs) do
                 if npc.map == MapSystem.getCurrentMap() then
-                    local dist = math.sqrt((player.x - npc.x)^2 + (player.y - npc.y)^2)
-                    if dist < 20 then
-                        nearbyNPC = npc
-                        break
+                    -- Check if NPC requires an ability to be visible/interactable
+                    if not (npc.requiresAbility and not PlayerSystem.hasAbility(npc.requiresAbility)) then
+                        local dist = math.sqrt((player.x - npc.x)^2 + (player.y - npc.y)^2)
+                        if dist < 20 then
+                            nearbyNPC = npc
+                            break
+                        end
                     end
                 end
             end
@@ -517,10 +545,10 @@ function love.update(dt)
             -- Check for nearby doors
             nearbyDoor = MapSystem.findDoorAt(player.gridX, player.gridY)
 
-            -- Check for pickup collisions
+            -- Check for pickup collisions (only for visible pickups)
             for i = #pickups, 1, -1 do
                 local pickup = pickups[i]
-                if pickup.map == MapSystem.getCurrentMap() then
+                if pickup.map == MapSystem.getCurrentMap() and isPickupVisible(pickup) then
                     local dist = math.sqrt((player.x - pickup.x)^2 + (player.y - pickup.y)^2)
                     if dist < 12 then  -- Pickup radius
                         -- Add item to inventory
@@ -691,7 +719,8 @@ function love.mousepressed(x, y, button)
 
         UISystem.handleQuestTurnInClick(canvasX, canvasY, questTurnInData, PlayerSystem.getInventory(), {
             onCorrectItem = function(quest, npc)
-                PlayerSystem.removeItem(quest.requiredItem)
+                local requiredQty = quest.requiredQuantity or 1
+                PlayerSystem.removeItem(quest.requiredItem, requiredQty)
                 questData.completeQuest(quest.id)
                 -- Show reward dialog
                 gameState = DialogSystem.showDialog({
@@ -758,7 +787,8 @@ function love.keypressed(key)
                     showToast("Quest Accepted: " .. quest.name, {1, 1, 0})
                 end,
                 onQuestComplete = function(quest)
-                    PlayerSystem.removeItem(quest.requiredItem)
+                    local requiredQty = quest.requiredQuantity or 1
+                    PlayerSystem.removeItem(quest.requiredItem, requiredQty)
                     questData.completeQuest(quest.id)
                     gameState = questData.gameState
                 end,
@@ -807,16 +837,21 @@ function love.keypressed(key)
     elseif key == "i" then
         if gameState == "playing" and not UISystem.isChatPaneVisible() then
             gameState = "inventory"
+            UISystem.resetInventoryPagination(PlayerSystem.getInventory())
         elseif gameState == "inventory" then
             gameState = "playing"
         end
     elseif key == "left" or key == "," or key == "<" then
         if gameState == "questTurnIn" then
             UISystem.questTurnInPrevPage()
+        elseif gameState == "inventory" then
+            UISystem.inventoryPrevPage()
         end
     elseif key == "right" or key == "." or key == ">" then
         if gameState == "questTurnIn" then
             UISystem.questTurnInNextPage()
+        elseif gameState == "inventory" then
+            UISystem.inventoryNextPage()
         end
     elseif key == "escape" then
         if gameState == "winScreen" then
@@ -1005,6 +1040,11 @@ function drawNPCs(mapName, camX, camY, chatOffset, offsetX, offsetY)
 
     for _, npc in pairs(questData.npcs) do
         if npc.map == mapName then
+            -- Check if NPC requires an ability to be visible
+            if npc.requiresAbility and not PlayerSystem.hasAbility(npc.requiresAbility) then
+                goto continue
+            end
+
             love.graphics.setColor(1, 1, 1)
             if npc.sprite.quad then
                 -- Draw from tileset using quad
@@ -1037,14 +1077,18 @@ function drawNPCs(mapName, camX, camY, chatOffset, offsetX, offsetY)
                         -- Yellow indicator for available quest
                         love.graphics.setColor(1, 1, 0)
                         love.graphics.circle("fill", chatOffset + npc.x - camX + offsetX, npc.y - 10 - camY + offsetY, 2)
-                    elseif quest.active and quest.requiredItem and PlayerSystem.hasItem(quest.requiredItem) then
-                        -- Green indicator for quest ready to turn in
-                        love.graphics.setColor(0, 1, 0)
-                        love.graphics.circle("fill", chatOffset + npc.x - camX + offsetX, npc.y - 10 - camY + offsetY, 2)
+                    elseif quest.active and quest.requiredItem then
+                        local requiredQty = quest.requiredQuantity or 1
+                        if PlayerSystem.hasItem(quest.requiredItem, requiredQty) then
+                            -- Green indicator for quest ready to turn in
+                            love.graphics.setColor(0, 1, 0)
+                            love.graphics.circle("fill", chatOffset + npc.x - camX + offsetX, npc.y - 10 - camY + offsetY, 2)
+                        end
                     end
                 end
             end
         end
+        ::continue::
     end
 end
 
@@ -1057,7 +1101,7 @@ function drawPickups(mapName, camX, camY, chatOffset, offsetX, offsetY)
 
     -- Draw pickups (only on this map)
     for _, pickup in ipairs(pickups) do
-        if pickup.map == mapName then
+        if pickup.map == mapName and isPickupVisible(pickup) then
             love.graphics.setColor(1, 1, 1)
             local quad = love.graphics.newQuad(
                 pickup.spriteX,

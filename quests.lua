@@ -14,6 +14,7 @@ quests.introShown = false
 quests.activeQuests = {}
 quests.completedQuests = {}
 quests.lockedQuests = {}  -- Table of locked quest IDs
+quests.itemRegistry = nil  -- Reference to itemRegistry from main.lua
 
 -- Helper function
 local function indexOf(tbl, value)
@@ -206,6 +207,44 @@ quests.npcs = {
         noQuestText = "Honk! Honk!",
         gaveItemText = "Honk! Honk!"
     },
+    -- Act 2: climbing the mountain and unlocking jump
+    npc_sock_collector = {
+        id = "npc_sock_collector",
+        name = "Sock Collector",
+        isQuestGiver = true,
+        quests = {
+            {
+                questId = "quest_sock",
+                questOfferDialog = "Dear adventurer, I've left my most prized hiking socks at the top of the mountain, they're the jewel of my collection and I'm worried someone's stolen them.\n\nI can't go back up to the top without them. Can you get them for me? If you do, I'll tell you about someone who knows things."
+            }
+        },
+        questCompleteDialog = "Thanks again for finding my socks!"
+    },
+    npc_peter = {
+        id = "npc_peter",
+        name = "Peter the Prepper",
+        isQuestGiver = true,
+        quests = {
+            {
+                questId = "quest_toilet_paper",
+                questOfferDialog = "Oh shoot, I seem to have dropped my toilet paper down the mountain. Would you mind grabbing it for me?"
+            }
+        },
+        questCompleteText = "Thanks again! Nice and warm."
+    },
+    npc_glitch = {
+        id = "npc_glitch",
+        name = "Mysterious Guy",
+        isQuestGiver = true,
+        requiresAbility = "knowledge",
+        quests = {
+            {
+                questId = "quest_glitch",
+                questOfferDialog = "Hey you. Yes you. I knew you would come here. I can teach you something... special. But first, you must help me find the paradox.\n\nYes, the thing that should not exist in this world but does. Bring it to me, and I will show you power beyond measure."
+            }
+        },
+        questCompleteText = "..."
+    },
     -- Dialog-only NPCs (can appear multiple times on maps)
     guard = {
         id = "guard",
@@ -252,7 +291,7 @@ quests.questData = {
         reward = "Thanks for returning my hat!",
         goldReward = 0,
         reminderText = "These old feathers need protection from the sun if I am to do anything more!",
-        unlocksQuests = {"quest_defeat_geese", "quest_delivery"},  -- Unlocks these quests when completed
+        unlocksQuests = {"quest_defeat_geese"},  -- Unlocks these quests when completed
         active = false,
         completed = false,
         updateQuestGiverVariant = "::with_hat",  -- Changes to npc_wizard::with_hat
@@ -269,6 +308,50 @@ quests.questData = {
         reminderText = "If you want my help, go get those feathers!",
         active = false,
         completed = false
+    },
+    quest_sock = {
+        id = "quest_sock",
+        name = "Climbing the Mountain",
+        description = "The old lady lost her most prized hiking socks. Find someone who has seen them!",
+        questGiver = "npc_sock_collector",
+        requiredItem = "item_sock",
+        reward = "You found them! Anyway, there's a man who can only be found by those who know he exists. Supposedly he knows about a secret technique that's not supposed to exist.",
+        goldReward = 100,
+        grantsAbility = "knowledge",
+        reminderText = "I need to find my socks!",
+        active = false,
+        completed = false,
+        updateQuestGiverVariant = "::with_sock2",
+    },
+    quest_toilet_paper = {
+        id = "quest_toilet_paper",
+        name = "Peter's Toilet Paper Tumble",
+        description = "Peter dropped his toilet paper down the mountain and needs it back.",
+        questGiver = "npc_peter",
+        requiredItem = "item_toilet_paper_piece",
+        requiredQuantity = 134,
+        showsPickup = "item_toilet_paper_piece",
+        reward = "Thanks for grabbing that, I had to use these socks in the meantime. Want them?",
+        goldReward = 2,
+        itemReward = "item_sock",
+        reminderText = "Come back when you have all the toilet paper. I'll know if you missed a piece, I counted them!",
+        active = false,
+        completed = false,
+        updateQuestGiverVariant = "::with_tp",
+    },
+    quest_glitch = {
+        id = "quest_glitch",
+        name = "Find the k[ ) r#,qs3:6m 817(_:forz",
+        description = "Find the thing. You know how to swim, right?",
+        questGiver = "npc_glitch",
+        requiredItem = "item_glitched_item",
+        reward = "I am impressed, adventurer. Voila - here is the ability, as promised...",
+        goldReward = 500,
+        grantsAbility = "jump",
+        reminderText = "You know how to swim, right?",
+        active = false,
+        completed = false,
+        updateQuestGiverVariant = "::glitch1",
     },
     -- Toy quests while we were working on the game.
     quest_lost_cat = {
@@ -450,13 +533,23 @@ function quests.interactWithNPC(npc)
                 text = dialogText
             })
         elseif quest and quest.active then
-            if quest.requiredItem and PlayerSystem.hasItem(quest.requiredItem) then
+            local requiredQty = quest.requiredQuantity or 1
+            if quest.requiredItem and PlayerSystem.hasItem(quest.requiredItem, requiredQty) then
                 -- Turn in item quest - show inventory selection UI
                 quests.questTurnInData = {npc = npc, quest = quest}
                 quests.gameState = "questTurnIn"
             else
-                -- Quest active but no item yet
-                local text = quest.reminderText or "Come back when you have the item!"
+                -- Quest active but doesn't have enough items yet
+                local text = quest.reminderText
+                if not text or text == "" then
+                    local requiredQty = quest.requiredQuantity or 1
+                    if requiredQty > 1 then
+                        local currentQty = PlayerSystem.getItemQuantity(quest.requiredItem)
+                        text = "Come back when you have " .. requiredQty .. " of the item! (You have " .. currentQty .. ")"
+                    else
+                        text = "Come back when you have the item!"
+                    end
+                end
                 quests.gameState = DialogSystem.showDialog({
                     type = "generic",
                     npc = npc,
@@ -658,6 +751,15 @@ function quests.completeQuest(questId)
         if ability then
             UISystem.showToast("Learned: " .. ability.name .. "!", ability.color)
         end
+    end
+
+    -- Award item
+    if quest.itemReward then
+        PlayerSystem.addItem(quest.itemReward)
+        -- Get item name from itemRegistry
+        local itemData = quests.itemRegistry and quests.itemRegistry[quest.itemReward]
+        local itemName = itemData and itemData.name or quest.itemReward
+        UISystem.showToast("Received: " .. itemName, {0.7, 0.5, 0.9})
     end
 
     -- Award gold

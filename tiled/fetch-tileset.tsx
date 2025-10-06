@@ -30,20 +30,20 @@
  <tile id="28" type="npc_shopkeeper"/>
  <tile id="29" type="chef_duck"/>
  <tile id="30" type="npc_king"/>
- <tile id="31" type="doomsday_prepper_duck::no_tp"/>
- <tile id="32" type="doomsday_prepper_duck::with_tp"/>
- <tile id="33" type="sock_duck::no_sock"/>
- <tile id="34" type="sock_duck::with_sock1"/>
- <tile id="35" type="sock_duck::with_sock2"/>
+ <tile id="31" type="npc_peter::no_tp"/>
+ <tile id="32" type="npc_peter::with_tp"/>
+ <tile id="33" type="npc_sock_collector::no_sock"/>
+ <tile id="34" type="npc_sock_collector::with_sock1"/>
+ <tile id="35" type="npc_sock_collector::with_sock2"/>
  <tile id="40" type="farmer_duck"/>
  <tile id="41" type="cartographer_duck"/>
  <tile id="42" type="npc_boat_builder"/>
  <tile id="43" type="npc_lifeguard"/>
  <tile id="44" type="npc_swimmer"/>
  <tile id="45" type="npc_woodcutter"/>
- <tile id="46" type="glitch_duck_1"/>
- <tile id="47" type="glitch_duck_2"/>
- <tile id="48" type="grey_duck"/>
+ <tile id="46" type="npc_glitch::glitch1"/>
+ <tile id="47" type="npc_glitch::glitch2"/>
+ <tile id="48" type="npc_glitch::no_glitch"/>
  <tile id="49" type="plumber_duck"/>
  <tile id="50" type="npc_cat_owner::no_cat"/>
  <tile id="51" type="npc_cat_owner::with_cat"/>
@@ -146,7 +146,7 @@
  </tile>
  <tile id="166" type="rock::ice">
   <properties>
-   <property name="collides" type="bool" value="false"/>
+   <property name="collides" type="bool" value="true"/>
    <property name="height" type="float" value="1"/>
   </properties>
  </tile>
