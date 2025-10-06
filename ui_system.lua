@@ -77,6 +77,11 @@ local INVENTORY_SLOTS_PER_COLUMN = 8
 local INVENTORY_COLUMNS_PER_PAGE = 2
 local INVENTORY_ITEMS_PER_PAGE = INVENTORY_SLOTS_PER_COLUMN * INVENTORY_COLUMNS_PER_PAGE
 
+-- Quest log pagination state
+local questLogPage = 0  -- Current page (0-indexed)
+local questLogMaxPage = 0  -- Maximum page index
+local QUEST_LOG_LINES_PER_PAGE = 15  -- Number of text lines per page
+
 -- Set game state references
 function UISystem.setGameStateRefs(refs)
     -- Only reset pagination if questTurnInData is NEW (not just being refreshed)
@@ -129,6 +134,27 @@ function UISystem.resetInventoryPagination(inventory)
     inventoryPage = 0
     local totalItems = #inventory
     inventoryMaxPage = math.max(0, math.ceil(totalItems / INVENTORY_ITEMS_PER_PAGE) - 1)
+end
+
+-- Navigate to previous page in quest log
+function UISystem.questLogPrevPage()
+    if questLogPage > 0 then
+        questLogPage = questLogPage - 1
+    end
+end
+
+-- Navigate to next page in quest log
+function UISystem.questLogNextPage()
+    if questLogPage < questLogMaxPage then
+        questLogPage = questLogPage + 1
+    end
+end
+
+-- Reset quest log pagination (call when opening quest log)
+function UISystem.resetQuestLogPagination()
+    questLogPage = 0
+    -- questLogMaxPage will be calculated dynamically in drawQuestLog
+    -- based on the actual quest state (single source of truth)
 end
 
 -- Initialize UI system
@@ -925,94 +951,233 @@ function UISystem.drawQuestLog(activeQuests, completedQuests, quests)
     -- Content area
     local y = boxY + 18
 
-    -- Separate main and side quests
+    -- Build quest lists directly from quest data (single source of truth)
     local activeMainQuests = {}
     local activeSideQuests = {}
     local completedMainQuests = {}
     local completedSideQuests = {}
 
-    for _, questId in ipairs(activeQuests) do
-        local quest = quests[questId]
-        if quest.isMainQuest then
-            table.insert(activeMainQuests, questId)
-        else
-            table.insert(activeSideQuests, questId)
+    -- Iterate through all quests and categorize by actual state
+    for questId, quest in pairs(quests) do
+        if quest.active and not quest.completed then
+            -- Active quest
+            if quest.isMainQuest then
+                table.insert(activeMainQuests, questId)
+            else
+                table.insert(activeSideQuests, questId)
+            end
+        elseif quest.completed then
+            -- Completed quest
+            if quest.isMainQuest then
+                table.insert(completedMainQuests, questId)
+            else
+                table.insert(completedSideQuests, questId)
+            end
         end
     end
 
-    for _, questId in ipairs(completedQuests) do
-        local quest = quests[questId]
-        if quest.isMainQuest then
-            table.insert(completedMainQuests, questId)
-        else
-            table.insert(completedSideQuests, questId)
-        end
-    end
-
-    -- Main Quests Section
-    love.graphics.setColor(1, 0.8, 0.3)
-    love.graphics.print("MAIN QUEST", boxX+4, y)
-    y = y + 12
-
+    -- Build a flat list of all quests to display (for pagination)
+    local allQuestEntries = {}
+    
+    -- Add "MAIN QUEST" header
+    table.insert(allQuestEntries, {type = "header", text = "MAIN QUEST", color = {1, 0.8, 0.3}})
+    
+    -- Add main quests
     if #activeMainQuests == 0 and #completedMainQuests == 0 then
-        love.graphics.setColor(0.4, 0.4, 0.4)
-        love.graphics.print("None", boxX+6, y)
-        y = y + 12
+        table.insert(allQuestEntries, {type = "empty", text = "None"})
     else
-        -- Active main quests
         for _, questId in ipairs(activeMainQuests) do
             local quest = quests[questId]
-            love.graphics.setColor(1, 0.9, 0.3)
-            love.graphics.print("- " .. quest.name, boxX+6, y)
-            y = y + 10
-            love.graphics.setColor(0.7, 0.7, 0.7)
-            love.graphics.printf(quest.description, boxX+8, y, boxW-12, "left")
-            y = y + 24
+            table.insert(allQuestEntries, {
+                type = "quest",
+                quest = quest,
+                status = "active",
+                isMain = true
+            })
         end
-
-        -- Completed main quests
         for _, questId in ipairs(completedMainQuests) do
             local quest = quests[questId]
-            love.graphics.setColor(0.3, 0.9, 0.3)
-            love.graphics.print("- " .. quest.name .. " (Completed)", boxX+6, y)
-            y = y + 12
+            table.insert(allQuestEntries, {
+                type = "quest",
+                quest = quest,
+                status = "completed",
+                isMain = true
+            })
         end
     end
-
-    y = y + 6
-
-    -- Side Quests Section
-    love.graphics.setColor(0.8, 0.7, 0.5)
-    love.graphics.print("SIDE QUESTS", boxX+4, y)
-    y = y + 12
-
+    
+    -- Add "SIDE QUESTS" header
+    table.insert(allQuestEntries, {type = "header", text = "SIDE QUESTS", color = {0.8, 0.7, 0.5}})
+    
+    -- Add side quests
     if #activeSideQuests == 0 and #completedSideQuests == 0 then
-        love.graphics.setColor(0.4, 0.4, 0.4)
-        love.graphics.print("None", boxX+6, y)
+        table.insert(allQuestEntries, {type = "empty", text = "None"})
     else
-        -- Active side quests
         for _, questId in ipairs(activeSideQuests) do
             local quest = quests[questId]
-            love.graphics.setColor(0.9, 0.8, 0.5)
-            love.graphics.print("- " .. quest.name, boxX+6, y)
-            y = y + 10
-            love.graphics.setColor(0.7, 0.7, 0.7)
-            love.graphics.printf(quest.description, boxX+8, y, boxW-12, "left")
-            y = y + 24
+            table.insert(allQuestEntries, {
+                type = "quest",
+                quest = quest,
+                status = "active",
+                isMain = false
+            })
         end
-
-        -- Completed side quests
         for _, questId in ipairs(completedSideQuests) do
             local quest = quests[questId]
-            love.graphics.setColor(0.3, 0.9, 0.3)
-            love.graphics.print("- " .. quest.name .. " (Completed)", boxX+6, y)
-            y = y + 12
+            table.insert(allQuestEntries, {
+                type = "quest",
+                quest = quest,
+                status = "completed",
+                isMain = false
+            })
         end
     end
 
-    -- Footer
-    love.graphics.setColor(0.5, 0.5, 0.5)
-    love.graphics.print("[L] Close", boxX+4, boxY+boxH-15)
+    -- Convert entries to renderable lines
+    local allLines = {}
+    for _, entry in ipairs(allQuestEntries) do
+        if entry.type == "header" then
+            table.insert(allLines, {
+                type = "header",
+                text = entry.text,
+                color = entry.color,
+                indent = 4
+            })
+        elseif entry.type == "empty" then
+            table.insert(allLines, {
+                type = "text",
+                text = entry.text,
+                color = {0.4, 0.4, 0.4},
+                indent = 6
+            })
+        elseif entry.type == "quest" then
+            local quest = entry.quest
+            if entry.status == "active" then
+                -- Active quest - name
+                local nameColor = entry.isMain and {1, 0.9, 0.3} or {0.9, 0.8, 0.5}
+                table.insert(allLines, {
+                    type = "text",
+                    text = "- " .. quest.name,
+                    color = nameColor,
+                    indent = 6
+                })
+                -- Active quest - description (wrapped)
+                local _, wrappedDesc = font:getWrap(quest.description, boxW-12-8)
+                for _, line in ipairs(wrappedDesc) do
+                    table.insert(allLines, {
+                        type = "text",
+                        text = line,
+                        color = {0.7, 0.7, 0.7},
+                        indent = 8
+                    })
+                end
+                -- Add blank line after active quest
+                table.insert(allLines, {
+                    type = "blank"
+                })
+            else
+                -- Completed quest - just name
+                table.insert(allLines, {
+                    type = "text",
+                    text = "- " .. quest.name .. " (Completed)",
+                    color = {0.3, 0.9, 0.3},
+                    indent = 6
+                })
+            end
+        end
+    end
+    
+    -- Pagination by lines
+    local linesPerPage = QUEST_LOG_LINES_PER_PAGE
+    local totalLines = #allLines
+    local totalPages = math.max(1, math.ceil(totalLines / linesPerPage))
+    questLogMaxPage = totalPages - 1
+    
+    -- Clamp current page to valid range
+    if questLogPage > questLogMaxPage then
+        questLogPage = questLogMaxPage
+    end
+    if questLogPage < 0 then
+        questLogPage = 0
+    end
+    
+    local startLine = questLogPage * linesPerPage + 1
+    local endLine = math.min(startLine + linesPerPage - 1, totalLines)
+
+    -- Draw paginated lines
+    for i = startLine, endLine do
+        local line = allLines[i]
+        
+        if line.type == "header" then
+            love.graphics.setColor(line.color)
+            love.graphics.print(line.text, boxX + line.indent, y)
+            y = y + 12
+        elseif line.type == "text" then
+            love.graphics.setColor(line.color)
+            love.graphics.print(line.text, boxX + line.indent, y)
+            y = y + 10
+        elseif line.type == "blank" then
+            y = y + 4
+        end
+    end
+
+    -- Page indicator and navigation
+    if totalPages > 1 then
+        local navY = boxY + boxH - 32
+        local btnH = 14
+        
+        -- Previous button
+        if questLogPage > 0 then
+            local prevText = "< Prev"
+            local prevW = font:getWidth(prevText) + 6
+            local prevX = boxX + 4
+            
+            -- Button background
+            love.graphics.setColor(0.2, 0.15, 0.1, 0.8)
+            love.graphics.rectangle("fill", prevX, navY, prevW, btnH)
+            
+            -- Button border
+            love.graphics.setColor(0.6, 0.5, 0.3)
+            love.graphics.rectangle("line", prevX, navY, prevW, btnH)
+            
+            -- Button text
+            love.graphics.setColor(1, 1, 1)
+            love.graphics.print(prevText, prevX + 3, navY + 1)
+        end
+        
+        -- Page indicator (centered)
+        love.graphics.setColor(0.7, 0.7, 0.7)
+        local pageText = (questLogPage + 1) .. "/" .. totalPages
+        local pageTextWidth = font:getWidth(pageText)
+        love.graphics.print(pageText, boxX + boxW/2 - pageTextWidth/2, navY + 2)
+        
+        -- Next button
+        if questLogPage < totalPages - 1 then
+            local nextText = "Next >"
+            local nextW = font:getWidth(nextText) + 6
+            local nextX = boxX + boxW - nextW - 4
+            
+            -- Button background
+            love.graphics.setColor(0.2, 0.15, 0.1, 0.8)
+            love.graphics.rectangle("fill", nextX, navY, nextW, btnH)
+            
+            -- Button border
+            love.graphics.setColor(0.6, 0.5, 0.3)
+            love.graphics.rectangle("line", nextX, navY, nextW, btnH)
+            
+            -- Button text
+            love.graphics.setColor(1, 1, 1)
+            love.graphics.print(nextText, nextX + 3, navY + 1)
+        end
+        
+        -- Footer hint with navigation
+        love.graphics.setColor(0.5, 0.5, 0.5)
+        love.graphics.print("[L] Close  [</>] Page", boxX + 4, boxY + boxH - 15)
+    else
+        -- Footer hint without navigation
+        love.graphics.setColor(0.5, 0.5, 0.5)
+        love.graphics.print("[L] Close", boxX+4, boxY+boxH-15)
+    end
 end
 
 -- Draw quest turn-in UI (dialog box only)

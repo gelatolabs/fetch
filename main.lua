@@ -866,6 +866,7 @@ function love.keypressed(key)
     elseif key == "l" then
         if gameState == "playing" and not UISystem.isChatPaneVisible() then
             gameState = "questLog"
+            UISystem.resetQuestLogPagination()
         elseif gameState == "questLog" then
             gameState = "playing"
         end
@@ -885,12 +886,16 @@ function love.keypressed(key)
             UISystem.questTurnInPrevPage()
         elseif gameState == "inventory" then
             UISystem.inventoryPrevPage()
+        elseif gameState == "questLog" then
+            UISystem.questLogPrevPage()
         end
     elseif key == "right" or key == "." or key == ">" then
         if gameState == "questTurnIn" then
             UISystem.questTurnInNextPage()
         elseif gameState == "inventory" then
             UISystem.inventoryNextPage()
+        elseif gameState == "questLog" then
+            UISystem.questLogNextPage()
         end
     elseif key == "escape" then
         if gameState == "winScreen" then
