@@ -139,6 +139,9 @@ function love.load()
     -- Initialize Shop system
     ShopSystem.init(itemRegistry)
 
+    -- Set itemRegistry reference for quest system
+    questData.itemRegistry = itemRegistry
+
     -- Initialize Audio system
     AudioSystem.init()
     AudioSystem.setVolume(volume)

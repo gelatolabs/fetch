@@ -14,6 +14,7 @@ quests.introShown = false
 quests.activeQuests = {}
 quests.completedQuests = {}
 quests.lockedQuests = {}  -- Table of locked quest IDs
+quests.itemRegistry = nil  -- Reference to itemRegistry from main.lua
 
 -- Helper function
 local function indexOf(tbl, value)
@@ -750,8 +751,10 @@ function quests.completeQuest(questId)
     -- Award item
     if quest.itemReward then
         PlayerSystem.addItem(quest.itemReward)
-        -- Get item name from itemRegistry (need to access it from main.lua context)
-        UISystem.showToast("Received: " .. quest.itemReward, {0.7, 0.5, 0.9})
+        -- Get item name from itemRegistry
+        local itemData = quests.itemRegistry and quests.itemRegistry[quest.itemReward]
+        local itemName = itemData and itemData.name or quest.itemReward
+        UISystem.showToast("Received: " .. itemName, {0.7, 0.5, 0.9})
     end
 
     -- Award gold
