@@ -141,7 +141,7 @@ quests.npcs = {
         name = "Athlete",
         questId = "quest_learn_run",
         isQuestGiver = true,
-        questOfferDialog = "Hey! I'm training for the big jump competition, but I lost my lucky shoes! Without them, I can't jump at all. Can you help me find them?"
+        questOfferDialog = "Hey! I'm training for the fast walking competition, but I lost my lucky shoes! Without them, I can only move at a normal pace. Can you help me find them?"
     },
     npc_coach = {
         id = "npc_coach",
