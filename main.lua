@@ -51,7 +51,9 @@ local Icons = {
     shoes = {x = 112, y = 192},
     planks = {x = 128, y = 192},
     hat = {x = 160, y = 192},
-    feathers = {x = 240, y = 192}
+    feathers = {x = 240, y = 192},
+    toilet_paper_piece = {x = 176, y = 208},
+    glitched_item = {x = 192, y = 192}
 }
 
 -- Item registry (single source of truth for all items)
@@ -66,6 +68,8 @@ local itemRegistry = {
     item_labubu = {id = "item_labubu", name = "Labubu", aliases = {"labubu"}, icon = Icons.labubu, shopInfo = {price = 10000, description = "An extremely rare and adorable Labubu collectible. Highly sought after by collectors!"}},
     item_wizard_hat = {id = "item_wizard_hat", name = "Wizard's Hat", aliases = {"hat"}, icon = Icons.hat},
     item_goose_feathers = {id = "item_goose_feathers", name = "Goose Feathers", aliases = {"feathers", "goose feathers"}, icon = Icons.feathers},
+    item_toilet_paper_piece = {id = "item_toilet_paper_piece", name = "Toilet Paper", aliases = {"toilet_paper_piece"}, icon = Icons.toilet_paper_piece},
+    item_glitched_item = {id = "item_glitched_item", name = "Glitched Item", aliases = {"glitched_item"}, icon = Icons.glitched_item}
 }
 
 -- UI state
@@ -77,6 +81,10 @@ local winScreenTimer = 0
 local introShown = false
 
 -- Toast system (managed by UISystem)
+
+-- Pickup system
+local pickups = {}  -- Table of active pickups: {map, x, y, gridX, gridY, itemId, spriteX, spriteY}
+local pickupTileset = nil  -- Loaded in loadGameData()
 
 -- Map transition state
 local mapTransition = {
@@ -176,19 +184,16 @@ function updateNPCVariant(npcID, variant, mapObj, npcTileset, tilesetColumns)
 end
 
 -- Helper function to extract NPC data from map NPCs layer
-local function extractNPCsFromMap(mapObj, mapName, npcTileset, tilesetColumns)
+local function extractNPCsFromMap(mapObj, mapName, tilesetColumns)
     local npcInstances = {}
 
     -- Find NPCs layer
     for _, layer in ipairs(mapObj.layers) do
         if layer.name == "NPCs" then
-            local width = layer.width
-            local height = layer.height
-
             -- STI stores layer data in a special format:
             -- layer.data is an array where each element is a row (table)
             -- Each row table has column indices as keys pointing to tile objects
-            for y = 1, height do
+            for y = 1, layer.height do
                 local row = layer.data[y]
                 if row and type(row) == "table" then
                     for x, tile in pairs(row) do
@@ -250,9 +255,69 @@ local function extractNPCsFromMap(mapObj, mapName, npcTileset, tilesetColumns)
     return npcInstances
 end
 
+-- Helper function to extract pickup data from map Pickups layer
+local function extractPickupsFromMap(mapObj, mapName, tilesetColumns)
+    local pickupInstances = {}
+
+    for _, layer in ipairs(mapObj.layers) do
+        if layer.name == "Pickups" then
+            for y = 1, layer.height do
+                local row = layer.data[y]
+                if row and type(row) == "table" then
+                    for x, tile in pairs(row) do
+                        if tile and type(tile) == "table" then
+                            local gid = tile.gid or tile.id or 0
+
+                            if gid ~= 0 then
+                                local gridX = x - 1
+                                local gridY = y - 1
+                                local posX = gridX * 16 + 8
+                                local posY = gridY * 16 + 8
+
+                                local tilesetFirstGid = mapObj.tilesets[1].firstgid or 1
+                                local tileId = gid - tilesetFirstGid
+
+                                local itemType = nil
+                                for _, tileData in ipairs(mapObj.tilesets[1].tiles or {}) do
+                                    if tileData.id == tileId then
+                                        itemType = tileData.type
+                                        break
+                                    end
+                                end
+
+                                if itemType and itemType:match("^item::") then
+                                    -- Extract item ID (item::cat -> item_cat)
+                                    local itemId = itemType:gsub("::", "_")
+
+                                    local spriteX, spriteY = calculateQuadFromTileID(tileId, 320, tilesetColumns)
+
+                                    table.insert(pickupInstances, {
+                                        map = mapName,
+                                        x = posX,
+                                        y = posY,
+                                        gridX = gridX,
+                                        gridY = gridY,
+                                        itemId = itemId,
+                                        spriteX = spriteX,
+                                        spriteY = spriteY
+                                    })
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            break
+        end
+    end
+
+    return pickupInstances
+end
+
 function loadGameData()
-    -- Load NPC tileset
+    -- Load NPC/pickup tileset
     local npcTileset = love.graphics.newImage("tiles/fetch-tileset.png")
+    pickupTileset = npcTileset  -- Store for pickup rendering
     local tilesetColumns = 20 -- 320px / 16px = 20 columns
 
     -- Map names to scan
@@ -262,9 +327,18 @@ function loadGameData()
     local allNPCInstances = {}
     for _, mapName in ipairs(mapNames) do
         local mapObj = sti(MapSystem.getMapPath(mapName))
-        local instances = extractNPCsFromMap(mapObj, mapName, npcTileset, tilesetColumns)
+        local instances = extractNPCsFromMap(mapObj, mapName, tilesetColumns)
         for _, instance in ipairs(instances) do
             table.insert(allNPCInstances, instance)
+        end
+    end
+
+    -- Extract all pickup instances from all maps
+    for _, mapName in ipairs(mapNames) do
+        local mapObj = sti(MapSystem.getMapPath(mapName))
+        local instances = extractPickupsFromMap(mapObj, mapName, tilesetColumns)
+        for _, instance in ipairs(instances) do
+            table.insert(pickups, instance)
         end
     end
 
@@ -442,6 +516,23 @@ function love.update(dt)
 
             -- Check for nearby doors
             nearbyDoor = MapSystem.findDoorAt(player.gridX, player.gridY)
+
+            -- Check for pickup collisions
+            for i = #pickups, 1, -1 do
+                local pickup = pickups[i]
+                if pickup.map == currentMap then
+                    local dist = math.sqrt((player.x - pickup.x)^2 + (player.y - pickup.y)^2)
+                    if dist < 12 then  -- Pickup radius
+                        -- Add item to inventory
+                        PlayerSystem.addItem(pickup.itemId)
+                        local itemData = itemRegistry[pickup.itemId]
+                        local itemName = itemData and itemData.name or pickup.itemId
+                        showToast("Picked up: " .. itemName, {0.7, 0.9, 1})
+                        -- Remove pickup
+                        table.remove(pickups, i)
+                    end
+                end
+            end
         end
     end
 end
@@ -957,6 +1048,33 @@ function drawNPCs(mapName, camX, camY, chatOffset, offsetX, offsetY)
     end
 end
 
+-- Helper function to draw pickups for a specific map
+function drawPickups(mapName, camX, camY, chatOffset, offsetX, offsetY)
+    offsetX = offsetX or 0
+    offsetY = offsetY or 0
+
+    if not pickupTileset then return end
+
+    -- Draw pickups (only on this map)
+    for _, pickup in ipairs(pickups) do
+        if pickup.map == mapName then
+            love.graphics.setColor(1, 1, 1)
+            local quad = love.graphics.newQuad(
+                pickup.spriteX,
+                pickup.spriteY,
+                16, 16,
+                pickupTileset:getDimensions()
+            )
+            love.graphics.draw(
+                pickupTileset,
+                quad,
+                chatOffset + pickup.x - 8 - camX + offsetX,
+                pickup.y - 8 - camY + offsetY
+            )
+        end
+    end
+end
+
 function indexOf(tbl, value)
     for i, v in ipairs(tbl) do
         if v == value then
@@ -1011,6 +1129,15 @@ function love.draw()
         else
             -- Normal rendering (no transition)
             MapSystem.draw()
+        end
+
+        -- Draw pickups (before player, on the ground)
+        if transitionOffsets then
+            for _, params in ipairs(transitionOffsets) do
+                drawPickups(params.mapName, params.camX, params.camY, chatOffset, params.offsetX, params.offsetY)
+            end
+        else
+            drawPickups(currentMap, camX, camY, chatOffset)
         end
 
         -- Draw player
@@ -1098,6 +1225,9 @@ function love.draw()
         -- Draw the map
         MapSystem.draw()
 
+        -- Draw pickups
+        drawPickups(currentMap, camX, camY, chatOffset)
+
         -- Draw player
         PlayerSystem.draw(camX, camY, chatOffset)
 
@@ -1134,6 +1264,9 @@ function love.draw()
         -- Draw the map
         MapSystem.draw()
 
+        -- Draw pickups
+        drawPickups(currentMap, camX, camY, chatOffset)
+
         -- Draw player
         PlayerSystem.draw(camX, camY, chatOffset)
 
@@ -1161,6 +1294,9 @@ function love.draw()
 
         -- Draw the map
         MapSystem.draw()
+
+        -- Draw pickups
+        drawPickups(currentMap, camX, camY, chatOffset)
 
         -- Draw player
         PlayerSystem.draw(camX, camY, chatOffset)

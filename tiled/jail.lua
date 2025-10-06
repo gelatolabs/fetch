@@ -9,7 +9,7 @@ return {
   height = 10,
   tilewidth = 16,
   tileheight = 16,
-  nextlayerid = 4,
+  nextlayerid = 5,
   nextobjectid = 1,
   properties = {},
   tilesets = {
@@ -491,19 +491,35 @@ return {
         },
         {
           id = 246,
-          type = "item::duck"
+          type = "item::rubber_duck"
         },
         {
           id = 247,
-          type = "item::shoe"
+          type = "item::shoes"
         },
         {
           id = 248,
-          type = "item::planks"
+          type = "item::wood"
         },
         {
           id = 250,
           type = "item::wizard_hat"
+        },
+        {
+          id = 251,
+          type = "item::toilet_paper"
+        },
+        {
+          id = 253,
+          type = "item::sock"
+        },
+        {
+          id = 255,
+          type = "item::goose_feathers"
+        },
+        {
+          id = 271,
+          type = "item::toilet_paper_piece"
         }
       }
     }
@@ -565,6 +581,36 @@ return {
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 163, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+      }
+    },
+    {
+      type = "tilelayer",
+      x = 0,
+      y = 0,
+      width = 11,
+      height = 10,
+      id = 4,
+      name = "Pickups",
+      class = "",
+      visible = true,
+      opacity = 1,
+      offsetx = 0,
+      offsety = 0,
+      parallaxx = 1,
+      parallaxy = 1,
+      properties = {},
+      encoding = "lua",
+      data = {
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
       }

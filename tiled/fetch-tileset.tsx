@@ -205,8 +205,13 @@
   </properties>
  </tile>
  <tile id="245" type="item::package"/>
- <tile id="246" type="item::duck"/>
- <tile id="247" type="item::shoe"/>
- <tile id="248" type="item::planks"/>
+ <tile id="246" type="item::rubber_duck"/>
+ <tile id="247" type="item::shoes"/>
+ <tile id="248" type="item::wood"/>
  <tile id="250" type="item::wizard_hat"/>
+ <tile id="251" type="item::toilet_paper"/>
+ <tile id="252" type="item::glitched_item"/>
+ <tile id="253" type="item::sock"/>
+ <tile id="255" type="item::goose_feathers"/>
+ <tile id="271" type="item::toilet_paper_piece"/>
 </tileset>
