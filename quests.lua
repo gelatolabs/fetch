@@ -382,7 +382,7 @@ quests.questData = {
         requiredItem = "item_cat",
         reward = "Thanks for finding my cat!",
         updateQuestGiverVariant = "::with_cat",  -- Changes to npc_cat_owner::with_cat
-        goldReward = 250,
+        goldReward = 300,
         reminderText = "Please find my cat! Someone around here must have seen it.",
         active = false,
         completed = false
@@ -394,7 +394,7 @@ quests.questData = {
         questGiver = "npc_librarian",
         requiredItem = "item_book",
         reward = "Thank you for returning the book!",
-        goldReward = 250,
+        goldReward = 300,
         reminderText = "I still need that book back. Someone borrowed it recently!",
         active = false,
         completed = false
@@ -407,7 +407,7 @@ quests.questData = {
         requiredItem = "item_package",
         reward = "Great! Here's your payment!",
         updateQuestGiverVariant = "::with_gift",  -- Changes to npc_merchant::with_gift
-        goldReward = 25,
+        goldReward = 300,
         reminderText = "The courier has my package. Can you pick it up for me?",
         active = false,
         completed = false
@@ -421,7 +421,7 @@ quests.questData = {
         requiredQuantity = 4,
         grantsAbility = "boat",
         reward = "Well, here you go - a boat of your own. You can now cross water to reach islands and mysterious purple items and stuff!\n\nSail well! Yarr!!! Ahem, something was caught in my throat.",
-        goldReward = 25,
+        goldReward = 300,
         reminderText = "I need 4 pieces of wood to build your boat. Find some lying around!",
         active = false,
         completed = false
@@ -447,7 +447,7 @@ quests.questData = {
         requiredItem = "item_shoes",
         grantsAbility = "speed",
         reward = "Nice! Now I can run around like a pro!\nYou're no pro, but if you watch carefully you can probably run a bit faster too.",
-        goldReward = 50,
+        goldReward = 300,
         reminderText = "I really need those shoes!",
         active = false,
         completed = false
@@ -608,7 +608,7 @@ function quests.checkCircularDependency()
         UISystem.triggerDialogEvent("quest_deps", function()
             UISystem.showToast("J.A.R.F. gave you item_TODO", {0.7, 0.5, 0.9})
             PlayerSystem.addItem("item_TODO") -- this is intentionally not a real item, so it appeared glitched in the inventory with the placeholder icon
-            PlayerSystem.addGold(5000)
+            PlayerSystem.addGold(3500)
         end)
     end
 end

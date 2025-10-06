@@ -32,7 +32,7 @@ local dialogSections = {
             { speaker = "Developer", text = "Yes, please!"},
             { speaker = "J.A.R.F.", text = "I gave the player a TODO item to fix the quests."},
             { speaker = "Developer", text = "... At least give them some gold."},
-            { speaker = "J.A.R.F.", text = "That seems like a good idea! I gave the player 5000 gold."},
+            { speaker = "J.A.R.F.", text = "That seems like a good idea! I gave the player 3500 gold."},
         }
     },
     
