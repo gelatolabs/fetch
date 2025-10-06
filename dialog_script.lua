@@ -36,24 +36,17 @@ local dialogSections = {
         }
     },
 
-    talk_to_glitched = {
-        event = "get_jump",  -- Triggered when learning to jump
+    talk_to_glitch = {
+        event = "talk_to_glitch",  -- Triggered when learning to jump
         autoPlay = true,
         closeAfter = 5.0,
         messages = {
             {speaker = "Developer", text = "What happened to Fred?"},
             { speaker = "J.A.R.F.", text = "The “#%$Hu34”dfhsjidf9 character is functioning at slightly below normal levels." },
-            { speaker = "Developer", text = ""},
+            { speaker = "Developer", text = "I think this is a lot worse than normal."},
+            {speaker = "J.A.R.F.", text="He's not an important character so his parameters for functioning are pretty wide."},
+            { speaker = "Developer", text = "Whatever, as long as he can still give his quest I guess it's good enough."},
         }
-        When you talk to the glitched person:
-    Dev: What happened to Fred
-    AI: The “#%$Hu34”dfhsjidf9 character is functioning at slightly below normal levels.
-   Dev: I think this is a lot worse than normal
- AI: He's not an important character so his parameters for functioning are pretty wide
-
-    When entering map west: 
-    Dev: Why are there so many trees here?
-    AI: I built you a forest, isn’t this what you want? 
     },
     
     swimming_mechanics = {
