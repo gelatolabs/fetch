@@ -62,8 +62,18 @@
  <tile id="110" type="ground::clay"/>
  <tile id="112" type="ground::carpet"/>
  <tile id="114" type="ground::stone"/>
- <tile id="128" type="picket::cap_left"/>
- <tile id="130" type="picket::cap_right"/>
+ <tile id="128" type="picket::cap_left">
+  <properties>
+   <property name="collides" type="bool" value="true"/>
+   <property name="height" type="float" value="0.5"/>
+  </properties>
+ </tile>
+ <tile id="130" type="picket::cap_right">
+  <properties>
+   <property name="collides" type="bool" value="true"/>
+   <property name="height" type="float" value="0.5"/>
+  </properties>
+ </tile>
  <tile id="134" type="gravel::bl_corner2"/>
  <tile id="140" type="wall">
   <properties>
@@ -84,8 +94,18 @@
   </properties>
  </tile>
  <tile id="144" type="door"/>
- <tile id="148" type="picket::left_side"/>
- <tile id="150" type="picket::right_side"/>
+ <tile id="148" type="picket::left_side">
+  <properties>
+   <property name="collides" type="bool" value="true"/>
+   <property name="height" type="float" value="0.5"/>
+  </properties>
+ </tile>
+ <tile id="150" type="picket::right_side">
+  <properties>
+   <property name="collides" type="bool" value="true"/>
+   <property name="height" type="float" value="0.5"/>
+  </properties>
+ </tile>
  <tile id="152" type="gravel::br_corner"/>
  <tile id="153" type="gravel::cross"/>
  <tile id="154" type="gravel::ew2"/>
@@ -121,10 +141,30 @@
    <property name="height" type="float" value="0.5"/>
   </properties>
  </tile>
- <tile id="166" type="rock::ice"/>
- <tile id="168" type="picket::bl_corner"/>
- <tile id="169" type="picket::front"/>
- <tile id="170" type="picket::br_corner"/>
+ <tile id="166" type="rock::ice">
+  <properties>
+   <property name="collides" type="bool" value="false"/>
+   <property name="height" type="float" value="1"/>
+  </properties>
+ </tile>
+ <tile id="168" type="picket::bl_corner">
+  <properties>
+   <property name="collides" type="bool" value="true"/>
+   <property name="height" type="float" value="0.5"/>
+  </properties>
+ </tile>
+ <tile id="169" type="picket::front">
+  <properties>
+   <property name="collides" type="bool" value="true"/>
+   <property name="height" type="float" value="0.5"/>
+  </properties>
+ </tile>
+ <tile id="170" type="picket::br_corner">
+  <properties>
+   <property name="collides" type="bool" value="true"/>
+   <property name="height" type="float" value="0.5"/>
+  </properties>
+ </tile>
  <tile id="173" type="gravel::ns"/>
  <tile id="175" type="gravel::ns_2"/>
  <tile id="180" type="tree">
@@ -144,7 +184,12 @@
  <tile id="193" type="gravel::bl_corner2"/>
  <tile id="194" type="gravel::ew"/>
  <tile id="195" type="gravel::br_corner"/>
- <tile id="200" type="throne"/>
+ <tile id="200" type="throne">
+  <properties>
+   <property name="collides" type="bool" value="true"/>
+   <property name="height" type="float" value="1"/>
+  </properties>
+ </tile>
  <tile id="201" type="decor::books"/>
  <tile id="240" type="item::cat"/>
  <tile id="241" type="item::book"/>
