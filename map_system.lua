@@ -48,18 +48,18 @@ local doors = {
     {
         map = "map",
         direction = "down",
-        positions = {{x = 22, y = 47}},
+        positions = {{x = 20, y = 47}},
         targetMap = "mapsouth",
-        targetX = 22,
+        targetX = 20,
         targetY = 1,
         text = "Travel"
     },
     {
         map = "mapsouth",
         direction = "up",
-        positions = {{x = 22, y = 0}},
+        positions = {{x = 20, y = 0}},
         targetMap = "map",
-        targetX = 22,
+        targetX = 20,
         targetY = 46,
         text = "Travel"
     },
