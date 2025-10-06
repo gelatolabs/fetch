@@ -171,10 +171,10 @@ local mapMusic = {
     -- All other maps use "theme"
 }
 
--- Helper function to hide NPC layer on a map
-local function hideNPCLayerInternal(mapObj)
+-- Helper function to hide NPC and Pickup layers on a map
+local function hideObjectLayersInternal(mapObj)
     for _, layer in ipairs(mapObj.layers) do
-        if layer.name == "NPCs" then
+        if layer.name == "NPCs" or layer.name == "Pickups" then
             layer.visible = false
         end
     end
@@ -190,7 +190,7 @@ function MapSystem.init(worldRef, npcsRef, initialMapName)
     local mapPath = mapPaths[initialMapName]
     if mapPath then
         map = sti(mapPath)
-        hideNPCLayerInternal(map)
+        hideObjectLayersInternal(map)
         MapSystem.calculateMapBounds()
     else
         error("Unknown initial map: " .. initialMapName)
@@ -205,7 +205,7 @@ end
 
 -- Public function to hide NPC layer on a map
 function MapSystem.hideNPCLayer(mapObj)
-    hideNPCLayerInternal(mapObj)
+    hideObjectLayersInternal(mapObj)
 end
 
 -- Get the appropriate music track for a map
@@ -238,7 +238,7 @@ function MapSystem.loadMap(mapName)
     end
     
     -- Hide NPC layer
-    hideNPCLayerInternal(newMapObj)
+    hideObjectLayersInternal(newMapObj)
     
     -- Update references
     map = newMapObj

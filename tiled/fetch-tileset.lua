@@ -478,19 +478,39 @@ return {
     },
     {
       id = 246,
-      type = "item::duck"
+      type = "item::rubber_duck"
     },
     {
       id = 247,
-      type = "item::shoe"
+      type = "item::shoes"
     },
     {
       id = 248,
-      type = "item::planks"
+      type = "item::wood"
     },
     {
       id = 250,
       type = "item::wizard_hat"
+    },
+    {
+      id = 251,
+      type = "item::toilet_paper"
+    },
+    {
+      id = 252,
+      type = "item::glitched_item"
+    },
+    {
+      id = 253,
+      type = "item::sock"
+    },
+    {
+      id = 255,
+      type = "item::goose_feathers"
+    },
+    {
+      id = 271,
+      type = "item::toilet_paper_piece"
     }
   }
 }
