@@ -49,6 +49,42 @@ return {
           }
         },
         {
+          id = 1,
+          type = "generic_duck"
+        },
+        {
+          id = 2,
+          type = "librarian_duck::no_book"
+        },
+        {
+          id = 3,
+          type = "librarian_duck::book"
+        },
+        {
+          id = 4,
+          type = "athlete_duck"
+        },
+        {
+          id = 5,
+          type = "trainer_duck"
+        },
+        {
+          id = 6,
+          type = "guard_duck"
+        },
+        {
+          id = 7,
+          type = "jailer_duck"
+        },
+        {
+          id = 8,
+          type = "elder_duck"
+        },
+        {
+          id = 9,
+          type = "short_duck"
+        },
+        {
           id = 20,
           type = "blue_duck"
         },
@@ -215,11 +251,19 @@ return {
         },
         {
           id = 128,
-          type = "picket::cap_left"
+          type = "picket::cap_left",
+          properties = {
+            ["collides"] = true,
+            ["height"] = 0.5
+          }
         },
         {
           id = 130,
-          type = "picket::cap_right"
+          type = "picket::cap_right",
+          properties = {
+            ["collides"] = true,
+            ["height"] = 0.5
+          }
         },
         {
           id = 134,
@@ -255,11 +299,19 @@ return {
         },
         {
           id = 148,
-          type = "picket::left_side"
+          type = "picket::left_side",
+          properties = {
+            ["collides"] = true,
+            ["height"] = 0.5
+          }
         },
         {
           id = 150,
-          type = "picket::right_side"
+          type = "picket::right_side",
+          properties = {
+            ["collides"] = true,
+            ["height"] = 0.5
+          }
         },
         {
           id = 152,
@@ -323,19 +375,35 @@ return {
         },
         {
           id = 166,
-          type = "rock::ice"
+          type = "rock::ice",
+          properties = {
+            ["collides"] = false,
+            ["height"] = 1
+          }
         },
         {
           id = 168,
-          type = "picket::bl_corner"
+          type = "picket::bl_corner",
+          properties = {
+            ["collides"] = true,
+            ["height"] = 0.5
+          }
         },
         {
           id = 169,
-          type = "picket::front"
+          type = "picket::front",
+          properties = {
+            ["collides"] = true,
+            ["height"] = 0.5
+          }
         },
         {
           id = 170,
-          type = "picket::br_corner"
+          type = "picket::br_corner",
+          properties = {
+            ["collides"] = true,
+            ["height"] = 0.5
+          }
         },
         {
           id = 173,
@@ -383,7 +451,11 @@ return {
         },
         {
           id = 200,
-          type = "throne"
+          type = "throne",
+          properties = {
+            ["collides"] = true,
+            ["height"] = 1
+          }
         },
         {
           id = 201,
