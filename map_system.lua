@@ -6,7 +6,6 @@ local MapSystem = {}
 -- Module state (will be initialized by main.lua)
 local map = nil
 local world = nil
-local CheatConsole = nil
 local npcs = nil
 local currentMap = nil
 
@@ -160,10 +159,9 @@ local doors = {
 }
 
 -- Initialize the map system with required references
-function MapSystem.init(mapRef, worldRef, cheatConsoleRef, npcsRef, currentMapRef)
+function MapSystem.init(mapRef, worldRef, npcsRef, currentMapRef)
     map = mapRef
     world = worldRef
-    CheatConsole = cheatConsoleRef
     npcs = npcsRef
     currentMap = currentMapRef
 end
@@ -459,12 +457,9 @@ local function shouldCollideWithTile(tile, canSwim)
 end
 
 -- Check if a position is colliding with the map
+-- This is a pure map query - it does not consider player abilities
+-- The caller (PlayerSystem) should handle ability checks like noclip
 function MapSystem.isColliding(x, y, canSwim)
-    -- Noclip cheat bypasses all collision
-    if CheatConsole.isNoclipActive() then
-        return false
-    end
-    
     canSwim = canSwim or false
     local tileX = math.floor(x / world.tileSize)
     local tileY = math.floor(y / world.tileSize)

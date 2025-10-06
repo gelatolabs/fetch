@@ -8,13 +8,13 @@ local CheatConsole = {}
 
 -- Console state
 CheatConsole.state = {
-    noclip = false,          -- Walk through all walls/water
     showGrid = false,        -- Show tile grid overlay
     showPrompt = false,      -- Console visible?
     input = "",              -- Current cheat code being typed
     history = {},            -- History of entered cheats
     historyIndex = 0,        -- Current position in history (0 = new command)
-    tempInput = ""           -- Temporary storage for unsaved input when browsing history
+    tempInput = "",          -- Temporary storage for unsaved input when browsing history
+    savedAbilities = nil     -- Saved ability state before god mode (for restoration)
 }
 
 -- Helper string trim function
@@ -67,8 +67,13 @@ function CheatConsole.processCode(code, gameState)
     
     -- Process cheat codes
     if command == "noclip" then
-        CheatConsole.state.noclip = not CheatConsole.state.noclip
-        UISystem.showToast("Noclip: " .. (CheatConsole.state.noclip and "ON" or "OFF"), {1, 0.5, 0})
+        if gameState.abilityManager:hasAbility("noclip") then
+            gameState.abilityManager:removeAbility("noclip")
+            UISystem.showToast("Noclip: OFF", {1, 0.5, 0})
+        else
+            gameState.abilityManager:grantAbility("noclip")
+            UISystem.showToast("Noclip: ON", {1, 0.5, 0})
+        end
         
     elseif command == "grid" then
         CheatConsole.state.showGrid = not CheatConsole.state.showGrid
@@ -102,16 +107,36 @@ function CheatConsole.processCode(code, gameState)
         
     elseif command == "god" or command == "godmode" then
         if param == "off" then
-            -- Turn off god mode
-            CheatConsole.state.noclip = false
-            -- Remove all abilities
-            for _, abilityId in ipairs(gameState.abilityManager:getAllRegisteredAbilityIds()) do
-                gameState.abilityManager:removeAbility(abilityId)
+            -- Turn off god mode - restore saved abilities or clear all
+            if CheatConsole.state.savedAbilities then
+                -- First remove all abilities
+                for _, abilityId in ipairs(gameState.abilityManager:getAllRegisteredAbilityIds()) do
+                    gameState.abilityManager:removeAbility(abilityId)
+                end
+                
+                -- Then restore the saved abilities
+                for _, abilityId in ipairs(CheatConsole.state.savedAbilities) do
+                    gameState.abilityManager:grantAbility(abilityId)
+                end
+                
+                CheatConsole.state.savedAbilities = nil
+                UISystem.showToast("God Mode Deactivated! Abilities Restored.", {1, 0.5, 0})
+            else
+                -- No saved state, just clear everything
+                for _, abilityId in ipairs(gameState.abilityManager:getAllRegisteredAbilityIds()) do
+                    gameState.abilityManager:removeAbility(abilityId)
+                end
+                UISystem.showToast("God Mode Deactivated!", {1, 0.5, 0})
             end
-            UISystem.showToast("God Mode Deactivated!", {1, 0.5, 0})
         else
-            -- Turn on god mode
-            CheatConsole.state.noclip = true
+            -- Turn on god mode - save current abilities then grant all
+            -- Save current ability state (including cheat abilities like noclip)
+            CheatConsole.state.savedAbilities = {}
+            for _, ability in pairs(gameState.abilityManager:getAllAbilities()) do
+                table.insert(CheatConsole.state.savedAbilities, ability.id)
+            end
+            
+            -- Grant all abilities
             for _, abilityId in ipairs(gameState.abilityManager:getAllRegisteredAbilityIds()) do
                 gameState.abilityManager:grantAbility(abilityId)
             end
@@ -338,11 +363,6 @@ function CheatConsole.keyPressed(key, gameState, currentGameState)
     end
     
     return false  -- Key not handled
-end
-
--- Check if noclip is active
-function CheatConsole.isNoclipActive()
-    return CheatConsole.state.noclip
 end
 
 -- Check if grid is active

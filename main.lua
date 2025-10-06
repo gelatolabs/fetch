@@ -174,7 +174,7 @@ function love.load()
     hideNPCLayer(map)
 
     -- Initialize MapSystem
-    MapSystem.init(map, world, CheatConsole, questData.npcs, currentMap)
+    MapSystem.init(map, world, questData.npcs, currentMap)
     MapSystem.calculateMapBounds()
 
     -- Load game data
@@ -1118,7 +1118,7 @@ function love.draw()
         UISystem.drawGoldDisplay(PlayerSystem.getGold())
         
         -- Draw cheat indicators
-        UISystem.drawIndicators(CheatConsole.isNoclipActive(), CheatConsole.isGridActive(), PlayerSystem.getAbilityManager())
+        UISystem.drawIndicators(CheatConsole.isGridActive(), PlayerSystem.getAbilityManager())
         love.graphics.pop()
 
         -- Reset scissor
