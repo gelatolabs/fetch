@@ -231,6 +231,19 @@ quests.npcs = {
         },
         questCompleteText = "Thanks again! Nice and warm."
     },
+    npc_glitch = {
+        id = "npc_glitch",
+        name = "Mysterious Guy",
+        isQuestGiver = true,
+        requiresAbility = "knowledge",
+        quests = {
+            {
+                questId = "quest_glitch",
+                questOfferDialog = "Hey you. Yes you. I knew you would come here. I can teach you something... special. But first, you must help me find the paradox.\n\nYes, the thing that should not exist in this world but does. Bring it to me, and I will show you power beyond measure."
+            }
+        },
+        questCompleteText = "..."
+    },
     -- Dialog-only NPCs (can appear multiple times on maps)
     guard = {
         id = "guard",
@@ -297,6 +310,7 @@ quests.questData = {
         requiredItem = "item_sock",
         reward = "You found them! Anyway, there's a man who can only be found by those who know he exists. Supposedly he knows about a secret technique that's not supposed to exist.",
         goldReward = 100,
+        grantsAbility = "knowledge",
         reminderText = "I need to find my socks!",
         active = false,
         completed = false,
@@ -317,6 +331,20 @@ quests.questData = {
         active = false,
         completed = false,
         updateQuestGiverVariant = "::with_tp",
+    },
+    quest_glitch = {
+        id = "quest_glitch",
+        name = "Find the k[ ) r#,qs3:6m 817(_:forz",
+        description = "Find the thing. You know how to swim, right?",
+        questGiver = "npc_glitch",
+        requiredItem = "item_glitched_item",
+        reward = "I am impressed, adventurer. Voila - here is the ability, as promised...",
+        goldReward = 500,
+        grantsAbility = "jump",
+        reminderText = "You know how to swim, right?",
+        active = false,
+        completed = false,
+        updateQuestGiverVariant = "::glitch1",
     },
     -- Toy quests while we were working on the game.
     quest_lost_cat = {

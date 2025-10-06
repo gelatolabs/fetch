@@ -528,10 +528,13 @@ function love.update(dt)
             nearbyNPC = nil
             for _, npc in pairs(questData.npcs) do
                 if npc.map == MapSystem.getCurrentMap() then
-                    local dist = math.sqrt((player.x - npc.x)^2 + (player.y - npc.y)^2)
-                    if dist < 20 then
-                        nearbyNPC = npc
-                        break
+                    -- Check if NPC requires an ability to be visible/interactable
+                    if not (npc.requiresAbility and not PlayerSystem.hasAbility(npc.requiresAbility)) then
+                        local dist = math.sqrt((player.x - npc.x)^2 + (player.y - npc.y)^2)
+                        if dist < 20 then
+                            nearbyNPC = npc
+                            break
+                        end
                     end
                 end
             end
@@ -1034,6 +1037,11 @@ function drawNPCs(mapName, camX, camY, chatOffset, offsetX, offsetY)
 
     for _, npc in pairs(questData.npcs) do
         if npc.map == mapName then
+            -- Check if NPC requires an ability to be visible
+            if npc.requiresAbility and not PlayerSystem.hasAbility(npc.requiresAbility) then
+                goto continue
+            end
+
             love.graphics.setColor(1, 1, 1)
             if npc.sprite.quad then
                 -- Draw from tileset using quad
@@ -1077,6 +1085,7 @@ function drawNPCs(mapName, camX, camY, chatOffset, offsetX, offsetY)
                 end
             end
         end
+        ::continue::
     end
 end
 

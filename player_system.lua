@@ -164,6 +164,19 @@ function PlayerSystem.init(UISystem)
             -- Silent activation for cheats
         end
     })
+
+    abilityManager:registerAbility({
+        id = "knowledge",
+        name = "Knowledge",
+        aliases = {"knowledge", "mysterious"},
+        type = AbilitySystem.AbilityType.PASSIVE,
+        effects = {AbilitySystem.EffectType.KNOWLEDGE},
+        description = "???",
+        color = {0.7, 0.3, 0.9},
+        onAcquire = function(ability)
+            UISystem.showToast("You feel enlightened... someone new has appeared.", {0.7, 0.3, 0.9})
+        end
+    })
 end
 
 -- Get player state

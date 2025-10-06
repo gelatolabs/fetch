@@ -14,7 +14,8 @@ AbilitySystem.EffectType = {
     WATER_TRAVERSAL = "water_traversal",
     JUMP = "jump",
     SPEED = "speed",
-    NOCLIP = "noclip"
+    NOCLIP = "noclip",
+    KNOWLEDGE = "knowledge"
 }
 
 -- Ability class
