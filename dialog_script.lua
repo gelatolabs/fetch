@@ -85,6 +85,18 @@ local dialogSections = {
             { speaker = "Developer", text = "Hey player, you should just leave while I fix this mess. (Press 'E')" },
         }
     },
+
+    talk_to_glitch = {
+        event = "talk_to_glitch",
+        autoPlay = true,
+        closeAfter = 3.0,
+        messages = {
+            { speaker = "Developer", text = "What happened to Fred" },
+            { speaker = "J.A.R.F.", text = "The \"#%$Hu34\"dfhsjidf9 character is functioning at slightly below normal levels." },
+            { speaker = "Developer", text = "I think this is a lot worse than normal."},
+            { speaker = "J.A.R.F.", text="He's not an important character so his parameters for functioning are pretty wide."},
+        }
+    },
 }
 
 return dialogSections
