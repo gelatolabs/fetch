@@ -716,6 +716,17 @@ function UISystem.drawToasts()
     end
 end
 
+-- Helper function to draw a menu button (DRY)
+local function drawMenuButton(x, y, width, height, text)
+    local isHover = UISystem.isMouseOverButton(x, y, width, height)
+    love.graphics.setColor(isHover and 0.3 or 0.2, isHover and 0.2 or 0.15, isHover and 0.15 or 0.1)
+    love.graphics.rectangle("fill", x, y, width, height)
+    love.graphics.setColor(isHover and 1 or 0.8, isHover and 0.8 or 0.6, isHover and 0.4 or 0.2)
+    love.graphics.rectangle("line", x, y, width, height)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf(text, x, y + 3, width, "center")
+end
+
 -- Draw pause menu
 function UISystem.drawPauseMenu()
     -- Semi-transparent background overlay
@@ -731,23 +742,9 @@ function UISystem.drawPauseMenu()
     local btnHeight = 20
     local btnX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - btnWidth / 2
 
-    -- Resume button
-    local resumeHover = UISystem.isMouseOverButton(btnX, 100, btnWidth, btnHeight)
-    love.graphics.setColor(resumeHover and 0.3 or 0.2, resumeHover and 0.2 or 0.15, resumeHover and 0.15 or 0.1)
-    love.graphics.rectangle("fill", btnX, 100, btnWidth, btnHeight)
-    love.graphics.setColor(resumeHover and 1 or 0.8, resumeHover and 0.8 or 0.6, resumeHover and 0.4 or 0.2)
-    love.graphics.rectangle("line", btnX, 100, btnWidth, btnHeight)
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.printf("Resume", btnX, 100 + 3, btnWidth, "center")
-
-    -- Quit Game button
-    local quitHover = UISystem.isMouseOverButton(btnX, 130, btnWidth, btnHeight)
-    love.graphics.setColor(quitHover and 0.3 or 0.2, quitHover and 0.2 or 0.15, quitHover and 0.15 or 0.1)
-    love.graphics.rectangle("fill", btnX, 130, btnWidth, btnHeight)
-    love.graphics.setColor(quitHover and 1 or 0.8, quitHover and 0.8 or 0.6, quitHover and 0.4 or 0.2)
-    love.graphics.rectangle("line", btnX, 130, btnWidth, btnHeight)
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.printf("Quit Game", btnX, 130 + 3, btnWidth, "center")
+    drawMenuButton(btnX, 100, btnWidth, btnHeight, "Resume")
+    drawMenuButton(btnX, 130, btnWidth, btnHeight, "Settings")
+    drawMenuButton(btnX, 160, btnWidth, btnHeight, "Quit Game")
 end
 
 -- Draw main menu
@@ -807,11 +804,11 @@ function UISystem.drawSettings(volume)
 
     -- Volume label
     love.graphics.setColor(1, 1, 1)
-    love.graphics.printf("Volume", CHAT_PANE_WIDTH, 80, GAME_WIDTH, "center")
+    love.graphics.printf("Volume", CHAT_PANE_WIDTH, 70, GAME_WIDTH, "center")
 
     -- Volume slider
     local sliderX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - 50
-    local sliderY = 100
+    local sliderY = 90
     local sliderWidth = 100
     local sliderHeight = 10
 
@@ -829,19 +826,32 @@ function UISystem.drawSettings(volume)
 
     -- Volume percentage
     love.graphics.setColor(1, 1, 1)
-    love.graphics.printf(math.floor(volume * 100) .. "%", CHAT_PANE_WIDTH, 115, GAME_WIDTH, "center")
+    love.graphics.printf(math.floor(volume * 100) .. "%", CHAT_PANE_WIDTH, 105, GAME_WIDTH, "center")
 
-    -- Back button
+    -- Fullscreen toggle
+    local isFullscreen = love.window.getFullscreen()
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Fullscreen", CHAT_PANE_WIDTH, 125, GAME_WIDTH, "center")
+
     local btnWidth = 100
     local btnHeight = 20
     local btnX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - btnWidth / 2
-    local backHover = UISystem.isMouseOverButton(btnX, 160, btnWidth, btnHeight)
-    love.graphics.setColor(backHover and 0.3 or 0.2, backHover and 0.2 or 0.15, backHover and 0.15 or 0.1)
-    love.graphics.rectangle("fill", btnX, 160, btnWidth, btnHeight)
-    love.graphics.setColor(backHover and 1 or 0.8, backHover and 0.8 or 0.6, backHover and 0.4 or 0.2)
-    love.graphics.rectangle("line", btnX, 160, btnWidth, btnHeight)
+    local fullscreenHover = UISystem.isMouseOverButton(btnX, 140, btnWidth, btnHeight)
+    love.graphics.setColor(fullscreenHover and 0.3 or 0.2, fullscreenHover and 0.2 or 0.15, fullscreenHover and 0.15 or 0.1)
+    love.graphics.rectangle("fill", btnX, 140, btnWidth, btnHeight)
+    love.graphics.setColor(fullscreenHover and 1 or 0.8, fullscreenHover and 0.8 or 0.6, fullscreenHover and 0.4 or 0.2)
+    love.graphics.rectangle("line", btnX, 140, btnWidth, btnHeight)
     love.graphics.setColor(1, 1, 1)
-    love.graphics.printf("Back", btnX, 160 + 3, btnWidth, "center")
+    love.graphics.printf(isFullscreen and "ON" or "OFF", btnX, 140 + 3, btnWidth, "center")
+
+    -- Back button
+    local backHover = UISystem.isMouseOverButton(btnX, 180, btnWidth, btnHeight)
+    love.graphics.setColor(backHover and 0.3 or 0.2, backHover and 0.2 or 0.15, backHover and 0.15 or 0.1)
+    love.graphics.rectangle("fill", btnX, 180, btnWidth, btnHeight)
+    love.graphics.setColor(backHover and 1 or 0.8, backHover and 0.8 or 0.6, backHover and 0.4 or 0.2)
+    love.graphics.rectangle("line", btnX, 180, btnWidth, btnHeight)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Back", btnX, 180 + 3, btnWidth, "center")
 end
 
 -- Draw quest log
@@ -1571,12 +1581,21 @@ function UISystem.handlePauseMenuClick(x, y, callbacks)
     local btnHeight = 20
     local btnX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - btnWidth / 2
     local resumeY = 100
-    local quitY = 130
+    local settingsY = 130
+    local quitY = 160
 
     -- Check Resume button
     if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= resumeY and canvasY <= resumeY + btnHeight then
         if callbacks.onResume then
             callbacks.onResume()
+        end
+        return true
+    end
+
+    -- Check Settings button
+    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= settingsY and canvasY <= settingsY + btnHeight then
+        if callbacks.onSettings then
+            callbacks.onSettings()
         end
         return true
     end
@@ -1596,12 +1615,19 @@ end
 function UISystem.handleSettingsClick(x, y, volume, callbacks)
     local canvasX, canvasY = screenToCanvas(x, y)
 
-    -- Back button (offset by chat pane)
     local btnWidth = 100
     local btnHeight = 20
     local btnX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - btnWidth / 2
-    local backY = 160
 
+    -- Fullscreen button
+    local fullscreenY = 145
+    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= fullscreenY and canvasY <= fullscreenY + btnHeight then
+        love.window.setFullscreen(not love.window.getFullscreen())
+        return true
+    end
+
+    -- Back button
+    local backY = 180
     if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= backY and canvasY <= backY + btnHeight then
         if callbacks.onBack then
             callbacks.onBack()

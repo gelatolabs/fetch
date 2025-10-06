@@ -16,9 +16,10 @@ local AudioSystem = require "audio_system"
 -- Game state
 -- mainMenu, settings, playing, dialog, questLog, inventory, questTurnIn, shop
 local gameState = "mainMenu"
+local previousState = nil  -- Track where we came from (for settings back button)
 
 -- Settings
-local volume = 1.0
+local volume = 0.5
 
 -- Input tracking for movement priority
 local heldKeys = {}
@@ -165,6 +166,7 @@ function love.load()
 
     -- Initialize Audio system
     AudioSystem.init()
+    AudioSystem.setVolume(volume)
     AudioSystem.playMusic("intro")
 
     -- Load Tiled map
@@ -363,6 +365,7 @@ function love.mousepressed(x, y, button)
                 end
             end,
             onSettings = function()
+                previousState = "mainMenu"
                 gameState = "settings"
             end,
             onQuit = function()
@@ -378,6 +381,10 @@ function love.mousepressed(x, y, button)
             onResume = function()
                 gameState = "playing"
             end,
+            onSettings = function()
+                previousState = "pauseMenu"
+                gameState = "settings"
+            end,
             onQuit = function()
                 love.event.quit()
             end
@@ -389,7 +396,8 @@ function love.mousepressed(x, y, button)
     if gameState == "settings" then
         local handled, newVolume = UISystem.handleSettingsClick(x, y, volume, {
             onBack = function()
-                gameState = "mainMenu"
+                gameState = previousState or "mainMenu"
+                previousState = nil
             end,
             onVolumeChange = function(newVolume)
                 AudioSystem.setVolume(newVolume)
@@ -601,8 +609,6 @@ function love.keypressed(key)
         elseif gameState == "shop" then
             gameState = "playing"
         end
-    elseif key == "f" then
-        love.window.setFullscreen(not love.window.getFullscreen())
     end
 end
 
