@@ -258,6 +258,28 @@ quests.npcs = {
         dialogText = "Wow, look at all that gold! Too bad there's no way I could ever reach it...",
         isDialogOnly = true
     },
+    -- Impossible dependency loop NPCs
+    npc_farmer = {
+        id = "npc_farmer",
+        name = "Farmer",
+        questId = "quest_farmer",
+        isQuestGiver = true,
+        questOfferDialog = "My crops are dying and I need a wrench to fix them. Obviously.\n\nIf you bring me one, I'll share some of my finest corn with you!"
+    },
+    npc_chef = {
+        id = "npc_chef",
+        name = "Chef",
+        questId = "quest_chef",
+        isQuestGiver = true,
+        questOfferDialog = "I'm trying to make my famous corn on the cob, and I've got plenty of cobs, but I'm all out of corn!\n\nIf you bring me some corn, I'll give you this mysterious crystal I found in the fridge."
+    },
+    npc_plumber = {
+        id = "npc_plumber",
+        name = "Plumber",
+        questId = "quest_plumber",
+        isQuestGiver = true,
+        questOfferDialog = "Hey there, need a wrench? I'll craft you one if you bring me a mysterious crystal. Ain't a proper wrench without one."
+    },
 }
 
 -- Dialogue sequences for groups of NPCs
@@ -342,13 +364,13 @@ quests.questData = {
     quest_glitch = {
         id = "quest_glitch",
         name = "Find the k[ ) r#,qs3:6m 817(_:forz",
-        description = "Find the thing. You can cross water now, right?",
+        description = "Find the thing. You have a boat, right?",
         questGiver = "npc_glitch",
         requiredItem = "item_glitched_item",
         reward = "I am impressed, adventurer. Voila - here is the ability, as promised...",
         goldReward = 500,
         grantsAbility = "jump",
-        reminderText = "You can cross water now, right?",
+        reminderText = "You have a boat, right?",
         active = false,
         completed = false,
         updateQuestGiverVariant = "::glitch1",
@@ -442,6 +464,46 @@ quests.questData = {
         goldReward = 10,
         reminderText = "Bring me a Labubu doll from the shopkeep and I will grant you passage off my island!",
         isMainQuest = true,
+        active = false,
+        completed = false
+    },
+    -- Impossible dependency loop quests
+    quest_farmer = {
+        id = "quest_farmer",
+        name = "Heart-wrenching",
+        description = "The farmer needs a wrench to fix his crops. He'll reward you with some corn.",
+        questGiver = "npc_farmer",
+        requiredItem = "item_wrench",
+        reward = "...",
+        itemReward = "item_corn",
+        goldReward = 0,
+        reminderText = "I really need that wrench to fix my crops!",
+        active = false,
+        completed = false
+    },
+    quest_chef = {
+        id = "quest_chef",
+        name = "Cornless cobs",
+        description = "The chef needs corn for his famous corn on the cob. He'll reward you with a mysterious crystal.",
+        questGiver = "npc_chef",
+        requiredItem = "item_corn",
+        reward = "...",
+        itemReward = "item_crystal",
+        goldReward = 0,
+        reminderText = "Without corn, my corn on the cob is simply cob!",
+        active = false,
+        completed = false
+    },
+    quest_plumber = {
+        id = "quest_plumber",
+        name = "Mamma mia!",
+        description = "The plumber needs a mysterious crystal. He'll reward you with a wrench.",
+        questGiver = "npc_plumber",
+        requiredItem = "item_mysterious_crystal",
+        reward = "...",
+        itemReward = "item_wrench",
+        goldReward = 0,
+        reminderText = "I need a mysterious crystal to craft your wrench!",
         active = false,
         completed = false
     }

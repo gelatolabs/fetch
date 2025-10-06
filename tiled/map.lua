@@ -122,7 +122,7 @@ return {
         },
         {
           id = 29,
-          type = "chef_duck"
+          type = "npc_baker"
         },
         {
           id = 30,
@@ -150,7 +150,7 @@ return {
         },
         {
           id = 40,
-          type = "farmer_duck"
+          type = "npc_farmer"
         },
         {
           id = 41,
@@ -186,7 +186,7 @@ return {
         },
         {
           id = 49,
-          type = "plumber_duck"
+          type = "npc_plumber"
         },
         {
           id = 50,

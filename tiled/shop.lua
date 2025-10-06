@@ -82,7 +82,7 @@ return {
         },
         {
           id = 9,
-          type = "npc_child"
+          type = "npc_short"
         },
         {
           id = 20,
@@ -90,7 +90,7 @@ return {
         },
         {
           id = 21,
-          type = "pink_duck"
+          type = "npc_child"
         },
         {
           id = 22,
@@ -122,7 +122,7 @@ return {
         },
         {
           id = 29,
-          type = "chef_duck"
+          type = "npc_baker"
         },
         {
           id = 30,
@@ -150,7 +150,7 @@ return {
         },
         {
           id = 40,
-          type = "farmer_duck"
+          type = "npc_farmer"
         },
         {
           id = 41,
@@ -166,7 +166,7 @@ return {
         },
         {
           id = 44,
-          type = "npc_swimmer"
+          type = "npc_swimmer::no_floaty"
         },
         {
           id = 45,
@@ -186,7 +186,7 @@ return {
         },
         {
           id = 49,
-          type = "plumber_duck"
+          type = "npc_plumber"
         },
         {
           id = 50,
@@ -211,6 +211,10 @@ return {
         {
           id = 63,
           type = "npc_canada_goose"
+        },
+        {
+          id = 64,
+          type = "npc_swimmer::with_floaty"
         },
         {
           id = 100,
@@ -460,6 +464,18 @@ return {
         {
           id = 201,
           type = "decor::books"
+        },
+        {
+          id = 203,
+          type = "gold1"
+        },
+        {
+          id = 204,
+          type = "gold2"
+        },
+        {
+          id = 205,
+          type = "gold3"
         },
         {
           id = 240,
