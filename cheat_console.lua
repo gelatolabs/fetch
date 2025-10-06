@@ -1,8 +1,11 @@
 -- Cheat Console System
 -- Provides a developer console for debugging and testing
 
+local sti = require "sti"
 local UISystem = require "ui_system"
 local PlayerSystem = require "player_system"
+local MapSystem = require "map_system"
+local Camera = require "camera"
 
 local CheatConsole = {}
 
@@ -253,8 +256,60 @@ GPU: GooseForce 128]]
         UISystem.toggleChatPane()
         UISystem.showToast("Chat pane toggled", {1, 0.5, 0})
         
+    elseif command == "teleport" then
+        if param == "" then
+            UISystem.showToast("Usage: teleport <map> [x y] (e.g. teleport shop or teleport map 10 15)", {1, 1, 0.3})
+        else
+            local mapName = parts[2]
+            local x = tonumber(parts[3])
+            local y = tonumber(parts[4])
+            
+            -- Validate map exists using MapSystem
+            if not MapSystem.isValidMap(mapName) then
+                local validMaps = MapSystem.getAllMapNames()
+                UISystem.showToast("Unknown map: " .. mapName .. "\nValid: " .. table.concat(validMaps, ", "), {1, 0.3, 0.3})
+            else
+                -- If x and y are provided, validate they're numbers
+                if (parts[3] and not x) or (parts[4] and not y) then
+                    UISystem.showToast("Invalid coordinates. Use: teleport " .. mapName .. " <x> <y>", {1, 0.3, 0.3})
+                else
+                    -- Load the new map
+                    MapSystem.setCurrentMap(mapName)
+                    local newMap = sti(MapSystem.getMapPath(mapName))
+                    MapSystem.hideNPCLayer(newMap)
+                    MapSystem.setMapObject(newMap)
+                    MapSystem.calculateMapBounds()
+                    
+                    -- If coordinates provided, teleport to that position
+                    -- Otherwise, teleport to center of map
+                    if x and y then
+                        -- Convert grid coordinates to world coordinates
+                        PlayerSystem.setPosition(x * 16 + 8, y * 16 + 8, x, y)
+                        UISystem.showToast("Teleported to " .. mapName .. " (" .. x .. ", " .. y .. ")", {1, 0.5, 0})
+                    else
+                        -- Teleport to center of map
+                        local minX, minY, maxX, maxY = MapSystem.getWorldBounds()
+                        local centerX = math.floor((maxX + minX) / 2 / 16)
+                        local centerY = math.floor((maxY + minY) / 2 / 16)
+                        PlayerSystem.setPosition(centerX * 16 + 8, centerY * 16 + 8, centerX, centerY)
+                        UISystem.showToast("Teleported to " .. mapName .. " (center)", {1, 0.5, 0})
+                    end
+                    
+                    -- Stop player movement
+                    local player = PlayerSystem.getPlayer()
+                    player.moving = false
+                    
+                    -- Update camera
+                    Camera.update()
+                    
+                    -- Update music for new map
+                    MapSystem.updateMusicForCurrentMap()
+                end
+            end
+        end
+        
     elseif command == "help" or command == "?" then
-        UISystem.showToast("Cheats: noclip, grid, unlock/lock, god, fetch, toss, gold/setgold, jarf, nojarf, screenfetch", {1, 1, 0.3})
+        UISystem.showToast("Cheats: noclip, grid, unlock/lock, god, fetch, toss, gold/setgold, teleport, jarf, nojarf, screenfetch", {1, 1, 0.3})
 
     else
         UISystem.showToast("Unknown cheat: " .. code, {1, 0.3, 0.3})
