@@ -206,6 +206,31 @@ quests.npcs = {
         noQuestText = "Honk! Honk!",
         gaveItemText = "Honk! Honk!"
     },
+    -- Act 2: climbing the mountain and unlocking jump
+    npc_sock_collector = {
+        id = "npc_sock_collector",
+        name = "Sock Collector",
+        isQuestGiver = true,
+        quests = {
+            {
+                questId = "quest_sock",
+                questOfferDialog = "Dear adventurer, I've left my most prized hiking socks at the top of the mountain, they're the jewel of my collection and I'm worried someone's stolen them.\n\nI can't go back up to the top without them. Can you get them for me? If you do, I'll tell you about someone who knows things."
+            }
+        },
+        questCompleteDialog = "Thanks again for finding my socks!"
+    },
+    npc_peter = {
+        id = "npc_peter",
+        name = "Peter the Prepper",
+        isQuestGiver = true,
+        quests = {
+            {
+                questId = "quest_toilet_paper",
+                questOfferDialog = "Oh shoot, I seem to have dropped my toilet paper down the mountain. Would you mind grabbing it for me?"
+            }
+        },
+        questCompleteText = "Thanks again! Nice and warm."
+    },
     -- Dialog-only NPCs (can appear multiple times on maps)
     guard = {
         id = "guard",
@@ -263,6 +288,35 @@ quests.questData = {
         reminderText = "If you want my help, go get those feathers!",
         active = false,
         completed = false
+    },
+    quest_sock = {
+        id = "quest_sock",
+        name = "Climbing the Mountain",
+        description = "The old lady lost her most prized hiking socks. Find someone who has seen them!",
+        questGiver = "npc_sock_collector",
+        requiredItem = "item_sock",
+        reward = "You found them! Anyway, there's a man who can only be found by those who know he exists. Supposedly he knows about a secret technique that's not supposed to exist.",
+        goldReward = 100,
+        reminderText = "I need to find my socks!",
+        active = false,
+        completed = false,
+        updateQuestGiverVariant = "::with_sock2",
+    },
+    quest_toilet_paper = {
+        id = "quest_toilet_paper",
+        name = "Peter's Toilet Paper Tumble",
+        description = "Peter dropped his toilet paper down the mountain and needs it back.",
+        questGiver = "npc_peter",
+        requiredItem = "item_toilet_paper_piece",
+        requiredQuantity = 134,
+        showsPickup = "item_toilet_paper_piece",
+        reward = "Thanks for grabbing that, I had to use these socks in the meantime. Want them?",
+        goldReward = 2,
+        itemReward = "item_sock",
+        reminderText = "Come back when you have all the toilet paper. I'll know if you missed a piece, I counted them!",
+        active = false,
+        completed = false,
+        updateQuestGiverVariant = "::with_tp",
     },
     -- Toy quests while we were working on the game.
     quest_lost_cat = {
