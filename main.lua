@@ -104,6 +104,26 @@ local mapTransition = {
     playerEndScreenY = 0
 }
 
+-- Helper function to check if a pickup should be visible
+local function isPickupVisible(pickup)
+    local itemData = itemRegistry[pickup.itemId]
+    if not itemData then return true end
+
+    -- If item is not marked as hidden, it's always visible
+    if not itemData.hidden then return true end
+
+    -- Item is hidden, check if any active quest shows it
+    for _, questId in ipairs(activeQuests) do
+        local quest = questData.questData[questId]
+        if quest and quest.showsPickup == pickup.itemId then
+            return true
+        end
+    end
+
+    -- Hidden and no quest shows it
+    return false
+end
+
 function love.load()
     love.window.setTitle("Go Fetch")
 
@@ -517,10 +537,10 @@ function love.update(dt)
             -- Check for nearby doors
             nearbyDoor = MapSystem.findDoorAt(player.gridX, player.gridY)
 
-            -- Check for pickup collisions
+            -- Check for pickup collisions (only for visible pickups)
             for i = #pickups, 1, -1 do
                 local pickup = pickups[i]
-                if pickup.map == MapSystem.getCurrentMap() then
+                if pickup.map == MapSystem.getCurrentMap() and isPickupVisible(pickup) then
                     local dist = math.sqrt((player.x - pickup.x)^2 + (player.y - pickup.y)^2)
                     if dist < 12 then  -- Pickup radius
                         -- Add item to inventory
@@ -1062,7 +1082,7 @@ function drawPickups(mapName, camX, camY, chatOffset, offsetX, offsetY)
 
     -- Draw pickups (only on this map)
     for _, pickup in ipairs(pickups) do
-        if pickup.map == mapName then
+        if pickup.map == mapName and isPickupVisible(pickup) then
             love.graphics.setColor(1, 1, 1)
             local quad = love.graphics.newQuad(
                 pickup.spriteX,
