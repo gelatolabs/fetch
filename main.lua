@@ -495,6 +495,13 @@ function love.update(dt)
 
             -- Update camera
             Camera.update(player.x, player.y)
+            
+            -- Trigger map entry events
+            local enteredMap = mapTransition.toMap
+            if enteredMap == "mapwest" then
+                -- Trigger JARF dialog event when entering mapwest
+                UISystem.triggerDialogEvent("mapwest_entry", nil)
+            end
 
             -- Clear transition state
             mapTransition.fromMap = nil
