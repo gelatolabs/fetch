@@ -444,13 +444,23 @@ function quests.interactWithNPC(npc)
                 text = dialogText
             })
         elseif quest and quest.active then
-            if quest.requiredItem and PlayerSystem.hasItem(quest.requiredItem) then
+            local requiredQty = quest.requiredQuantity or 1
+            if quest.requiredItem and PlayerSystem.hasItem(quest.requiredItem, requiredQty) then
                 -- Turn in item quest - show inventory selection UI
                 quests.questTurnInData = {npc = npc, quest = quest}
                 quests.gameState = "questTurnIn"
             else
-                -- Quest active but no item yet
-                local text = quest.reminderText or "Come back when you have the item!"
+                -- Quest active but doesn't have enough items yet
+                local text = quest.reminderText
+                if not text or text == "" then
+                    local requiredQty = quest.requiredQuantity or 1
+                    if requiredQty > 1 then
+                        local currentQty = PlayerSystem.getItemQuantity(quest.requiredItem)
+                        text = "Come back when you have " .. requiredQty .. " of the item! (You have " .. currentQty .. ")"
+                    else
+                        text = "Come back when you have the item!"
+                    end
+                end
                 quests.gameState = DialogSystem.showDialog({
                     type = "generic",
                     npc = npc,

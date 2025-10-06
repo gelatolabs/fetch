@@ -1020,9 +1020,16 @@ function UISystem.drawQuestTurnIn()
     love.graphics.setColor(0.7, 0.7, 0.7)
     love.graphics.print("Click the item:", boxX + 4, boxY + 16)
 
+    -- Convert inventory table to sorted array for display
+    local inventoryArray = {}
+    for itemId, quantity in pairs(gameStateRefs.inventory) do
+        table.insert(inventoryArray, {itemId = itemId, quantity = quantity})
+    end
+    table.sort(inventoryArray, function(a, b) return a.itemId < b.itemId end)
+
     -- Pagination
     local itemsPerPage = 5
-    local totalItems = #gameStateRefs.inventory
+    local totalItems = #inventoryArray
     local totalPages = math.max(1, math.ceil(totalItems / itemsPerPage))
     local startIndex = questTurnInPage * itemsPerPage + 1
     local endIndex = math.min(startIndex + itemsPerPage - 1, totalItems)
@@ -1033,7 +1040,9 @@ function UISystem.drawQuestTurnIn()
     local startY = boxY + 32
 
     for i = startIndex, endIndex do
-        local itemId = gameStateRefs.inventory[i]
+        local itemEntry = inventoryArray[i]
+        local itemId = itemEntry.itemId
+        local quantity = itemEntry.quantity
         local slotX = boxX + 6
         local slotY = startY + (i - startIndex) * (slotSize + padding)
 
@@ -1049,9 +1058,12 @@ function UISystem.drawQuestTurnIn()
         love.graphics.setColor(0.7, 0.5, 0.9)
         love.graphics.rectangle("fill", slotX + 2, slotY + 2, slotSize - 4, slotSize - 4)
 
-        -- Item name from registry
+        -- Item name from registry with quantity
         local itemData = gameStateRefs.itemRegistry[itemId]
         local itemName = itemData and itemData.name or itemId
+        if quantity > 1 then
+            itemName = itemName .. " x" .. quantity
+        end
         love.graphics.setColor(1, 1, 1)
         love.graphics.print(itemName, slotX + slotSize + 4, slotY + 3)
     end
@@ -1202,11 +1214,18 @@ function UISystem.drawInventory(inventory, itemRegistry)
     love.graphics.setColor(0.8, 0.6, 0.9)
     love.graphics.printf("INVENTORY", boxX+2, boxY, boxW-4, "center")
 
+    -- Convert inventory table to sorted array for display
+    local inventoryArray = {}
+    for itemId, quantity in pairs(inventory) do
+        table.insert(inventoryArray, {itemId = itemId, quantity = quantity})
+    end
+    table.sort(inventoryArray, function(a, b) return a.itemId < b.itemId end)
+
     -- Pagination - use constants defined at top of file
     local slotsPerColumn = INVENTORY_SLOTS_PER_COLUMN
     local columnsPerPage = INVENTORY_COLUMNS_PER_PAGE
     local itemsPerPage = INVENTORY_ITEMS_PER_PAGE
-    local totalItems = #inventory
+    local totalItems = #inventoryArray
     local totalPages = math.max(1, math.ceil(totalItems / itemsPerPage))
     local startIndex = inventoryPage * itemsPerPage + 1
     local endIndex = math.min(startIndex + itemsPerPage - 1, totalItems)
@@ -1253,14 +1272,16 @@ function UISystem.drawInventory(inventory, itemRegistry)
 
         -- Draw item if present
         if inventoryIndex <= totalItems then
-            local itemId = inventory[inventoryIndex]
+            local itemEntry = inventoryArray[inventoryIndex]
+            local itemId = itemEntry.itemId
+            local quantity = itemEntry.quantity
             local itemData = itemRegistry[itemId]
-            
+
             -- Draw item icon
             local icon = itemData and itemData.icon
             local spriteX = icon and icon.x or 32
             local spriteY = icon and icon.y or 192
-            
+
             love.graphics.setColor(1, 1, 1)
             local quad = love.graphics.newQuad(
                 spriteX, spriteY,
@@ -1270,8 +1291,11 @@ function UISystem.drawInventory(inventory, itemRegistry)
             -- Center the 16x16 sprite in the 20x20 slot
             love.graphics.draw(itemTileset, quad, iconX+2, rowY+2)
 
-            -- Draw item name
+            -- Draw item name with quantity
             local itemName = itemData and itemData.name or itemId
+            if quantity > 1 then
+                itemName = itemName .. " x" .. quantity
+            end
             love.graphics.setColor(0.9, 0.8, 0.95)
             love.graphics.print(itemName, nameX, rowY + 4)
         else
@@ -1756,28 +1780,37 @@ function UISystem.handleQuestTurnInClick(x, y, questTurnInData, inventory, callb
     local padding = 4
     local startY = boxY + 32
 
+    -- Convert inventory table to sorted array for display
+    local inventoryArray = {}
+    for itemId, quantity in pairs(inventory) do
+        table.insert(inventoryArray, {itemId = itemId, quantity = quantity})
+    end
+    table.sort(inventoryArray, function(a, b) return a.itemId < b.itemId end)
+
     -- Pagination
     local itemsPerPage = 5
-    local totalItems = #inventory
+    local totalItems = #inventoryArray
     local totalPages = math.max(1, math.ceil(totalItems / itemsPerPage))
     local startIndex = questTurnInPage * itemsPerPage + 1
     local endIndex = math.min(startIndex + itemsPerPage - 1, totalItems)
 
     -- Check item clicks
     for i = startIndex, endIndex do
-        local itemId = inventory[i]
+        local itemEntry = inventoryArray[i]
+        local itemId = itemEntry.itemId
         local slotX = boxX + 6
         local slotY = startY + (i - startIndex) * (slotSize + padding)
 
         -- Check if click is within this item slot
         if x >= slotX and x <= slotX + slotSize and y >= slotY and y <= slotY + slotSize then
-            if itemId == quest.requiredItem then
-                -- Correct item clicked!
+            local requiredQty = quest.requiredQuantity or 1
+            if itemId == quest.requiredItem and itemEntry.quantity >= requiredQty then
+                -- Correct item clicked with enough quantity!
                 if callbacks.onCorrectItem then
                     callbacks.onCorrectItem(quest, questTurnInData.npc)
                 end
             else
-                -- Wrong item
+                -- Wrong item or not enough quantity
                 if callbacks.onWrongItem then
                     callbacks.onWrongItem()
                 end

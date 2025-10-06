@@ -711,7 +711,8 @@ function love.mousepressed(x, y, button)
 
         UISystem.handleQuestTurnInClick(canvasX, canvasY, questTurnInData, PlayerSystem.getInventory(), {
             onCorrectItem = function(quest, npc)
-                PlayerSystem.removeItem(quest.requiredItem)
+                local requiredQty = quest.requiredQuantity or 1
+                PlayerSystem.removeItem(quest.requiredItem, requiredQty)
                 questData.completeQuest(quest.id)
                 -- Show reward dialog
                 gameState = DialogSystem.showDialog({
@@ -778,7 +779,8 @@ function love.keypressed(key)
                     showToast("Quest Accepted: " .. quest.name, {1, 1, 0})
                 end,
                 onQuestComplete = function(quest)
-                    PlayerSystem.removeItem(quest.requiredItem)
+                    local requiredQty = quest.requiredQuantity or 1
+                    PlayerSystem.removeItem(quest.requiredItem, requiredQty)
                     questData.completeQuest(quest.id)
                     gameState = questData.gameState
                 end,
@@ -1062,10 +1064,13 @@ function drawNPCs(mapName, camX, camY, chatOffset, offsetX, offsetY)
                         -- Yellow indicator for available quest
                         love.graphics.setColor(1, 1, 0)
                         love.graphics.circle("fill", chatOffset + npc.x - camX + offsetX, npc.y - 10 - camY + offsetY, 2)
-                    elseif quest.active and quest.requiredItem and PlayerSystem.hasItem(quest.requiredItem) then
-                        -- Green indicator for quest ready to turn in
-                        love.graphics.setColor(0, 1, 0)
-                        love.graphics.circle("fill", chatOffset + npc.x - camX + offsetX, npc.y - 10 - camY + offsetY, 2)
+                    elseif quest.active and quest.requiredItem then
+                        local requiredQty = quest.requiredQuantity or 1
+                        if PlayerSystem.hasItem(quest.requiredItem, requiredQty) then
+                            -- Green indicator for quest ready to turn in
+                            love.graphics.setColor(0, 1, 0)
+                            love.graphics.circle("fill", chatOffset + npc.x - camX + offsetX, npc.y - 10 - camY + offsetY, 2)
+                        end
                     end
                 end
             end
