@@ -799,8 +799,7 @@ function love.keypressed(key)
     if gameState == "questOffer" then
         if key == "e" then
             -- Accept quest
-            questData.activateQuest(questOfferData.quest.id)
-            table.insert(activeQuests, questOfferData.quest.id)
+            questData.acceptQuest(questOfferData.quest.id)
             showToast("Quest Accepted: " .. questOfferData.quest.name, {1, 1, 0})
             questOfferData = nil
             DialogSystem.clearDialog()
