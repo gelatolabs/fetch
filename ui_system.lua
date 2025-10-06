@@ -66,6 +66,15 @@ local gameStateRefs = {
 local questTurnInPage = 0  -- Current page (0-indexed)
 local questTurnInMaxPage = 0  -- Maximum page index
 
+-- Inventory pagination state
+local inventoryPage = 0  -- Current page (0-indexed)
+local inventoryMaxPage = 0  -- Maximum page index
+
+-- Inventory layout constants
+local INVENTORY_SLOTS_PER_COLUMN = 8
+local INVENTORY_COLUMNS_PER_PAGE = 2
+local INVENTORY_ITEMS_PER_PAGE = INVENTORY_SLOTS_PER_COLUMN * INVENTORY_COLUMNS_PER_PAGE
+
 -- Set game state references
 function UISystem.setGameStateRefs(refs)
     -- Only reset pagination if questTurnInData is NEW (not just being refreshed)
@@ -97,6 +106,27 @@ function UISystem.questTurnInNextPage()
     if questTurnInPage < questTurnInMaxPage then
         questTurnInPage = questTurnInPage + 1
     end
+end
+
+-- Navigate to previous page in inventory
+function UISystem.inventoryPrevPage()
+    if inventoryPage > 0 then
+        inventoryPage = inventoryPage - 1
+    end
+end
+
+-- Navigate to next page in inventory
+function UISystem.inventoryNextPage()
+    if inventoryPage < inventoryMaxPage then
+        inventoryPage = inventoryPage + 1
+    end
+end
+
+-- Reset inventory pagination (call when opening inventory)
+function UISystem.resetInventoryPagination(inventory)
+    inventoryPage = 0
+    local totalItems = #inventory
+    inventoryMaxPage = math.max(0, math.ceil(totalItems / INVENTORY_ITEMS_PER_PAGE) - 1)
 end
 
 -- Initialize UI system
@@ -1172,33 +1202,61 @@ function UISystem.drawInventory(inventory, itemRegistry)
     love.graphics.setColor(0.8, 0.6, 0.9)
     love.graphics.printf("INVENTORY", boxX+2, boxY, boxW-4, "center")
 
-    -- Content area with item slots
-    local slotSize = 20
-    local padding = 4
-    local slotsPerRow = 12
-    local startY = boxY + 16
+    -- Pagination - use constants defined at top of file
+    local slotsPerColumn = INVENTORY_SLOTS_PER_COLUMN
+    local columnsPerPage = INVENTORY_COLUMNS_PER_PAGE
+    local itemsPerPage = INVENTORY_ITEMS_PER_PAGE
+    local totalItems = #inventory
+    local totalPages = math.max(1, math.ceil(totalItems / itemsPerPage))
+    local startIndex = inventoryPage * itemsPerPage + 1
+    local endIndex = math.min(startIndex + itemsPerPage - 1, totalItems)
 
-    -- Draw item slots
-    for i = 0, 23 do
-        local row = math.floor(i / slotsPerRow)
-        local col = i % slotsPerRow
-        local slotX = boxX + 4 + col * (slotSize + padding)
-        local slotY = startY + row * (slotSize + padding)
+    -- Content area - 2 column layout (icon on left, name on right for each item)
+    local iconSize = 20
+    local rowHeight = 18
+    local rowPadding = 2
+    local startY = boxY + 20
+    local columnSpacing = 8
+    local itemWidth = 135  -- Width for one item (icon + name)
+    
+    -- Calculate column positions
+    local col1X = boxX + 6
+    local col2X = col1X + itemWidth + columnSpacing
 
-        -- Slot background
-        love.graphics.setColor(0.1, 0.1, 0.15, 0.8)
-        love.graphics.rectangle("fill", slotX, slotY, slotSize, slotSize)
+    -- Draw all slots (filled or empty) for current page
+    for slotIndex = 0, itemsPerPage - 1 do
+        local inventoryIndex = startIndex + slotIndex
+        local row = slotIndex % slotsPerColumn
+        local col = math.floor(slotIndex / slotsPerColumn)
+        
+        local iconX = (col == 0) and col1X or col2X
+        local rowY = startY + row * (rowHeight + rowPadding)
+        local nameX = iconX + iconSize + 4
 
-        -- Slot border
-        love.graphics.setColor(0.3, 0.25, 0.2)
-        love.graphics.rectangle("line", slotX, slotY, slotSize, slotSize)
+        -- Icon slot background
+        if inventoryIndex <= totalItems then
+            love.graphics.setColor(0.1, 0.1, 0.15, 0.8)
+        else
+            -- Empty slot - dimmer
+            love.graphics.setColor(0.05, 0.05, 0.1, 0.6)
+        end
+        love.graphics.rectangle("fill", iconX, rowY, iconSize, iconSize)
+
+        -- Icon slot border
+        if inventoryIndex <= totalItems then
+            love.graphics.setColor(0.3, 0.25, 0.2)
+        else
+            -- Empty slot - dimmer border
+            love.graphics.setColor(0.2, 0.15, 0.15)
+        end
+        love.graphics.rectangle("line", iconX, rowY, iconSize, iconSize)
 
         -- Draw item if present
-        if inventory[i+1] then
-            local itemId = inventory[i+1]
+        if inventoryIndex <= totalItems then
+            local itemId = inventory[inventoryIndex]
             local itemData = itemRegistry[itemId]
             
-            -- Get icon (with fallback to placeholder at 32, 192)
+            -- Draw item icon
             local icon = itemData and itemData.icon
             local spriteX = icon and icon.x or 32
             local spriteY = icon and icon.y or 192
@@ -1210,32 +1268,76 @@ function UISystem.drawInventory(inventory, itemRegistry)
                 itemTileset:getDimensions()
             )
             -- Center the 16x16 sprite in the 20x20 slot
-            love.graphics.draw(itemTileset, quad, slotX+2, slotY+2)
-        end
-    end
+            love.graphics.draw(itemTileset, quad, iconX+2, rowY+2)
 
-    -- Item list below slots
-    local listY = startY + 60
-    love.graphics.setColor(0.8, 0.6, 0.9)
-    love.graphics.print("Items:", boxX+4, listY)
-    listY = listY + 12
-
-    if #inventory == 0 then
-        love.graphics.setColor(0.4, 0.4, 0.4)
-        love.graphics.print("Empty", boxX+6, listY)
-    else
-        for _, itemId in ipairs(inventory) do
-            local itemData = itemRegistry[itemId]
+            -- Draw item name
             local itemName = itemData and itemData.name or itemId
-            love.graphics.setColor(0.7, 0.5, 0.9)
-            love.graphics.print("- " .. itemName, boxX+6, listY)
-            listY = listY + 12
+            love.graphics.setColor(0.9, 0.8, 0.95)
+            love.graphics.print(itemName, nameX, rowY + 4)
+        else
+            -- Empty slot text
+            love.graphics.setColor(0.3, 0.25, 0.3)
+            love.graphics.print("---", nameX, rowY + 4)
         end
     end
 
-    -- Footer
-    love.graphics.setColor(0.5, 0.5, 0.5)
-    love.graphics.print("[I] Close", boxX+4, boxY+boxH-15)
+    -- Page indicator and navigation
+    if totalPages > 1 then
+        local navY = boxY + boxH - 32
+        local btnH = 14
+        
+        -- Previous button
+        if inventoryPage > 0 then
+            local prevText = "< Prev"
+            local prevW = font:getWidth(prevText) + 6
+            local prevX = boxX + 4
+            
+            -- Button background
+            love.graphics.setColor(0.2, 0.15, 0.2, 0.8)
+            love.graphics.rectangle("fill", prevX, navY, prevW, btnH)
+            
+            -- Button border
+            love.graphics.setColor(0.6, 0.4, 0.7)
+            love.graphics.rectangle("line", prevX, navY, prevW, btnH)
+            
+            -- Button text
+            love.graphics.setColor(1, 1, 1)
+            love.graphics.print(prevText, prevX + 3, navY + 1)
+        end
+        
+        -- Page indicator (centered)
+        love.graphics.setColor(0.7, 0.6, 0.8)
+        local pageText = (inventoryPage + 1) .. "/" .. totalPages
+        local pageTextWidth = font:getWidth(pageText)
+        love.graphics.print(pageText, boxX + boxW/2 - pageTextWidth/2, navY + 2)
+        
+        -- Next button
+        if inventoryPage < totalPages - 1 then
+            local nextText = "Next >"
+            local nextW = font:getWidth(nextText) + 6
+            local nextX = boxX + boxW - nextW - 4
+            
+            -- Button background
+            love.graphics.setColor(0.2, 0.15, 0.2, 0.8)
+            love.graphics.rectangle("fill", nextX, navY, nextW, btnH)
+            
+            -- Button border
+            love.graphics.setColor(0.6, 0.4, 0.7)
+            love.graphics.rectangle("line", nextX, navY, nextW, btnH)
+            
+            -- Button text
+            love.graphics.setColor(1, 1, 1)
+            love.graphics.print(nextText, nextX + 3, navY + 1)
+        end
+        
+        -- Footer hint with navigation
+        love.graphics.setColor(0.5, 0.5, 0.5)
+        love.graphics.print("[I] Close  [</>] Page", boxX + 4, boxY + boxH - 15)
+    else
+        -- Footer hint without navigation
+        love.graphics.setColor(0.5, 0.5, 0.5)
+        love.graphics.print("[I] Close", boxX + 4, boxY + boxH - 15)
+    end
 end
 
 -- Draw win screen

@@ -168,25 +168,21 @@ function CheatConsole.processCode(code, gameState)
         if param == "" then
             UISystem.showToast("Usage: fetch <item> or fetch all", {1, 1, 0.3})
         elseif param == "all" then
-            -- Clear inventory and add all items
-            PlayerSystem.clearInventory()
-            -- Get all item IDs from registry
+            -- Add all items (allows duplicates, doesn't clear inventory)
+            local count = 0
             for itemId, _ in pairs(gameState.itemRegistry) do
                 PlayerSystem.addItem(itemId)
+                count = count + 1
             end
-            UISystem.showToast("Given all items", {1, 0.5, 0})
+            UISystem.showToast("Added " .. count .. " items", {1, 0.5, 0})
         else
             -- Look up item in registry
             local itemData = findItemByNameOrAlias(param, gameState.itemRegistry)
             
             if itemData then
-                -- Check if already have it
-                if not PlayerSystem.hasItem(itemData.id) then
-                    PlayerSystem.addItem(itemData.id)
-                    UISystem.showToast("Received: " .. itemData.name, {1, 0.5, 0})
-                else
-                    UISystem.showToast("You already have that item!", {1, 0.5, 0})
-                end
+                -- Always add the item (allow duplicates via cheat console)
+                PlayerSystem.addItem(itemData.id)
+                UISystem.showToast("Received: " .. itemData.name, {1, 0.5, 0})
             else
                 UISystem.showToast("Unknown item: " .. param, {1, 0.3, 0.3})
             end

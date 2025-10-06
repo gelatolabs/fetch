@@ -68,7 +68,7 @@ local itemRegistry = {
     item_labubu = {id = "item_labubu", name = "Labubu", aliases = {"labubu"}, icon = Icons.labubu, shopInfo = {price = 10000, description = "An extremely rare and adorable Labubu collectible. Highly sought after by collectors!"}},
     item_wizard_hat = {id = "item_wizard_hat", name = "Wizard's Hat", aliases = {"hat"}, icon = Icons.hat},
     item_goose_feathers = {id = "item_goose_feathers", name = "Goose Feathers", aliases = {"feathers", "goose feathers"}, icon = Icons.feathers},
-    item_toilet_paper_piece = {id = "item_toilet_paper_piece", name = "Toilet Paper", aliases = {"toilet_paper_piece"}, icon = Icons.toilet_paper_piece},
+    item_toilet_paper_piece = {id = "item_toilet_paper_piece", name = "Toilet Paper", aliases = {"toilet_paper_piece", "tp"}, icon = Icons.toilet_paper_piece},
     item_glitched_item = {id = "item_glitched_item", name = "Glitched Item", aliases = {"glitched_item"}, icon = Icons.glitched_item}
 }
 
@@ -807,16 +807,21 @@ function love.keypressed(key)
     elseif key == "i" then
         if gameState == "playing" and not UISystem.isChatPaneVisible() then
             gameState = "inventory"
+            UISystem.resetInventoryPagination(PlayerSystem.getInventory())
         elseif gameState == "inventory" then
             gameState = "playing"
         end
     elseif key == "left" or key == "," or key == "<" then
         if gameState == "questTurnIn" then
             UISystem.questTurnInPrevPage()
+        elseif gameState == "inventory" then
+            UISystem.inventoryPrevPage()
         end
     elseif key == "right" or key == "." or key == ">" then
         if gameState == "questTurnIn" then
             UISystem.questTurnInNextPage()
+        elseif gameState == "inventory" then
+            UISystem.inventoryNextPage()
         end
     elseif key == "escape" then
         if gameState == "winScreen" then
