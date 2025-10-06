@@ -69,7 +69,7 @@ return {
     },
     {
       id = 9,
-      type = "npc_child"
+      type = "npc_short"
     },
     {
       id = 20,
@@ -77,7 +77,7 @@ return {
     },
     {
       id = 21,
-      type = "pink_duck"
+      type = "npc_child"
     },
     {
       id = 22,
@@ -451,6 +451,18 @@ return {
     {
       id = 201,
       type = "decor::books"
+    },
+    {
+      id = 203,
+      type = "gold1"
+    },
+    {
+      id = 204,
+      type = "gold2"
+    },
+    {
+      id = 205,
+      type = "gold3"
     },
     {
       id = 240,

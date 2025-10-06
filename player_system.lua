@@ -91,38 +91,15 @@ function PlayerSystem.init(UISystem)
     
     -- Register player abilities
     abilityManager:registerAbility({
-        id = "swim",
-        name = "Swim",
-        aliases = {"swim", "swimming"},
-        type = AbilitySystem.AbilityType.PASSIVE,
-        effects = {AbilitySystem.EffectType.WATER_TRAVERSAL},
-        description = "Allows you to swim across water tiles freely",
-        color = {0.3, 0.8, 1.0},
-        onAcquire = function(ability)
-            UISystem.showToast("You can now swim across water!", {0.3, 0.8, 1.0})
-        end
-    })
-
-    abilityManager:registerAbility({
         id = "boat",
         name = "Boat",
         aliases = {"boat", "raft"},
-        type = AbilitySystem.AbilityType.CONSUMABLE,
+        type = AbilitySystem.AbilityType.PASSIVE,
         effects = {AbilitySystem.EffectType.WATER_TRAVERSAL},
-        description = "A makeshift boat that breaks after crossing water 3 times",
-        maxUses = 3,
-        consumeOnUse = true,
+        description = "A boat that allows you to cross water",
         color = {0.7, 0.7, 1.0},
         onAcquire = function(ability)
-            UISystem.showToast("Boat has " .. ability.maxUses .. " crossings", {0.7, 0.7, 1.0})
-        end,
-        onUse = function(ability)
-            if ability.currentUses > 0 then
-                UISystem.showToast("Boat crossings remaining: " .. ability.currentUses, {0.7, 0.7, 1.0})
-            end
-        end,
-        onExpire = function()
-            UISystem.showToast("Your boat broke apart!", {1, 0.5, 0.2})
+            UISystem.showToast("You can now cross water with your boat!", {0.7, 0.7, 1.0})
         end
     })
 
@@ -264,15 +241,11 @@ function PlayerSystem.getSpriteSet()
     if player.jumping then
         return playerQuads.regular
     end
-    
+
     local isOnWater = MapSystem.isWaterTile(player.x, player.y)
 
     if isOnWater then
-        if abilityManager:hasAbility("swim") then
-            return playerQuads.swimming
-        else
-            return playerQuads.boat
-        end
+        return playerQuads.boat
     end
     return playerQuads.regular
 end
@@ -426,28 +399,6 @@ function PlayerSystem.update(dt, heldKeys)
             player.jumpHeight = 0
             player.moveTimer = 0
             player.walkFrame = 0
-
-            -- Check if player transitioned from water to land (boat use)
-            -- Only check this if not jumping (jumping over water shouldn't consume boat)
-            local isOnWater = MapSystem.isWaterTile(endX, endY)
-            if not player.jumping then
-                if player.wasOnWater and not isOnWater then
-                    -- Transitioning from water to land - consume boat use
-                    local boatAbility = abilityManager:getAbility("boat")
-                    if boatAbility and not abilityManager:hasAbility("swim") then
-                        -- Use boat ability (consumes a use)
-                        boatAbility:use()
-
-                        -- Remove ability if expired
-                        if boatAbility.currentUses <= 0 then
-                            abilityManager:removeAbility("boat")
-                        end
-                    end
-                end
-
-                -- Update water state for next frame (only when not jumping)
-                player.wasOnWater = isOnWater
-            end
 
             -- Check if there's a queued movement to execute
             if player.queuedDirection then

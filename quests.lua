@@ -102,7 +102,7 @@ quests.npcs = {
         itemGiveText = "This package is ready for pickup. Take it!",
         noQuestText = "I've got deliveries to make. Very busy!"
     },
-    -- Quest Chain 4: Build a Boat (to reach the swimmer)
+    -- Quest Chain 4: Build a Boat
     npc_boat_builder = {
         id = "npc_boat_builder",
         name = "Boat Builder",
@@ -118,11 +118,11 @@ quests.npcs = {
         itemGiveText = "Here's some quality wood for your boat. Take it to the builder!",
         noQuestText = "Just chopping wood. Hard work!"
     },
-    -- Quest Chain 5: Learn to Swim (requires boat or jump to reach)
+    -- Quest Chain 5: Help the Swimmer
     npc_swimmer = {
         id = "npc_swimmer",
         name = "Swimmer",
-        questId = "quest_learn_swim",
+        questId = "quest_help_swimmer",
         isQuestGiver = true,
         questOfferDialog = "Oh no! I dropped my floaties in the water and now I can't swim! I'm stuck here on this island. Could you find me some floaties? Maybe a lifeguard would have some!"
     },
@@ -130,15 +130,15 @@ quests.npcs = {
         id = "npc_lifeguard",
         name = "Lifeguard",
         givesItem = "item_floaties",
-        requiresQuest = "quest_learn_swim",
+        requiresQuest = "quest_help_swimmer",
         itemGiveText = "Here are some floaties! They'll help you learn to swim. Take them back to the swimmer!",
         noQuestText = "The water is perfect today! Want to learn to swim?"
     },
-    -- Quest Chain 6: Learn to Jump
+    -- Quest Chain 6: Learn to Run
     npc_athlete = {
         id = "npc_athlete",
         name = "Athlete",
-        questId = "quest_learn_jump",
+        questId = "quest_learn_run",
         isQuestGiver = true,
         questOfferDialog = "Hey! I'm training for the big jump competition, but I lost my lucky shoes! Without them, I can't jump at all. Can you help me find them?"
     },
@@ -146,8 +146,8 @@ quests.npcs = {
         id = "npc_coach",
         name = "Coach",
         givesItem = "item_shoes",
-        requiresQuest = "quest_learn_jump",
-        itemGiveText = "These are special jumping shoes! Take them to the athlete and they'll teach you!",
+        requiresQuest = "quest_learn_run",
+        itemGiveText = "These are special running shoes! Take them to the athlete and they'll teach you!",
         noQuestText = "I train athletes to be the best they can be!"
     },
     
@@ -252,8 +252,8 @@ quests.npcs = {
         dialogText = "Move along, citizen. Nothing to see here.",
         isDialogOnly = true
     },
-    npc_short_duck = {
-        id = "npc_short_duck",
+    npc_short = {
+        id = "npc_short",
         name = "Short Duck",
         dialogText = "Wow, look at all that gold! Too bad there's no way I could ever reach it...",
         isDialogOnly = true
@@ -342,18 +342,18 @@ quests.questData = {
     quest_glitch = {
         id = "quest_glitch",
         name = "Find the k[ ) r#,qs3:6m 817(_:forz",
-        description = "Find the thing. You know how to swim, right?",
+        description = "Find the thing. You can cross water now, right?",
         questGiver = "npc_glitch",
         requiredItem = "item_glitched_item",
         reward = "I am impressed, adventurer. Voila - here is the ability, as promised...",
         goldReward = 500,
         grantsAbility = "jump",
-        reminderText = "You know how to swim, right?",
+        reminderText = "You can cross water now, right?",
         active = false,
         completed = false,
         updateQuestGiverVariant = "::glitch1",
     },
-    -- Toy quests while we were working on the game.
+    --  Side quests
     quest_lost_cat = {
         id = "quest_lost_cat",
         name = "Lost Cat",
@@ -384,7 +384,6 @@ quests.questData = {
         name = "Package Delivery",
         description = "The merchant has a package that needs picking up from the courier!",
         questGiver = "npc_merchant",
-        locked = true,  -- Locked until unlocked by another quest
         requiredItem = "item_package",
         reward = "Great! Here's your payment!",
         updateQuestGiverVariant = "::with_gift",  -- Changes to npc_merchant::with_gift
@@ -396,23 +395,23 @@ quests.questData = {
     quest_build_boat = {
         id = "quest_build_boat",
         name = "Build a Boat",
-        description = "The boat builder can make you a boat to cross the water! He needs wood from the woodcutter.",
+        description = "The boat builder can make you a boat to cross the water! He needs 4 pieces of wood.",
         questGiver = "npc_boat_builder",
         requiredItem = "item_wood",
+        requiredQuantity = 4,
         grantsAbility = "boat",
-        reward = "There you go! A fine boat. You can now cross water to reach that island!",
+        reward = "There you go! A fine boat. You can now cross water to reach islands and mysterious purple items and stuff!",
         goldReward = 0,
-        reminderText = "I need some good wood to build your boat. Try the woodcutter!",
+        reminderText = "I need 4 pieces of wood to build your boat. Find some lying around!",
         active = false,
         completed = false
     },
-    quest_learn_swim = {
-        id = "quest_learn_swim",
-        name = "Learn to Swim",
+    quest_help_swimmer = {
+        id = "quest_help_swimmer",
+        name = "Help the Swimmer",
         description = "I lost my floaty and can't swim without it!",
         questGiver = "npc_swimmer",
         requiredItem = "item_floaties",
-        grantsAbility = "swim",
         reward = "I feel a lot better now, thanks! You can have my allowance.",
         goldReward = 1000,
         reminderText = "I bet a lifeguard might have some floaties!",
@@ -420,14 +419,14 @@ quests.questData = {
         completed = false,
         updateQuestGiverVariant = "::with_floaty"
     },
-    quest_learn_jump = {
-        id = "quest_learn_jump",
-        name = "Learn to Jump",
+    quest_learn_run = {
+        id = "quest_learn_run",
+        name = "Learn to Run",
         description = "Ugh, I lost my shoes! Can you find them for me?",
         questGiver = "npc_athlete",
         requiredItem = "item_shoes",
-        grantsAbility = "jump",
-        reward = "Nice! Now I can jump around like a pro!\nYou're no pro, but if you watch carefully you can probably jump over rocks and bushes.",
+        grantsAbility = "speed",
+        reward = "Nice! Now I can run around like a pro!\nYou're no pro, but if you watch carefully you can probably run a bit faster too.",
         goldReward = 0,
         reminderText = "I really need those shoes!",
         active = false,

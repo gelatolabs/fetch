@@ -18,9 +18,9 @@
  <tile id="6" type="guard"/>
  <tile id="7" type="npc_jailer"/>
  <tile id="8" type="npc_intro"/>
- <tile id="9" type="npc_child"/>
+ <tile id="9" type="npc_short"/>
  <tile id="20" type="blue_duck"/>
- <tile id="21" type="pink_duck"/>
+ <tile id="21" type="npc_child"/>
  <tile id="22" type="npc_wizard::no_cap"/>
  <tile id="23" type="npc_wizard::with_hat"/>
  <tile id="24" type="money_bags_duck"/>
@@ -195,6 +195,9 @@
   </properties>
  </tile>
  <tile id="201" type="decor::books"/>
+ <tile id="203" type="gold1"/>
+ <tile id="204" type="gold2"/>
+ <tile id="205" type="gold3"/>
  <tile id="240" type="item::cat"/>
  <tile id="241" type="item::book"/>
  <tile id="242" type="item::no_icon"/>
