@@ -520,7 +520,7 @@ function love.update(dt)
             -- Check for pickup collisions
             for i = #pickups, 1, -1 do
                 local pickup = pickups[i]
-                if pickup.map == currentMap then
+                if pickup.map == MapSystem.getCurrentMap() then
                     local dist = math.sqrt((player.x - pickup.x)^2 + (player.y - pickup.y)^2)
                     if dist < 12 then  -- Pickup radius
                         -- Add item to inventory
@@ -1137,7 +1137,7 @@ function love.draw()
                 drawPickups(params.mapName, params.camX, params.camY, chatOffset, params.offsetX, params.offsetY)
             end
         else
-            drawPickups(currentMap, camX, camY, chatOffset)
+            drawPickups(MapSystem.getCurrentMap(), camX, camY, chatOffset)
         end
 
         -- Draw player
@@ -1226,7 +1226,7 @@ function love.draw()
         MapSystem.draw()
 
         -- Draw pickups
-        drawPickups(currentMap, camX, camY, chatOffset)
+        drawPickups(MapSystem.getCurrentMap(), camX, camY, chatOffset)
 
         -- Draw player
         PlayerSystem.draw(camX, camY, chatOffset)
@@ -1265,7 +1265,7 @@ function love.draw()
         MapSystem.draw()
 
         -- Draw pickups
-        drawPickups(currentMap, camX, camY, chatOffset)
+        drawPickups(MapSystem.getCurrentMap(), camX, camY, chatOffset)
 
         -- Draw player
         PlayerSystem.draw(camX, camY, chatOffset)
@@ -1296,7 +1296,7 @@ function love.draw()
         MapSystem.draw()
 
         -- Draw pickups
-        drawPickups(currentMap, camX, camY, chatOffset)
+        drawPickups(MapSystem.getCurrentMap(), camX, camY, chatOffset)
 
         -- Draw player
         PlayerSystem.draw(camX, camY, chatOffset)
