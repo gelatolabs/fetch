@@ -1414,7 +1414,7 @@ function love.draw()
         love.graphics.setScissor()
 
     elseif gameState == "winScreen" then
-        UISystem.drawWinScreen(PlayerSystem.getGold(), completedQuests)
+        UISystem.drawWinScreen(PlayerSystem.getGold(), completedQuests, winScreenTimer)
     end
 
     -- Draw cheat console (overlay on top of everything, in game area)

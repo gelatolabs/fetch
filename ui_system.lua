@@ -1543,28 +1543,74 @@ function UISystem.drawInventory(inventory, itemRegistry)
 end
 
 -- Draw win screen
-function UISystem.drawWinScreen(playerGold, completedQuests)
+function UISystem.drawWinScreen(playerGold, completedQuests, winScreenTimer)
     -- Background
     love.graphics.setColor(0, 0, 0, 0.95)
     love.graphics.rectangle("fill", CHAT_PANE_WIDTH, 0, GAME_WIDTH, GAME_HEIGHT)
 
-    -- Title
-    love.graphics.setFont(titleFont)
-    love.graphics.setColor(1, 0.84, 0)
-    love.graphics.printf("LEVEL UP", CHAT_PANE_WIDTH, 45, GAME_WIDTH, "center")
+    -- Scrolling credits
+    local scrollSpeed = 20 -- pixels per second
+    local scrollY = GAME_HEIGHT - (winScreenTimer * scrollSpeed)
+    local lineHeight = 15
+    local currentY = scrollY
+
+    -- Credits content
+    local credits = {
+        {text = "LEVEL UP", font = titleFont, color = {1, 0.84, 0}, spacing = 20},
+        {text = "You are now Level 2", font = font, color = {1, 1, 1}, spacing = 10},
+        {text = "You have escaped Tutorial Island", font = font, color = {1, 1, 1}, spacing = 5},
+        {text = "The end", font = font, color = {1, 1, 1}, spacing = 30},
+
+        {text = "STATISTICS", font = titleFont, color = {0.8, 0.8, 1}, spacing = 20},
+        {text = "Final Gold: " .. playerGold, font = font, color = {0.8, 0.8, 0.8}, spacing = 5},
+        {text = "Quests Completed: " .. #completedQuests, font = font, color = {0.8, 0.8, 0.8}, spacing = 5},
+        {text = "Labubus Collected: 1", font = font, color = {0.8, 0.8, 0.8}, spacing = 30},
+
+        {text = "CREDITS", font = titleFont, color = {1, 0.84, 0}, spacing = 30},
+        {text = "Programming", font = font, color = {1, 1, 0.5}, spacing = 10},
+        {text = "Keefer <keefer.is>", font = font, color = {1, 1, 1}, spacing = 30},
+        {text = "kfarwell <kfarwell.org>", font = font, color = {1, 1, 1}, spacing = 30},
+        {text = "MTRooster", font = font, color = {1, 1, 1}, spacing = 30},
+        {text = "J.A.R.F.", font = font, color = {1, 1, 1}, spacing = 30},
+
+        {text = "Graphics", font = font, color = {1, 1, 0.5}, spacing = 10},
+        {text = "GelatoSquid", font = font, color = {1, 1, 1}, spacing = 30},
+        {text = "Keefer", font = font, color = {1, 1, 1}, spacing = 30},
+        {text = "MTRooster", font = font, color = {1, 1, 1}, spacing = 30},
+        {text = "Ryan Refcio", font = font, color = {1, 1, 1}, spacing = 30},
+
+        {text = "Writing", font = font, color = {1, 1, 0.5}, spacing = 10},
+        {text = "existony (x.com/existony)", font = font, color = {1, 1, 1}, spacing = 30},
+        {text = "GelatoSquid", font = font, color = {1, 1, 1}, spacing = 30},
+        {text = "Keefer", font = font, color = {1, 1, 1}, spacing = 30},
+        {text = "kfarwell", font = font, color = {1, 1, 1}, spacing = 30},
+        {text = "MTRooster", font = font, color = {1, 1, 1}, spacing = 30},
+        {text = "Ryan Refcio", font = font, color = {1, 1, 1}, spacing = 30},
+
+        {text = "Music", font = font, color = {1, 1, 0.5}, spacing = 10},
+        {text = "existony", font = font, color = {1, 1, 1}, spacing = 30},
+        {text = "J.A.R.F.", font = font, color = {1, 1, 1}, spacing = 30},
+
+        {text = "Thanks for playing!", font = titleFont, color = {1, 0.84, 0}, spacing = 30},
+        {text = "Press ESC to exit", font = font, color = {0.7, 0.7, 0.7}, spacing = 0},
+    }
+
+    -- Set scissor to clip credits to game area
+    love.graphics.setScissor(CHAT_PANE_WIDTH, 0, GAME_WIDTH, GAME_HEIGHT)
+
+    -- Draw each credit line
+    for _, credit in ipairs(credits) do
+        if currentY > -30 and currentY < GAME_HEIGHT + 30 then
+            love.graphics.setFont(credit.font)
+            love.graphics.setColor(credit.color)
+            love.graphics.printf(credit.text, CHAT_PANE_WIDTH, currentY, GAME_WIDTH, "center")
+        end
+        currentY = currentY + lineHeight + credit.spacing
+    end
+
+    -- Reset scissor and font
+    love.graphics.setScissor()
     love.graphics.setFont(font)
-
-    -- Message
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.printf("You are now Level 2", CHAT_PANE_WIDTH, 95, GAME_WIDTH, "center")
-    love.graphics.printf("You have escaped Tutorial Island", CHAT_PANE_WIDTH, 110, GAME_WIDTH, "center")
-    love.graphics.printf("The end", CHAT_PANE_WIDTH, 125, GAME_WIDTH, "center")
-
-    -- Stats
-    love.graphics.setColor(0.8, 0.8, 0.8)
-    love.graphics.printf("Final Gold: " .. playerGold, CHAT_PANE_WIDTH, 155, GAME_WIDTH, "center")
-    love.graphics.printf("Quests Completed: " .. #completedQuests, CHAT_PANE_WIDTH, 170, GAME_WIDTH, "center")
-    love.graphics.printf("Labubus Collected: 1", CHAT_PANE_WIDTH, 185, GAME_WIDTH, "center")
 end
 
 -- Draw UI hints bar at top of screen
