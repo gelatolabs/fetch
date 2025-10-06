@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <tileset version="1.10" tiledversion="1.11.2" name="fetch-tileset" tilewidth="16" tileheight="16" tilecount="400" columns="20">
- <editorsettings>
-  <export target="fetch-tileset.lua" format="lua"/>
- </editorsettings>
  <image source="../tiles/fetch-tileset.png" width="320" height="320"/>
  <tile id="0">
   <properties>
@@ -10,6 +7,15 @@
    <property name="is_water" type="bool" value="true"/>
   </properties>
  </tile>
+ <tile id="1" type="generic_duck"/>
+ <tile id="2" type="librarian_duck::no_book"/>
+ <tile id="3" type="librarian_duck::book"/>
+ <tile id="4" type="athlete_duck"/>
+ <tile id="5" type="trainer_duck"/>
+ <tile id="6" type="guard_duck"/>
+ <tile id="7" type="jailer_duck"/>
+ <tile id="8" type="elder_duck"/>
+ <tile id="9" type="short_duck"/>
  <tile id="20" type="blue_duck"/>
  <tile id="21" type="pink_duck"/>
  <tile id="22" type="wizard_duck::no_cap"/>
