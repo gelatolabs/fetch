@@ -665,6 +665,13 @@ function quests.completeQuest(questId)
         end
     end
 
+    -- Award item
+    if quest.itemReward then
+        PlayerSystem.addItem(quest.itemReward)
+        -- Get item name from itemRegistry (need to access it from main.lua context)
+        UISystem.showToast("Received: " .. quest.itemReward, {0.7, 0.5, 0.9})
+    end
+
     -- Award gold
     if quest.goldReward and quest.goldReward > 0 then
         PlayerSystem.addGold(quest.goldReward)
