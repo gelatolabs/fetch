@@ -235,7 +235,7 @@ quests.npcs = {
     },
     npc_glitch = {
         id = "npc_glitch",
-        name = "Mysterious Guy",
+        name = "\"#%$Hu34\"dfhsjidf9",
         isQuestGiver = true,
         requiresAbility = "knowledge",
         quests = {
