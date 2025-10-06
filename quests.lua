@@ -272,9 +272,9 @@ quests.npcs = {
     },
     npc_jailer = {
         id = "npc_jailer",
-        map = "map",
-        x = 40 * 16 + 8,
-        y = 11 * 16 + 8,
+        map = "jail",
+        x = 5 * 16 + 8,
+        y = 5 * 16 + 8,
         size = 16,
         name = "Jailer",
         spriteX = 112,
