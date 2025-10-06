@@ -622,6 +622,7 @@ function love.mousepressed(x, y, button)
                 -- Show intro dialog if not shown yet
                 if not introShown then
                     introShown = true
+                    questData.introShown = true
                     -- Find the intro NPC
                     for _, npc in pairs(questData.npcs) do
                         if npc.isIntroNPC then
