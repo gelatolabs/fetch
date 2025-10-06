@@ -846,11 +846,72 @@ function enterDoor(door)
     mapTransition.playerEndScreenY = endScreenY
 end
 
+
+function indexOf(tbl, value)
+    for i, v in ipairs(tbl) do
+        if v == value then
+            return i
+        end
+    end
+    return nil
+end
+
+-- Wrapper function for backward compatibility
+function showToast(message, color)
+    UISystem.showToast(message, color)
+end
+
+-- Helper function to calculate transition offsets
+local function getTransitionOffsets()
+    if not mapTransition.active then
+        return nil
+    end
+
+    local progress = mapTransition.progress
+    local eased = 1 - (1 - progress)^3 -- ease-out cubic
+    local gameHeight = UISystem.getGameHeight()
+    local gameWidth = UISystem.getGameWidth()
+    local camX, camY = Camera.getPosition()
+
+    if mapTransition.direction == "up" then
+        local slideOffset = eased * gameHeight
+        local newMapCamY = MapSystem.getMapHeight(mapTransition.toMapObj) - gameHeight
+        return {
+            {map = mapTransition.toMapObj, mapName = mapTransition.toMap, camX = camX, camY = newMapCamY, offsetX = 0, offsetY = -gameHeight + slideOffset},
+            {map = mapTransition.fromMapObj, mapName = mapTransition.fromMap, camX = camX, camY = camY, offsetX = 0, offsetY = slideOffset}
+        }
+    elseif mapTransition.direction == "down" then
+        local slideOffset = -eased * gameHeight
+        local newMapCamY = MapSystem.getMapMinY(mapTransition.toMapObj)
+        local oldMapCamY = MapSystem.getMapHeight(mapTransition.fromMapObj) - gameHeight
+        return {
+            {map = mapTransition.toMapObj, mapName = mapTransition.toMap, camX = camX, camY = newMapCamY, offsetX = 0, offsetY = gameHeight + slideOffset},
+            {map = mapTransition.fromMapObj, mapName = mapTransition.fromMap, camX = camX, camY = oldMapCamY, offsetX = 0, offsetY = slideOffset}
+        }
+    elseif mapTransition.direction == "right" then
+        local slideOffset = -eased * gameWidth
+        local newMapCamX = MapSystem.getMapMinX(mapTransition.toMapObj)
+        local oldMapCamX = MapSystem.getMapWidth(mapTransition.fromMapObj) - gameWidth
+        return {
+            {map = mapTransition.toMapObj, mapName = mapTransition.toMap, camX = newMapCamX, camY = camY, offsetX = gameWidth + slideOffset, offsetY = 0},
+            {map = mapTransition.fromMapObj, mapName = mapTransition.fromMap, camX = oldMapCamX, camY = camY, offsetX = slideOffset, offsetY = 0}
+        }
+    elseif mapTransition.direction == "left" then
+        local slideOffset = eased * gameWidth
+        local newMapCamX = MapSystem.getMapWidth(mapTransition.toMapObj) - gameWidth
+        local oldMapCamX = MapSystem.getMapMinX(mapTransition.fromMapObj)
+        return {
+            {map = mapTransition.toMapObj, mapName = mapTransition.toMap, camX = newMapCamX, camY = camY, offsetX = -gameWidth + slideOffset, offsetY = 0},
+            {map = mapTransition.fromMapObj, mapName = mapTransition.fromMap, camX = oldMapCamX, camY = camY, offsetX = slideOffset, offsetY = 0}
+        }
+    end
+end
+
 -- Helper function to draw NPCs for a given map
 function drawNPCs(mapName, camX, camY, chatOffset, offsetX, offsetY)
     offsetX = offsetX or 0
     offsetY = offsetY or 0
-    
+
     for _, npc in pairs(questData.npcs) do
         if npc.map == mapName then
             love.graphics.setColor(1, 1, 1)
@@ -941,56 +1002,15 @@ function love.draw()
         love.graphics.setScissor(UISystem.getChatPaneWidth(), 0, UISystem.getGameWidth(), UISystem.getGameHeight())
 
         -- Handle map transitions
-        if mapTransition.active then
-            local progress = mapTransition.progress
-            local eased = 1 - (1 - progress)^3 -- ease-out cubic
-            local gameHeight = UISystem.getGameHeight()
-            local gameWidth = UISystem.getGameWidth()
-
-            if mapTransition.direction == "up" then
-                -- Moving up: new map slides in from top
-                -- Show bottom of new map touching top of old map, then slide down
-                local slideOffset = eased * gameHeight
-
-                -- For the new map, we need to show its BOTTOM edge at the top
-                -- This means adjusting camY to point to the bottom of the new map
-                local newMapCamY = MapSystem.getMapHeight(mapTransition.toMapObj) - gameHeight
-
-                -- Draw new map above (showing its bottom edge)
-                MapSystem.drawMapObject(mapTransition.toMapObj, camX, newMapCamY, 0, -gameHeight + slideOffset)
-                drawNPCs(mapTransition.toMap, camX, newMapCamY, chatOffset, 0, -gameHeight + slideOffset)
-                -- Draw old map below
-                MapSystem.drawMapObject(mapTransition.fromMapObj, camX, camY, 0, slideOffset)
-                drawNPCs(mapTransition.fromMap, camX, camY, chatOffset, 0, slideOffset)
-            elseif mapTransition.direction == "down" then
-                local slideOffset = -eased * gameHeight
-                local newMapCamY = MapSystem.getMapMinY(mapTransition.toMapObj)
-                local oldMapCamY = MapSystem.getMapHeight(mapTransition.fromMapObj) - gameHeight
-                MapSystem.drawMapObject(mapTransition.toMapObj, camX, newMapCamY, 0, gameHeight + slideOffset)
-                drawNPCs(mapTransition.toMap, camX, newMapCamY, chatOffset, 0, gameHeight + slideOffset)
-                MapSystem.drawMapObject(mapTransition.fromMapObj, camX, oldMapCamY, 0, slideOffset)
-                drawNPCs(mapTransition.fromMap, camX, oldMapCamY, chatOffset, 0, slideOffset)
-            elseif mapTransition.direction == "right" then
-                local slideOffset = -eased * gameWidth
-                local newMapCamX = MapSystem.getMapMinX(mapTransition.toMapObj)
-                local oldMapCamX = MapSystem.getMapWidth(mapTransition.fromMapObj) - gameWidth
-                MapSystem.drawMapObject(mapTransition.toMapObj, newMapCamX, camY, gameWidth + slideOffset, 0)
-                drawNPCs(mapTransition.toMap, newMapCamX, camY, chatOffset, gameWidth + slideOffset, 0)
-                MapSystem.drawMapObject(mapTransition.fromMapObj, oldMapCamX, camY, slideOffset, 0)
-                drawNPCs(mapTransition.fromMap, oldMapCamX, camY, chatOffset, slideOffset, 0)
-            elseif mapTransition.direction == "left" then
-                local slideOffset = eased * gameWidth
-                local newMapCamX = MapSystem.getMapWidth(mapTransition.toMapObj) - gameWidth
-                local oldMapCamX = MapSystem.getMapMinX(mapTransition.fromMapObj)
-                MapSystem.drawMapObject(mapTransition.toMapObj, newMapCamX, camY, -gameWidth + slideOffset, 0)
-                drawNPCs(mapTransition.toMap, newMapCamX, camY, chatOffset, -gameWidth + slideOffset, 0)
-                MapSystem.drawMapObject(mapTransition.fromMapObj, oldMapCamX, camY, slideOffset, 0)
-                drawNPCs(mapTransition.fromMap, oldMapCamX, camY, chatOffset, slideOffset, 0)
+        local transitionOffsets = getTransitionOffsets()
+        if transitionOffsets then
+            -- Draw both maps during transition
+            for _, params in ipairs(transitionOffsets) do
+                MapSystem.drawMapObject(params.map, params.camX, params.camY, params.offsetX, params.offsetY)
             end
         else
             -- Normal rendering (no transition)
             MapSystem.draw()
-            drawNPCs(MapSystem.getCurrentMap(), camX, camY, chatOffset, 0, 0)
         end
 
         -- Draw player
@@ -1018,6 +1038,16 @@ function love.draw()
             )
         else
             PlayerSystem.draw(camX, camY, chatOffset)
+        end
+
+        -- Draw NPCs after player (so quest markers aren't covered)
+        if transitionOffsets then
+            -- Draw NPCs for both maps during transition
+            for _, params in ipairs(transitionOffsets) do
+                drawNPCs(params.mapName, params.camX, params.camY, chatOffset, params.offsetX, params.offsetY)
+            end
+        else
+            drawNPCs(MapSystem.getCurrentMap(), camX, camY, chatOffset, 0, 0)
         end
 
         -- Draw interaction prompt (offset by chat pane)
@@ -1065,12 +1095,14 @@ function love.draw()
         -- Clip rendering to game area only
         love.graphics.setScissor(UISystem.getChatPaneWidth(), 0, UISystem.getGameWidth(), UISystem.getGameHeight())
 
-        -- Draw the map and NPCs
+        -- Draw the map
         MapSystem.draw()
-        drawNPCs(MapSystem.getCurrentMap(), camX, camY, chatOffset, 0, 0)
 
         -- Draw player
         PlayerSystem.draw(camX, camY, chatOffset)
+
+        -- Draw NPCs after player
+        drawNPCs(MapSystem.getCurrentMap(), camX, camY, chatOffset, 0, 0)
 
         -- Draw pause menu overlay
         UISystem.drawPauseMenu()
@@ -1099,12 +1131,14 @@ function love.draw()
         -- Clip rendering to game area only
         love.graphics.setScissor(UISystem.getChatPaneWidth(), 0, UISystem.getGameWidth(), UISystem.getGameHeight())
 
-        -- Draw the map and NPCs
+        -- Draw the map
         MapSystem.draw()
-        drawNPCs(MapSystem.getCurrentMap(), camX, camY, chatOffset, 0, 0)
 
         -- Draw player
         PlayerSystem.draw(camX, camY, chatOffset)
+
+        -- Draw NPCs after player
+        drawNPCs(MapSystem.getCurrentMap(), camX, camY, chatOffset, 0, 0)
 
         -- Update game state references for UISystem
         UISystem.setGameStateRefs({
@@ -1125,12 +1159,14 @@ function love.draw()
         -- Clip rendering to game area only
         love.graphics.setScissor(UISystem.getChatPaneWidth(), 0, UISystem.getGameWidth(), UISystem.getGameHeight())
 
-        -- Draw the map and NPCs
+        -- Draw the map
         MapSystem.draw()
-        drawNPCs(MapSystem.getCurrentMap(), camX, camY, chatOffset, 0, 0)
 
         -- Draw player
         PlayerSystem.draw(camX, camY, chatOffset)
+
+        -- Draw NPCs after player
+        drawNPCs(MapSystem.getCurrentMap(), camX, camY, chatOffset, 0, 0)
 
         -- Draw quest offer UI
         UISystem.drawQuestOffer(questOfferData)
