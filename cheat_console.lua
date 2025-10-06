@@ -147,11 +147,35 @@ function CheatConsole.processCode(code, gameState)
         end
         
     elseif command == "accept" then
+        local questModule = require("quests")
+        
         if param == "" then
-            UISystem.showToast("Usage: accept <quest_id>\nExample: accept quest_chef", {1, 1, 0.3})
+            UISystem.showToast("Usage: accept <quest_id> or accept all\nExample: accept quest_chef", {1, 1, 0.3})
+        elseif param == "all" then
+            -- Accept all available quests
+            local acceptedCount = 0
+            local skippedCount = 0
+            
+            -- Iterate through all quests in questData
+            for questId, quest in pairs(gameState.quests) do
+                if not quest.active and not quest.completed then
+                    local success, message = questModule.acceptQuest(questId)
+                    if success then
+                        acceptedCount = acceptedCount + 1
+                    else
+                        skippedCount = skippedCount + 1
+                    end
+                end
+            end
+            
+            if acceptedCount > 0 then
+                UISystem.showToast("Accepted " .. acceptedCount .. " quest(s)" .. 
+                    (skippedCount > 0 and " (" .. skippedCount .. " skipped)" or ""), {1, 1, 0})
+            else
+                UISystem.showToast("No quests available to accept", {1, 0.5, 0})
+            end
         else
             -- Use the encapsulated acceptQuest method
-            local questModule = require("quests")
             local success, message = questModule.acceptQuest(param)
             
             if success then
@@ -161,22 +185,44 @@ function CheatConsole.processCode(code, gameState)
             end
         end
         
-    elseif command == "questcomplete" or command == "finishquests" then
-        local count = 0
-        for _, questId in ipairs(gameState.activeQuests) do
-            local quest = gameState.quests[questId]
-            if quest then
-                quest.active = false
-                quest.completed = true
-                table.insert(gameState.completedQuests, questId)
-                count = count + 1
+    elseif command == "finish" then
+        local questModule = require("quests")
+        
+        if param == "" then
+            UISystem.showToast("Usage: finish <quest_id> or finish all\nExample: finish quest_chef", {1, 1, 0.3})
+        elseif param == "all" then
+            -- Complete all active quests
+            local count = 0
+            local activeQuestsCopy = {}
+            for _, questId in ipairs(gameState.activeQuests) do
+                table.insert(activeQuestsCopy, questId)
             end
-        end
-        gameState.activeQuests = {}
-        if count > 0 then
-            UISystem.showToast("Completed " .. count .. " quest(s)", {1, 0.5, 0})
+            
+            for _, questId in ipairs(activeQuestsCopy) do
+                local quest = gameState.quests[questId]
+                if quest and quest.active and not quest.completed then
+                    questModule.completeQuest(questId)
+                    count = count + 1
+                end
+            end
+            
+            if count > 0 then
+                UISystem.showToast("Completed " .. count .. " quest(s)", {1, 1, 0})
+            else
+                UISystem.showToast("No active quests to complete", {1, 0.5, 0})
+            end
         else
-            UISystem.showToast("No active quests", {1, 0.5, 0})
+            -- Complete specific quest
+            local quest = gameState.quests[param]
+            if not quest then
+                UISystem.showToast("Quest not found: " .. param, {1, 0.3, 0.3})
+            elseif not quest.active then
+                UISystem.showToast("Quest is not active: " .. param, {1, 0.5, 0})
+            elseif quest.completed then
+                UISystem.showToast("Quest already completed: " .. param, {1, 0.5, 0})
+            else
+                questModule.completeQuest(param)
+            end
         end
         
     elseif command == "fetch" then
@@ -341,7 +387,7 @@ GPU: GooseForce 128]]
         end
         
     elseif command == "help" or command == "?" then
-        UISystem.showToast("Cheats: noclip, grid, unlock/lock, god, accept <quest>, fetch, toss, gold/setgold, teleport, jarf <event>, nojarf, screenfetch", {1, 1, 0.3})
+        UISystem.showToast("Cheats: noclip, grid, unlock/lock, god, accept <quest|all>, finish <quest|all>, fetch, toss, gold/setgold, teleport, jarf <event>, nojarf, screenfetch", {1, 1, 0.3})
 
     else
         UISystem.showToast("Unknown cheat: " .. code, {1, 0.3, 0.3})
