@@ -108,7 +108,7 @@ quests.npcs = {
         name = "Boat Builder",
         questId = "quest_build_boat",
         isQuestGiver = true,
-        questOfferDialog = "Ahoy there! I'm a master boat builder.\n\nI can craft you a fine vessel to cross these waters, but I'll need some quality wood. Think you can help me out?"
+        questOfferDialog = "Yarrr matey! That's what you were expecting me to say, no? Well, I will have you know, good sir slash ma'am, that I am no pirate -\n\nI am a privateer, on commission from his Majesty the king! Oh? Do you need a boat? Well, find me 4 planks and I'll build you one!"
     },
     npc_woodcutter = {
         id = "npc_woodcutter",
@@ -422,7 +422,7 @@ quests.questData = {
         requiredItem = "item_wood",
         requiredQuantity = 4,
         grantsAbility = "boat",
-        reward = "There you go! A fine boat. You can now cross water to reach islands and mysterious purple items and stuff!",
+        reward = "Well, here you go - a boat of your own. You can now cross water to reach islands and mysterious purple items and stuff!\n\nSail well! Yarr!!! Ahem, something was caught in my throat.",
         goldReward = 25,
         reminderText = "I need 4 pieces of wood to build your boat. Find some lying around!",
         active = false,
@@ -470,7 +470,7 @@ quests.questData = {
     -- Impossible dependency loop quests
     quest_farmer = {
         id = "quest_farmer",
-        name = "Heart-wrenching",
+        name = "Heart-Wrenching",
         description = "The farmer needs a wrench to fix his crops. He'll reward you with some corn.",
         questGiver = "npc_farmer",
         requiredItem = "item_wrench",
@@ -483,7 +483,7 @@ quests.questData = {
     },
     quest_chef = {
         id = "quest_chef",
-        name = "Cornless cobs",
+        name = "Cornless Cobs",
         description = "The chef needs corn for his famous corn on the cob. He'll reward you with a mysterious crystal.",
         questGiver = "npc_chef",
         requiredItem = "item_corn",
@@ -496,7 +496,7 @@ quests.questData = {
     },
     quest_plumber = {
         id = "quest_plumber",
-        name = "Mamma mia!",
+        name = "Mamma Mia!",
         description = "The plumber needs a mysterious crystal. He'll reward you with a wrench.",
         questGiver = "npc_plumber",
         requiredItem = "item_mysterious_crystal",
