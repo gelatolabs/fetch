@@ -141,6 +141,15 @@ local function updateCamera()
     clampCameraToMapBounds()
 end
 
+-- Helper function to hide NPC layer on a map
+local function hideNPCLayer(mapObj)
+    for _, layer in ipairs(mapObj.layers) do
+        if layer.name == "NPCs" then
+            layer.visible = false
+        end
+    end
+end
+
 function love.load()
     love.window.setTitle("Go Fetch")
 
@@ -160,7 +169,8 @@ function love.load()
 
     -- Load Tiled map
     map = sti(MapSystem.getMapPath(currentMap))
-    
+    hideNPCLayer(map)
+
     -- Initialize MapSystem
     MapSystem.init(map, world, CheatConsole, questData.npcs, currentMap)
     MapSystem.calculateMapBounds()
@@ -626,6 +636,7 @@ function enterDoor(door)
         -- Load the new map
         currentMap = door.targetMap
         map = sti(MapSystem.getMapPath(currentMap))
+        hideNPCLayer(map)
 
         -- Update MapSystem references
         MapSystem.updateReferences(map, currentMap)
@@ -655,6 +666,7 @@ function enterDoor(door)
     -- Calculate what the camera position will be after transition
     -- The camera centers on the player and gets clamped to map bounds
     local toMapObj = sti(MapSystem.getMapPath(door.targetMap))
+    hideNPCLayer(toMapObj)
     local finalCameraX = finalPlayerX - gameWidth / 2
     local finalCameraY = finalPlayerY - gameHeight / 2
 
@@ -692,6 +704,7 @@ function enterDoor(door)
     mapTransition.toMap = door.targetMap
     mapTransition.fromMapObj = map
     mapTransition.toMapObj = sti(MapSystem.getMapPath(door.targetMap))
+    hideNPCLayer(mapTransition.toMapObj)
     mapTransition.direction = transitionDirection
     mapTransition.progress = 0
     mapTransition.targetDoor = door
@@ -717,7 +730,6 @@ end
 function showToast(message, color)
     UISystem.showToast(message, color)
 end
-
 
 -- Helper function to draw a map with NPCs
 function drawMapAndNPCs(mapObj, mapName, camX, camY, chatOffset, offsetX, offsetY)

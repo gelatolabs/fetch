@@ -9,10 +9,10 @@ local MapSystem = require "map_system"
 
 -- Player state
 local player = {
-    x = -10 * 16 + 8,  -- Current pixel position (grid -10, -10 in upper-left grassy area)
-    y = -10 * 16 + 8,
-    gridX = -10, -- Grid position (in tiles)
-    gridY = -10,
+    x = 39 * 16 + 8,
+    y = 26 * 16 + 8,
+    gridX = 39, -- Grid position (in tiles)
+    gridY = 26,
     size = 16,
     direction = "down",
     facing = "right",  -- Remembers last horizontal direction
