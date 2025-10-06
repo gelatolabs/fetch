@@ -371,7 +371,7 @@ quests.questData = {
         reminderText = "You have a boat, right?",
         active = false,
         completed = false,
-        updateQuestGiverVariant = "::glitch1",
+        updateQuestGiverVariant = "::glitch2",
     },
     --  Side quests
     quest_lost_cat = {
