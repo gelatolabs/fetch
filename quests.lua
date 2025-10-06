@@ -244,6 +244,7 @@ quests.npcs = {
                 questOfferDialog = "Hey you. Yes you. I knew you would come here. I can teach you something... special. But first, you must help me find the paradox.\n\nYes, the thing that should not exist in this world but does. Bring it to me, and I will show you power beyond measure.",
                 afterQuestOffer = function()
                     UISystem.triggerDialogEvent("talk_to_glitch", nil)
+                    UISystem.enablePermanentScanlines()
                 end
             }
         },

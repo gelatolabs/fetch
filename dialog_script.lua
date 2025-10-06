@@ -95,9 +95,9 @@ local dialogSections = {
             { speaker = "J.A.R.F.", text = "The \"#%$Hu34\"dfhsjidf9 character is functioning at slightly below normal levels." },
             { speaker = "Developer", text = "I think this is a lot worse than normal."},
             { speaker = "J.A.R.F.", text=" He's not an important character so his parameters for functioning are pretty wide."},
-            { speaker = "Developer", text = "Whatever, this entire thing is a mess."},
-            { speaker = "Developer", text = "Whatever, this entire thing is a mess. Player, try checking the bottom left of the first map. That should be where the item you need is"},
-            { speaker = "Developer", text = "Probably"},
+            { speaker = "Developer", text = "This game is buggy as hell."},
+            { speaker = "J.A.R.F.", text = "You're right! The display is acting up a bit. I've fixed it now so it scans more."},
+            { speaker = "Developer", text = "Whatever, this entire thing is a mess. Player, try checking the bottom left of the first map. That should be where the item you need is."},
         }
     },
 }
