@@ -1,6 +1,8 @@
 -- Map System Module
 -- Handles all map-related operations including collision detection, tile queries, and spawn positioning
 
+local AudioSystem = require "audio_system"
+
 local MapSystem = {}
 
 -- Module state (will be initialized by main.lua)
@@ -179,9 +181,39 @@ function MapSystem.getCurrentMap()
     return currentMap
 end
 
+-- Set the current map name
+function MapSystem.setCurrentMap(mapName)
+    currentMap = mapName
+end
+
+-- Get the current map object
+function MapSystem.getMapObject()
+    return map
+end
+
+-- Set the current map object
+function MapSystem.setMapObject(mapObject)
+    map = mapObject
+end
+
 -- Get map path by name
 function MapSystem.getMapPath(mapName)
     return mapPaths[mapName]
+end
+
+-- Check if a map name is valid
+function MapSystem.isValidMap(mapName)
+    return mapPaths[mapName] ~= nil
+end
+
+-- Get all valid map names
+function MapSystem.getAllMapNames()
+    local names = {}
+    for mapName, _ in pairs(mapPaths) do
+        table.insert(names, mapName)
+    end
+    table.sort(names)
+    return names
 end
 
 -- Get all doors
@@ -288,6 +320,38 @@ function MapSystem.calculateMapBounds()
         world.maxX = nil
         world.maxY = nil
     end
+end
+
+-- Get world bounds
+function MapSystem.getWorldBounds()
+    return world.minX, world.minY, world.maxX, world.maxY
+end
+
+-- Hide NPC layer on a map
+function MapSystem.hideNPCLayer(mapObj)
+    for _, layer in ipairs(mapObj.layers) do
+        if layer.name == "NPCs" then
+            layer.visible = false
+        end
+    end
+end
+
+-- Update music based on a specific map
+function MapSystem.updateMusicForMap(mapName)
+    if mapName == "jail" then
+        AudioSystem.playMusic("spooky")
+    elseif mapName == "throneroom" then
+        AudioSystem.playMusic("throneRoom")
+    elseif mapName == "shop" then
+        AudioSystem.playMusic("themeFunky")
+    else
+        AudioSystem.playMusic("theme")
+    end
+end
+
+-- Update music based on current map
+function MapSystem.updateMusicForCurrentMap()
+    MapSystem.updateMusicForMap(currentMap)
 end
 
 -- Check if a position is a water tile
