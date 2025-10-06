@@ -78,6 +78,20 @@ local dialogSections = {
             { speaker = "J.A.R.F.", text = "Got it! I've added even more fetch quests!" },
         }
     },
+    
+    mapwest_entry = {
+        event = "mapwest_entry",  -- Triggered when entering mapwest
+        autoPlay = true,
+        closeAfter = 3.0,
+        messages = {
+            { speaker = "J.A.R.F.", text = "Welcome to the western region!" },
+            { speaker = "Developer", text = "Why are there so many trees here?" },
+            { speaker = "J.A.R.F.", text = "You're right! There are a lot of trees here! You asked me to put a forest here, so I did." },
+            { speaker = "Developer", text = "But the player character clips into one when they enter the map." },
+            { speaker = "J.A.R.F.", text = "Didn't you tell me you were a tree hugger?" },
+            { speaker = "Developer", text = "Hey player, you should just leave while I fix this mess. (Press 'E')" },
+        }
+    },
 }
 
 return dialogSections

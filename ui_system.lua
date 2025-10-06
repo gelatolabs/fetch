@@ -579,17 +579,6 @@ end
 function UISystem.drawIndicators(gridActive, abilityManager)
     local cheatText = ""
 
-    -- Show all active abilities
-    if abilityManager then
-        for _, ability in pairs(abilityManager:getAllAbilities()) do
-            local displayText = ability.name:upper()
-            if ability.type == "consumable" and ability.maxUses then
-                displayText = displayText .. ":" .. ability.currentUses
-            end
-            cheatText = cheatText .. " [" .. displayText .. "]"
-        end
-    end
-
     if gridActive then
         cheatText = cheatText .. " [GRID]"
     end
@@ -655,7 +644,7 @@ function UISystem.drawCheatConsole(CheatConsole)
     
     -- Instructions (inside the box, with padding)
     love.graphics.setColor(0.5, 0.5, 0.5)
-    love.graphics.print("[Enter] Submit  [Up/Down] History  [Esc/~] Close", boxX+4, boxY+boxH-14)
+    love.graphics.print("[Enter] Submit  [Up/Down] History  [Esc] Close", boxX+4, boxY+boxH-14)
 end
 
 -- Helper function to draw WoW-style decorative borders
@@ -1418,15 +1407,15 @@ function UISystem.drawUIHints()
     love.graphics.setColor(0, 0, 0, 0.7)
     love.graphics.rectangle("fill", 0, 0, GAME_WIDTH, 12)
     love.graphics.setColor(1, 1, 1)
-    love.graphics.print("L: Quest log  I: Inventory", 2, -2)
+    love.graphics.print("L: Quest log  I: Inventory  Q: Quack", 2, -2)
 end
 
--- Draw gold display at top center of screen
+-- Draw gold display at top right of screen
 function UISystem.drawGoldDisplay(playerGold)
     local goldText = "Gold: " .. playerGold
     local goldTextWidth = font:getWidth(goldText)
     love.graphics.setColor(1, 0.84, 0) -- Gold color
-    love.graphics.print(goldText, GAME_WIDTH / 2 - goldTextWidth / 2, -1)
+    love.graphics.print(goldText, GAME_WIDTH - goldTextWidth - 2, -1)
 end
 
 -- Check if chat pane is visible
