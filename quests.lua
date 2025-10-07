@@ -403,7 +403,8 @@ quests.questData = {
         goldReward = 300,
         reminderText = "I still need that book back. Someone borrowed it recently!",
         active = false,
-        completed = false
+        completed = false,
+        updateQuestGiverVariant = "::book",  -- Changes to npc_librarian::with_book
     },
     quest_delivery = {
         id = "quest_delivery",
