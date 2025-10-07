@@ -165,18 +165,25 @@ end
 
 -- Initialize UI system
 function UISystem.init()
-    -- Get desktop dimensions
-    local desktopWidth, desktopHeight = love.window.getDesktopDimensions()
+    local isWeb = love.system.getOS() == "Web"
 
-    -- Calculate scale factor (highest integer multiple that fits screen)
-    -- Use the full width from the start to avoid resizing
-    local scaleX = math.floor(desktopWidth / TOTAL_WIDTH)
-    local scaleY = math.floor(desktopHeight / GAME_HEIGHT)
-    SCALE = math.min(scaleX, scaleY)
-    if SCALE < 1 then SCALE = 1 end
-
-    -- Set window mode (full size from the start)
-    love.window.setMode(TOTAL_WIDTH * SCALE, GAME_HEIGHT * SCALE, {fullscreen = true})
+    if isWeb then
+        -- Don't scale or go fullscreen on web
+        SCALE = 1
+        love.window.setMode(TOTAL_WIDTH, GAME_HEIGHT, {
+            fullscreen = false,
+            resizable = false,
+            borderless = false
+        })
+    else
+        -- Calculate scale and go fullscreen on desktop
+        local desktopWidth, desktopHeight = love.window.getDesktopDimensions()
+        local scaleX = math.floor(desktopWidth / TOTAL_WIDTH)
+        local scaleY = math.floor(desktopHeight / GAME_HEIGHT)
+        SCALE = math.min(scaleX, scaleY)
+        if SCALE < 1 then SCALE = 1 end
+        love.window.setMode(TOTAL_WIDTH * SCALE, GAME_HEIGHT * SCALE, {fullscreen = true})
+    end
 
     -- Disable interpolation globally
     love.graphics.setDefaultFilter("nearest", "nearest")
@@ -815,13 +822,18 @@ function UISystem.drawPauseMenu()
 
     drawMenuButton(btnX, 100, btnWidth, btnHeight, "Resume")
     drawMenuButton(btnX, 130, btnWidth, btnHeight, "Settings")
-    drawMenuButton(btnX, 160, btnWidth, btnHeight, "Quit Game")
+
+    -- Quit button (hidden on web)
+    local isWeb = love.system.getOS() == "Web"
+    if not isWeb then
+        drawMenuButton(btnX, 160, btnWidth, btnHeight, "Quit Game")
+    end
 end
 
 -- Draw main menu
 function UISystem.drawMainMenu()
     -- Background
-    love.graphics.setColor(0.05, 0.05, 0.1)
+    love.graphics.setColor(0, 0, 0)
     love.graphics.rectangle("fill", CHAT_PANE_WIDTH, 0, GAME_WIDTH, GAME_HEIGHT)
 
     -- Title
@@ -853,20 +865,23 @@ function UISystem.drawMainMenu()
     love.graphics.setColor(1, 1, 1)
     love.graphics.printf("Settings", btnX, 130 + 3, btnWidth, "center")
 
-    -- Quit button
-    local quitHover = UISystem.isMouseOverButton(btnX, 160, btnWidth, btnHeight)
-    love.graphics.setColor(quitHover and 0.3 or 0.2, quitHover and 0.2 or 0.15, quitHover and 0.15 or 0.1)
-    love.graphics.rectangle("fill", btnX, 160, btnWidth, btnHeight)
-    love.graphics.setColor(quitHover and 1 or 0.8, quitHover and 0.8 or 0.6, quitHover and 0.4 or 0.2)
-    love.graphics.rectangle("line", btnX, 160, btnWidth, btnHeight)
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.printf("Quit", btnX, 160 + 3, btnWidth, "center")
+    -- Quit button (hidden on web)
+    local isWeb = love.system.getOS() == "Web"
+    if not isWeb then
+        local quitHover = UISystem.isMouseOverButton(btnX, 160, btnWidth, btnHeight)
+        love.graphics.setColor(quitHover and 0.3 or 0.2, quitHover and 0.2 or 0.15, quitHover and 0.15 or 0.1)
+        love.graphics.rectangle("fill", btnX, 160, btnWidth, btnHeight)
+        love.graphics.setColor(quitHover and 1 or 0.8, quitHover and 0.8 or 0.6, quitHover and 0.4 or 0.2)
+        love.graphics.rectangle("line", btnX, 160, btnWidth, btnHeight)
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.printf("Quit", btnX, 160 + 3, btnWidth, "center")
+    end
 end
 
 -- Draw settings menu
 function UISystem.drawSettings(volume)
     -- Background
-    love.graphics.setColor(0.05, 0.05, 0.1)
+    love.graphics.setColor(0, 0, 0)
     love.graphics.rectangle("fill", CHAT_PANE_WIDTH, 0, GAME_WIDTH, GAME_HEIGHT)
 
     -- Title
@@ -899,21 +914,25 @@ function UISystem.drawSettings(volume)
     love.graphics.setColor(1, 1, 1)
     love.graphics.printf(math.floor(volume * 100) .. "%", CHAT_PANE_WIDTH, 105, GAME_WIDTH, "center")
 
-    -- Fullscreen toggle
-    local isFullscreen = love.window.getFullscreen()
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.printf("Fullscreen", CHAT_PANE_WIDTH, 125, GAME_WIDTH, "center")
-
+    -- Fullscreen toggle (disabled on web)
+    local isWeb = love.system.getOS() == "Web"
     local btnWidth = 100
     local btnHeight = 20
     local btnX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - btnWidth / 2
-    local fullscreenHover = UISystem.isMouseOverButton(btnX, 140, btnWidth, btnHeight)
-    love.graphics.setColor(fullscreenHover and 0.3 or 0.2, fullscreenHover and 0.2 or 0.15, fullscreenHover and 0.15 or 0.1)
-    love.graphics.rectangle("fill", btnX, 140, btnWidth, btnHeight)
-    love.graphics.setColor(fullscreenHover and 1 or 0.8, fullscreenHover and 0.8 or 0.6, fullscreenHover and 0.4 or 0.2)
-    love.graphics.rectangle("line", btnX, 140, btnWidth, btnHeight)
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.printf(isFullscreen and "ON" or "OFF", btnX, 140 + 3, btnWidth, "center")
+
+    if not isWeb then
+        local isFullscreen = love.window.getFullscreen()
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.printf("Fullscreen", CHAT_PANE_WIDTH, 125, GAME_WIDTH, "center")
+
+        local fullscreenHover = UISystem.isMouseOverButton(btnX, 140, btnWidth, btnHeight)
+        love.graphics.setColor(fullscreenHover and 0.3 or 0.2, fullscreenHover and 0.2 or 0.15, fullscreenHover and 0.15 or 0.1)
+        love.graphics.rectangle("fill", btnX, 140, btnWidth, btnHeight)
+        love.graphics.setColor(fullscreenHover and 1 or 0.8, fullscreenHover and 0.8 or 0.6, fullscreenHover and 0.4 or 0.2)
+        love.graphics.rectangle("line", btnX, 140, btnWidth, btnHeight)
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.printf(isFullscreen and "ON" or "OFF", btnX, 140 + 3, btnWidth, "center")
+    end
 
     -- Back button
     local backHover = UISystem.isMouseOverButton(btnX, 180, btnWidth, btnHeight)
@@ -1303,11 +1322,11 @@ function UISystem.drawQuestTurnIn()
         
         -- Footer hint with navigation
         love.graphics.setColor(0.5, 0.5, 0.5)
-        love.graphics.print("[X] Cancel  [</>] Page", boxX + 4, boxY + boxH - 15)
+        love.graphics.print("[ESC] Cancel  [</>] Page", boxX + 4, boxY + boxH - 15)
     else
         -- Footer hint without navigation
         love.graphics.setColor(0.5, 0.5, 0.5)
-        love.graphics.print("[X] Cancel", boxX + 4, boxY + boxH - 15)
+        love.graphics.print("[ESC] Cancel", boxX + 4, boxY + boxH - 15)
     end
 end
 
@@ -1551,7 +1570,7 @@ end
 -- Draw win screen
 function UISystem.drawWinScreen(playerGold, completedQuests, winScreenTimer)
     -- Background
-    love.graphics.setColor(0, 0, 0, 0.95)
+    love.graphics.setColor(0, 0, 0)
     love.graphics.rectangle("fill", CHAT_PANE_WIDTH, 0, GAME_WIDTH, GAME_HEIGHT)
 
     -- Scrolling credits
@@ -1564,7 +1583,7 @@ function UISystem.drawWinScreen(playerGold, completedQuests, winScreenTimer)
     local credits = {
         {text = "LEVEL UP", font = titleFont, color = {1, 0.84, 0}, spacing = 20},
         {text = "You are now Level 2", font = font, color = {1, 1, 1}, spacing = 10},
-        {text = "You have escaped Tutorial Island", font = font, color = {1, 1, 1}, spacing = 5},
+        {text = "You have escaped Tutorial Island", font = font, color = {1, 1, 1}, spacing = 10},
         {text = "The end", font = font, color = {1, 1, 1}, spacing = 30},
 
         {text = "STATISTICS", font = titleFont, color = {0.8, 0.8, 1}, spacing = 20},
@@ -1573,33 +1592,38 @@ function UISystem.drawWinScreen(playerGold, completedQuests, winScreenTimer)
         {text = "Labubus Collected: 1", font = font, color = {0.8, 0.8, 0.8}, spacing = 30},
 
         {text = "CREDITS", font = titleFont, color = {1, 0.84, 0}, spacing = 30},
-        {text = "Programming", font = font, color = {1, 1, 0.5}, spacing = 10},
+        {text = "Programming", font = font, color = {1, 1, 0.5}, spacing = 30},
         {text = "Keefer <keefer.is>", font = font, color = {1, 1, 1}, spacing = 30},
         {text = "kfarwell <kfarwell.org>", font = font, color = {1, 1, 1}, spacing = 30},
         {text = "MTRooster", font = font, color = {1, 1, 1}, spacing = 30},
-        {text = "J.A.R.F.", font = font, color = {1, 1, 1}, spacing = 30},
+        {text = "J.A.R.F. AI", font = font, color = {1, 1, 1}, spacing = 30},
 
-        {text = "Graphics", font = font, color = {1, 1, 0.5}, spacing = 10},
+        {text = "Graphics", font = font, color = {1, 1, 0.5}, spacing = 30},
         {text = "GelatoSquid", font = font, color = {1, 1, 1}, spacing = 30},
         {text = "Keefer", font = font, color = {1, 1, 1}, spacing = 30},
         {text = "MTRooster", font = font, color = {1, 1, 1}, spacing = 30},
-        {text = "Ryan Refcio", font = font, color = {1, 1, 1}, spacing = 30},
+        {text = "lduser125", font = font, color = {1, 1, 1}, spacing = 30},
 
-        {text = "Writing", font = font, color = {1, 1, 0.5}, spacing = 10},
+        {text = "Writing", font = font, color = {1, 1, 0.5}, spacing = 30},
         {text = "existony (x.com/existony)", font = font, color = {1, 1, 1}, spacing = 30},
         {text = "GelatoSquid", font = font, color = {1, 1, 1}, spacing = 30},
         {text = "Keefer", font = font, color = {1, 1, 1}, spacing = 30},
         {text = "kfarwell", font = font, color = {1, 1, 1}, spacing = 30},
         {text = "MTRooster", font = font, color = {1, 1, 1}, spacing = 30},
-        {text = "Ryan Refcio", font = font, color = {1, 1, 1}, spacing = 30},
+        {text = "lduser125", font = font, color = {1, 1, 1}, spacing = 30},
 
-        {text = "Music", font = font, color = {1, 1, 0.5}, spacing = 10},
+        {text = "Music", font = font, color = {1, 1, 0.5}, spacing = 30},
         {text = "existony", font = font, color = {1, 1, 1}, spacing = 30},
-        {text = "J.A.R.F.", font = font, color = {1, 1, 1}, spacing = 30},
+        {text = "J.A.R.F. AI", font = font, color = {1, 1, 1}, spacing = 30},
 
         {text = "Thanks for playing!", font = titleFont, color = {1, 0.84, 0}, spacing = 30},
-        {text = "Press X to exit", font = font, color = {0.7, 0.7, 0.7}, spacing = 0},
     }
+
+    -- Add "Press ESC to exit" on native builds only
+    local isWeb = love.system.getOS() == "Web"
+    if not isWeb then
+        table.insert(credits, {text = "Press ESC to exit", font = font, color = {0.7, 0.7, 0.7}, spacing = 0})
+    end
 
     -- Set scissor to clip credits to game area
     love.graphics.setScissor(CHAT_PANE_WIDTH, 0, GAME_WIDTH, GAME_HEIGHT)
@@ -1913,12 +1937,15 @@ function UISystem.handleMainMenuClick(x, y, callbacks)
         return true
     end
 
-    -- Check Quit button
-    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= quitY and canvasY <= quitY + btnHeight then
-        if callbacks.onQuit then
-            callbacks.onQuit()
+    -- Check Quit button (disabled on web)
+    local isWeb = love.system.getOS() == "Web"
+    if not isWeb then
+        if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= quitY and canvasY <= quitY + btnHeight then
+            if callbacks.onQuit then
+                callbacks.onQuit()
+            end
+            return true
         end
-        return true
     end
 
     return false
@@ -1952,12 +1979,15 @@ function UISystem.handlePauseMenuClick(x, y, callbacks)
         return true
     end
 
-    -- Check Quit Game button
-    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= quitY and canvasY <= quitY + btnHeight then
-        if callbacks.onQuit then
-            callbacks.onQuit()
+    -- Check Quit Game button (disabled on web)
+    local isWeb = love.system.getOS() == "Web"
+    if not isWeb then
+        if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= quitY and canvasY <= quitY + btnHeight then
+            if callbacks.onQuit then
+                callbacks.onQuit()
+            end
+            return true
         end
-        return true
     end
 
     return false
@@ -1971,11 +2001,14 @@ function UISystem.handleSettingsClick(x, y, volume, callbacks)
     local btnHeight = 20
     local btnX = CHAT_PANE_WIDTH + GAME_WIDTH / 2 - btnWidth / 2
 
-    -- Fullscreen button
-    local fullscreenY = 145
-    if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= fullscreenY and canvasY <= fullscreenY + btnHeight then
-        love.window.setFullscreen(not love.window.getFullscreen())
-        return true
+    -- Fullscreen button (disabled on web)
+    local isWeb = love.system.getOS() == "Web"
+    if not isWeb then
+        local fullscreenY = 145
+        if canvasX >= btnX and canvasX <= btnX + btnWidth and canvasY >= fullscreenY and canvasY <= fullscreenY + btnHeight then
+            love.window.setFullscreen(not love.window.getFullscreen())
+            return true
+        end
     end
 
     -- Back button
